@@ -8,6 +8,10 @@
 #   archiso/grub/*.cfg                    — GRUB menu titles
 #   archiso/syslinux/*.cfg                — syslinux menu titles
 #   archiso/efiboot/loader/entries/*.conf — systemd-boot entry titles
+#   util-iso.sh                           — upstream wrapper bugs:
+#                                            - chown $USER fails when $USER unset
+#                                            - mv source pattern hardcodes cachyos-
+#                                            - gen_iso_fn hardcodes cachyos-
 #
 # Argv: $1 = path to the build directory (e.g. /work/build)
 
@@ -28,13 +32,35 @@ log "Patching $pf identity fields"
 sed -i.bak \
     -e 's|^iso_name=.*|iso_name="posthogos"|' \
     -e 's|^iso_label="COS_|iso_label="POSTHOGOS_|' \
-    -e 's|^iso_publisher=.*|iso_publisher="PosthogOS <https://github.com/Georges-Antoine/linux-posthogos>"|' \
+    -e 's|^iso_publisher=.*|iso_publisher="PosthogOS <https://github.com/posthog/linux-posthogos>"|' \
     -e 's|^iso_application=.*|iso_application="PosthogOS Live/Rescue DVD"|' \
     "$pf"
 rm -f "${pf}.bak"
 
 log "Identity now:"
 grep -E '^(iso_name|iso_label|iso_publisher|iso_application)=' "$pf"
+
+# --- Fast compression for dev iteration -----------------------------------
+# FAST_BUILD=1 swaps xz (slow, dense) for zstd (5-10x faster, ~25% larger).
+# Use for local iteration; leave unset for ship-quality compression.
+if [ "${FAST_BUILD:-0}" = "1" ]; then
+    log "FAST_BUILD=1 → switching squashfs compressor to zstd"
+    sed -i.bak \
+        "s|^airootfs_image_tool_options=.*|airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '3' '-b' '1M')|" \
+        "$pf"
+fi
+
+# --- Suppress macOS-host xattr noise --------------------------------------
+# On macOS hosts the bind-mount leaks com.apple.* xattrs through to the
+# container, producing "Unrecognised xattr prefix" warnings from mksquashfs
+# for every file. Harmless (those xattrs are useless on Linux) but noisy.
+# Tell mksquashfs to skip them.
+log "Adding -xattrs-exclude for com.apple.* to squashfs options"
+sed -i.bak \
+    "s|airootfs_image_tool_options=(\(.*\))|airootfs_image_tool_options=(\1 '-xattrs-exclude' '^com\\\.apple\\\.')|" \
+    "$pf"
+rm -f "${pf}.bak"
+grep '^airootfs_image_tool_options=' "$pf"
 
 # --- Boot menu titles -----------------------------------------------------
 # "CachyOS" (mixed case) only appears in user-visible strings in the boot
@@ -53,6 +79,22 @@ if [ ${#boot_files[@]} -gt 0 ]; then
     find archiso/grub archiso/syslinux archiso/efiboot \
         -type f -name '*.bak' -delete 2>/dev/null || true
     log "Patched ${#boot_files[@]} boot config file(s)"
+fi
+
+# --- util-iso.sh post-build fixups ----------------------------------------
+# Upstream's util-iso.sh has three bugs we need to patch:
+#   1. `sudo chown $USER $outFolder` — $USER unset in container → invalid syntax
+#   2. `mv "$outFolder/$_profile/cachyos-<date>-x86_64.iso" ...` — hardcoded
+#      cachyos- prefix, but mkarchiso writes ${iso_name}-...iso = posthogos-...
+#   3. `gen_iso_fn` adds "cachyos" to renamed filename — should be "posthogos"
+if [ -f util-iso.sh ]; then
+    log "Patching util-iso.sh (chown, iso filename prefix, gen_iso_fn)"
+    sed -i.bak \
+        -e 's|sudo chown \$USER \$outFolder|true # chown removed by pre-build.sh|' \
+        -e 's|/cachyos-\$(date|/posthogos-$(date|' \
+        -e 's|vars+=("cachyos")|vars+=("posthogos")|' \
+        util-iso.sh
+    rm -f util-iso.sh.bak
 fi
 
 log "Done."

@@ -4,7 +4,8 @@
 # buildiso.sh to produce the ISO.
 #
 # Expected env:
-#   KEEP_BUILD=true|false   (default false) — keep build/ work tree after build
+#   KEEP_BUILD=1   (default 0) — keep build/ work tree after build
+#   FAST_BUILD=1   (default 0) — use zstd not xz for squashfs (see pre-build.sh)
 
 set -euo pipefail
 
@@ -48,7 +49,7 @@ install -D -m 0755 scripts/posthogos-customize.sh \
 echo "==> Running upstream buildiso.sh"
 cd "$build_dir"
 buildiso_args=(-p desktop -v)
-[ "${KEEP_BUILD:-false}" = "true" ] || buildiso_args+=(-w)
+[ "${KEEP_BUILD:-0}" = "1" ] || buildiso_args+=(-w)
 
 # buildiso.sh requires root for bind mounts. sudo -E preserves env when not
 # already root (native path); inside container we run as root already.

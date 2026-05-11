@@ -13,7 +13,18 @@ deep=false
 [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] && { show_help; exit 0; }
 
 print_color blue "Removing build/ and out/..."
-rm -rf build out
+# mkarchiso leaves some dirs mode 0555 (e.g. ca-certificates/extracted/cadir),
+# which blocks rm -rf even as root. chmod first.
+for d in build out; do
+    [ -e "$d" ] || continue
+    if [ -w "$d" ] || [ "$(id -u)" -eq 0 ]; then
+        chmod -R u+w "$d" 2>/dev/null || sudo chmod -R u+w "$d"
+        rm -rf "$d" 2>/dev/null || sudo rm -rf "$d"
+    else
+        sudo chmod -R u+w "$d"
+        sudo rm -rf "$d"
+    fi
+done
 
 if [ "$deep" = true ]; then
     if command_exists docker; then

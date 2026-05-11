@@ -36,9 +36,9 @@ strings:
     versionedName:       PosthogOS rolling
     shortVersionedName:  PosthogOS rolling
     bootloaderEntryName: PosthogOS
-    productUrl:          https://github.com/Georges-Antoine/linux-posthogos
-    supportUrl:          https://github.com/Georges-Antoine/linux-posthogos/issues
-    knownIssuesUrl:      https://github.com/Georges-Antoine/linux-posthogos/issues
+    productUrl:          https://github.com/posthog/linux-posthogos
+    supportUrl:          https://github.com/posthog/linux-posthogos/issues
+    knownIssuesUrl:      https://github.com/posthog/linux-posthogos/issues
 images:
     productLogo:         logo.png
     productIcon:         logo.png

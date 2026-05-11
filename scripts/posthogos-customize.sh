@@ -15,6 +15,33 @@ log() { printf '[posthogos-customize] %s\n' "$*"; }
 
 BRAND="posthogos"
 
+# ---- OS identity ---------------------------------------------------------
+# These files are owned by upstream packages (filesystem, lsb-release), so
+# we can't pre-stage them in airootfs/etc/ — pacstrap refuses to overwrite.
+# Write them here after pacstrap completes.
+log "Writing /etc/os-release"
+cat >/etc/os-release <<'EOF'
+NAME="PosthogOS"
+PRETTY_NAME="PosthogOS"
+ID=posthogos
+ID_LIKE="cachyos arch"
+BUILD_ID=rolling
+ANSI_COLOR="38;2;255;100;0"
+HOME_URL="https://github.com/posthog/linux-posthogos"
+DOCUMENTATION_URL="https://github.com/posthog/linux-posthogos"
+SUPPORT_URL="https://github.com/posthog/linux-posthogos/issues"
+BUG_REPORT_URL="https://github.com/posthog/linux-posthogos/issues"
+LOGO=posthogos
+EOF
+
+log "Writing /etc/lsb-release"
+cat >/etc/lsb-release <<'EOF'
+LSB_VERSION=1.4
+DISTRIB_ID=PosthogOS
+DISTRIB_RELEASE=rolling
+DISTRIB_DESCRIPTION="PosthogOS"
+EOF
+
 # ---- Plymouth ------------------------------------------------------------
 # Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
 # from the overlay. We point plymouthd at it, then regenerate the initramfs.

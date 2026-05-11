@@ -9,6 +9,14 @@ at `overlay/grub/grub.cfg` overrides `archiso/grub/grub.cfg` for the build.
 Overlay wins: if a file exists in both `upstream/archiso/` and `overlay/`,
 the overlay copy is what ends up in the build.
 
+**Important: don't put files in `overlay/airootfs/` that are owned by
+packages installed during pacstrap** (e.g. `/etc/os-release` → `filesystem`,
+`/etc/lsb-release` → `lsb-release`, `/etc/sudoers` → `sudo`). pacstrap
+refuses to overwrite pre-staged files and the build dies with
+`error: failed to commit transaction (conflicting files)`. Write those
+in `scripts/posthogos-customize.sh` instead — that runs in the chroot
+after pacstrap completes.
+
 ## Layout
 
 ```
@@ -39,7 +47,7 @@ only care about a few identity fields) and `/etc/calamares/settings.conf`
 
 | File                                                | Where                  |
 |-----------------------------------------------------|------------------------|
-| `etc/os-release`, `etc/lsb-release`                 | `overlay/airootfs/`    |
+| `etc/os-release`, `etc/lsb-release`                 | `posthogos-customize`  |
 | Plymouth/SDDM/Plasma/Calamares theme dirs           | `overlay/airootfs/`    |
 | `etc/skel/.config/` defaults                        | `overlay/airootfs/`    |
 | ISO name/label/publisher                            | `scripts/pre-build.sh` |

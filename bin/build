@@ -36,12 +36,14 @@ if [ "$native" = true ]; then
 fi
 
 print_color blue "Building PosthogOS builder image..."
-docker build -t posthogos-builder -f Dockerfile .
+docker build --platform=linux/amd64 -t posthogos-builder -f Dockerfile .
 
 print_color blue "Running build in privileged container..."
 docker run --rm --privileged \
+    --platform=linux/amd64 \
     -v "$PWD":/work \
     -e KEEP_BUILD \
+    -e FAST_BUILD \
     -w /work \
     posthogos-builder \
     /work/scripts/in-container-build.sh
