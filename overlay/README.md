@@ -1,41 +1,49 @@
 # overlay/
 
-Files here are rsync'd onto `upstream/archiso/airootfs/` at build time. The
-directory structure mirrors `airootfs/` exactly — i.e. a file at
-`overlay/usr/share/wallpapers/posthogos/foo.png` lands at
-`/usr/share/wallpapers/posthogos/foo.png` in the live system.
+Files here are rsync'd onto `upstream/archiso/` at build time. The directory
+structure mirrors `archiso/` exactly — i.e. a file at
+`overlay/airootfs/usr/share/wallpapers/posthogos/foo.png` lands at
+`/usr/share/wallpapers/posthogos/foo.png` inside the live system, and a file
+at `overlay/grub/grub.cfg` overrides `archiso/grub/grub.cfg` for the build.
 
-Overlay wins: if a file exists in both `upstream/` and `overlay/`, the overlay
-copy is what ends up in the squashfs.
+Overlay wins: if a file exists in both `upstream/archiso/` and `overlay/`,
+the overlay copy is what ends up in the build.
 
-## What lives here
+## Layout
 
-| Path                                                    | Purpose                                |
-|---------------------------------------------------------|----------------------------------------|
-| `etc/os-release`                                        | Override CachyOS identity              |
-| `etc/lsb-release`                                       | Same                                   |
-| `etc/skel/.config/kdeglobals`                           | Default Plasma color scheme + L&F      |
-| `etc/skel/.config/gtk-3.0/settings.ini`                 | Default GTK theme                      |
-| `etc/skel/.config/gtk-4.0/settings.ini`                 | Same                                   |
-| `usr/share/plymouth/themes/posthogos/`                  | Boot splash                            |
-| `usr/share/sddm/themes/posthogos/`                      | Login screen                           |
-| `usr/share/plasma/look-and-feel/com.posthog.posthogos/` | Plasma global theme                    |
-| `usr/share/color-schemes/Posthogos.colors`              | Plasma color scheme                    |
-| `usr/share/themes/Posthogos-gtk/`                       | GTK theme                              |
-| `usr/share/wallpapers/Posthogos/`                       | Default wallpaper package              |
-| `usr/share/calamares/branding/posthogos/`               | Installer branding                     |
+```
+overlay/
+├── airootfs/             # → archiso/airootfs/ (live system file overlay)
+│   └── etc/
+│       ├── os-release
+│       └── lsb-release
+├── grub/                 # → archiso/grub/   (UEFI GRUB boot menu) — not yet
+├── syslinux/             # → archiso/syslinux/ (BIOS boot menu)    — not yet
+└── efiboot/              # → archiso/efiboot/ (systemd-boot)       — not yet
+```
 
-## What does NOT live here
+## Three layers, three purposes
 
-- `etc/calamares/settings.conf` — that file is owned by `cachyos-calamares-next`
-  and gets sed-patched at chroot time. See `scripts/posthogos-customize.sh`.
-- `etc/plymouth/plymouthd.conf` — written by the chroot hook for the same reason.
+| Layer                            | When           | What for                                         |
+|----------------------------------|----------------|--------------------------------------------------|
+| `overlay/`                       | pre-build      | net-new files + full-shadow files we own         |
+| `scripts/pre-build.sh`           | pre-build      | narrow sed-patches against upstream-owned files  |
+| `scripts/posthogos-customize.sh` | inside chroot  | runtime setup (mkinitcpio, caches, sed-patches)  |
 
-## Boot menu titles
+Why three: full-shadowing every upstream-owned file via overlay risks losing
+new entries when upstream evolves. For things like `profiledef.sh` (where we
+only care about a few identity fields) and `/etc/calamares/settings.conf`
+(owned by `cachyos-calamares-next`), narrow sed-patches keep us rebase-safe.
 
-`overlay/` does NOT cover the bootloader configs under `upstream/archiso/grub/`,
-`upstream/archiso/syslinux/`, `upstream/archiso/efiboot/`. Those are outside
-`airootfs/` so the rsync doesn't reach them. Either:
-- (current) edit `upstream/` in place and accept that rebases will conflict, or
-- (future) extend `scripts/in-container-build.sh` to apply a second overlay for
-  the non-airootfs paths.
+## What lives where
+
+| File                                                | Where                  |
+|-----------------------------------------------------|------------------------|
+| `etc/os-release`, `etc/lsb-release`                 | `overlay/airootfs/`    |
+| Plymouth/SDDM/Plasma/Calamares theme dirs           | `overlay/airootfs/`    |
+| `etc/skel/.config/` defaults                        | `overlay/airootfs/`    |
+| ISO name/label/publisher                            | `scripts/pre-build.sh` |
+| `/etc/calamares/settings.conf` branding key         | `posthogos-customize`  |
+| `/etc/plymouth/plymouthd.conf` + `mkinitcpio -P`    | `posthogos-customize`  |
+| SDDM `Current=posthogos` config                     | `posthogos-customize`  |
+| Boot menu titles (grub.cfg, syslinux.cfg, loader)   | `overlay/` (TBD)       |

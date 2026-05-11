@@ -26,24 +26,24 @@ mkdir -p "$build_dir"
 # git archive gives the checked-in tree without the submodule .git pointer.
 git -C upstream archive --format=tar HEAD | tar -x -C "$build_dir"
 
-echo "==> Applying overlay/ → archiso/airootfs/"
-if [ -d overlay ] && [ -n "$(ls -A overlay 2>/dev/null)" ]; then
-    rsync -a --info=stats1 overlay/ "$build_dir/archiso/airootfs/"
+echo "==> Applying overlay/ → archiso/"
+if [ -d overlay ] && find overlay -mindepth 1 -not -name '.gitkeep' -not -name 'README.md' \
+        | grep -q .; then
+    rsync -a --info=stats1 \
+        --exclude='.gitkeep' --exclude='README.md' \
+        overlay/ "$build_dir/archiso/"
 else
-    echo "    (overlay/ is empty — nothing to merge)"
+    echo "    (overlay/ has no payload files — skipping)"
 fi
 
-echo "==> Installing chroot hook"
-mkdir -p "$build_dir/archiso/airootfs/root"
-install -m 0755 scripts/posthogos-customize.sh \
-    "$build_dir/archiso/airootfs/root/posthogos-customize.sh"
+echo "==> Running pre-build patches"
+"$repo_root/scripts/pre-build.sh" "$build_dir"
 
-# Hook the customize script into the build via a systemd oneshot, or by
-# patching util-iso.sh. For now: drop a shell-profile snippet that runs at
-# the end of pacstrap. mkarchiso runs scripts under airootfs/root/ via
-# customize_airootfs.sh by convention if present at that path.
-cp scripts/posthogos-customize.sh "$build_dir/archiso/airootfs/root/customize_airootfs.sh"
-chmod +x "$build_dir/archiso/airootfs/root/customize_airootfs.sh"
+echo "==> Installing chroot hook"
+# mkarchiso runs airootfs/root/customize_airootfs.sh inside the chroot at
+# squashfs assembly time if present at that exact path.
+install -D -m 0755 scripts/posthogos-customize.sh \
+    "$build_dir/archiso/airootfs/root/customize_airootfs.sh"
 
 echo "==> Running upstream buildiso.sh"
 cd "$build_dir"
