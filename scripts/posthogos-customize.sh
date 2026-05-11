@@ -16,10 +16,9 @@ log() { printf '[posthogos-customize] %s\n' "$*"; }
 BRAND="posthogos"
 
 # ---- Plymouth ------------------------------------------------------------
-# Theme files must already be in /usr/share/plymouth/themes/$BRAND/ from the
-# overlay. We point plymouthd at it, then regenerate the initramfs so the
-# theme is embedded.
-if [ -d "/usr/share/plymouth/themes/$BRAND" ]; then
+# Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
+# from the overlay. We point plymouthd at it, then regenerate the initramfs.
+if [ -f "/usr/share/plymouth/themes/$BRAND/$BRAND.plymouth" ]; then
     log "Configuring Plymouth theme: $BRAND"
     mkdir -p /etc/plymouth
     cat >/etc/plymouth/plymouthd.conf <<EOF
@@ -34,25 +33,32 @@ EOF
         mkinitcpio -P
     fi
 else
-    log "Plymouth theme dir missing — skipping (overlay not wired up yet?)"
+    log "Plymouth theme '$BRAND' not present (no .plymouth descriptor) — leaving CachyOS default"
 fi
 
 # ---- Calamares branding --------------------------------------------------
-# Patch the branding key in place. cachyos-calamares-next ships this file;
-# we just flip the pointer.
-if [ -f /etc/calamares/settings.conf ]; then
+# Only flip the branding pointer if our branding dir actually has a
+# branding.desc. Otherwise Calamares would fail to start.
+if [ -f /etc/calamares/settings.conf ] && \
+   [ -f "/usr/share/calamares/branding/$BRAND/branding.desc" ]; then
     log "Patching /etc/calamares/settings.conf branding: $BRAND"
     sed -i "s/^branding:.*/branding: $BRAND/" /etc/calamares/settings.conf
+else
+    log "Calamares branding '$BRAND' not present — leaving CachyOS default"
 fi
 
 # ---- SDDM theme ----------------------------------------------------------
-if [ -d "/usr/share/sddm/themes/$BRAND" ]; then
+# Requires both metadata.desktop and Main.qml to be a working theme.
+if [ -f "/usr/share/sddm/themes/$BRAND/Main.qml" ] && \
+   [ -f "/usr/share/sddm/themes/$BRAND/metadata.desktop" ]; then
     log "Setting SDDM current theme: $BRAND"
     mkdir -p /etc/sddm.conf.d
     cat >/etc/sddm.conf.d/10-posthogos-branding.conf <<EOF
 [Theme]
 Current=$BRAND
 EOF
+else
+    log "SDDM theme '$BRAND' not present (Main.qml missing) — leaving CachyOS default"
 fi
 
 # Make sure SDDM is the active display manager (CachyOS does this already,

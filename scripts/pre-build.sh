@@ -4,7 +4,10 @@
 # shadow (because shadowing risks dropping new upstream entries on rebase).
 #
 # Files touched here:
-#   archiso/profiledef.sh   — ISO identity (name/label/publisher/application)
+#   archiso/profiledef.sh                 — ISO identity
+#   archiso/grub/*.cfg                    — GRUB menu titles
+#   archiso/syslinux/*.cfg                — syslinux menu titles
+#   archiso/efiboot/loader/entries/*.conf — systemd-boot entry titles
 #
 # Argv: $1 = path to the build directory (e.g. /work/build)
 
@@ -32,5 +35,24 @@ rm -f "${pf}.bak"
 
 log "Identity now:"
 grep -E '^(iso_name|iso_label|iso_publisher|iso_application)=' "$pf"
+
+# --- Boot menu titles -----------------------------------------------------
+# "CachyOS" (mixed case) only appears in user-visible strings in the boot
+# configs. Internal identifiers use lowercase "cachyos" and the package name
+# "linux-cachyos" — neither matches the case-sensitive replace below.
+log "Rebranding boot menu titles (CachyOS → PosthogOS)"
+boot_files=()
+for d in archiso/grub archiso/syslinux archiso/efiboot; do
+    [ -d "$d" ] || continue
+    while IFS= read -r -d '' f; do boot_files+=("$f"); done < \
+        <(find "$d" -type f \( -name '*.cfg' -o -name '*.conf' \) -print0)
+done
+if [ ${#boot_files[@]} -gt 0 ]; then
+    # -i.bak works on both GNU and BSD sed; clean up the backups after.
+    sed -i.bak 's/CachyOS/PosthogOS/g' "${boot_files[@]}"
+    find archiso/grub archiso/syslinux archiso/efiboot \
+        -type f -name '*.bak' -delete 2>/dev/null || true
+    log "Patched ${#boot_files[@]} boot config file(s)"
+fi
 
 log "Done."
