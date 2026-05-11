@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#/ Usage: bin/console
+#/ Description: Starts an interactive console/REPL for the project
+#/
+#/ This provides an interactive environment with the project loaded.
+
+source bin/helpers/_utils.sh
+set_source_and_root_dir
+parse_common_args "$@"
+
+print_color blue "Starting interactive console..."
+
+# Node.js
+if [ -f "package.json" ]; then
+    if grep -q '"console"' package.json; then
+        echo "→ Starting custom console"
+        exec npm run console
+    else
+        echo "→ Starting Node.js REPL"
+        exec node
+    fi
+
+# Python
+elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "Pipfile" ]; then
+    if [ -f "manage.py" ]; then
+        # Django shell
+        echo "→ Starting Django shell"
+        exec python3 manage.py shell
+    elif command_exists ipython; then
+        echo "→ Starting IPython"
+        exec ipython
+    else
+        echo "→ Starting Python REPL"
+        exec python3
+    fi
+
+# Ruby
+elif [ -f "Gemfile" ]; then
+    if grep -q "rails" Gemfile && [ -f "bin/rails" ]; then
+        echo "→ Starting Rails console"
+        exec bin/rails console
+    elif command_exists irb; then
+        echo "→ Starting Ruby IRB"
+        exec bundle exec irb
+    fi
+
+# .NET
+elif compgen -G "*.csproj" > /dev/null; then
+    if command_exists dotnet-script; then
+        echo "→ Starting C# interactive"
+        exec dotnet-script
+    else
+        print_color yellow "Install dotnet-script for interactive C#: dotnet tool install -g dotnet-script"
+        echo "→ Running project"
+        exec dotnet run
+    fi
+
+# Go
+elif [ -f "go.mod" ]; then
+    if command_exists gore; then
+        echo "→ Starting Go REPL"
+        exec gore
+    else
+        print_color yellow "Install gore for Go REPL: go install github.com/x-motemen/gore/cmd/gore@latest"
+    fi
+
+# Rust
+elif [ -f "Cargo.toml" ]; then
+    if command_exists evcxr; then
+        echo "→ Starting Rust REPL"
+        exec evcxr
+    else
+        print_color yellow "Install evcxr for Rust REPL: cargo install evcxr_repl"
+    fi
+
+else
+    error "No recognized project type for console"
+    exit 1
+fi

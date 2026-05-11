@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+#/ Usage: bin/clean
+#/ Description: Removes build artifacts and temporary files
+#/
+#/ This script removes common build artifacts, caches, and temporary files.
+#/ It's safe to run and won't delete source code or configuration.
+
+source bin/helpers/_utils.sh
+set_source_and_root_dir
+parse_common_args "$@"
+
+print_color blue "Cleaning build artifacts and temporary files..."
+
+# Node.js
+if [ -d "node_modules" ]; then
+    if [ -d "dist" ]; then
+        echo "→ Removing dist directory"
+        rm -rf dist
+    fi
+    if [ -d "build" ]; then
+        echo "→ Removing build directory"
+        rm -rf build
+    fi
+    if [ -d ".next" ]; then
+        echo "→ Removing Next.js build"
+        rm -rf .next
+    fi
+    if [ -d "coverage" ]; then
+        echo "→ Removing coverage reports"
+        rm -rf coverage
+    fi
+    echo "→ Removing log files"
+    rm -rf ./*.log
+fi
+
+# Python
+if [ -d "__pycache__" ] || [ -d ".pytest_cache" ]; then
+    echo "→ Removing Python cache"
+    find . -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+    echo "→ Removing compiled Python files"
+    find . -type f -name '*.pyc' -delete 2>/dev/null || true
+    echo "→ Removing pytest cache"
+    rm -rf .pytest_cache
+    echo "→ Removing mypy cache"
+    rm -rf .mypy_cache
+    echo "→ Removing ruff cache"
+    rm -rf .ruff_cache
+    echo "→ Removing Python build artifacts"
+    rm -rf dist build ./*.egg-info
+    echo "→ Removing coverage reports"
+    rm -rf .coverage coverage.xml htmlcov
+fi
+
+# Ruby
+if [ -f "Gemfile" ]; then
+    echo "→ Removing coverage reports"
+    rm -rf coverage
+    echo "→ Removing bundle config"
+    rm -rf .bundle
+    echo "→ Removing vendored gems"
+    rm -rf vendor/bundle
+fi
+
+# .NET
+if compgen -G "*.sln" > /dev/null || compgen -G "*.csproj" > /dev/null; then
+    echo "→ Removing bin directories"
+    find . -type d -name 'bin' -exec rm -rf {} + 2>/dev/null || true
+    echo "→ Removing obj directories"
+    find . -type d -name 'obj' -exec rm -rf {} + 2>/dev/null || true
+    echo "→ Removing test results"
+    rm -rf TestResults
+fi
+
+# Go
+if [ -f "go.mod" ]; then
+    echo "→ Cleaning Go cache"
+    go clean -cache -testcache
+    echo "→ Removing bin directory"
+    rm -rf bin
+fi
+
+# Rust
+if [ -f "Cargo.toml" ]; then
+    echo "→ Cleaning Rust build"
+    cargo clean
+fi
+
+# Java
+if [ -f "pom.xml" ] || [ -f "build.gradle" ]; then
+    echo "→ Removing Maven target"
+    rm -rf target
+    echo "→ Removing Gradle build"
+    rm -rf build
+    echo "→ Removing Gradle cache"
+    rm -rf .gradle
+fi
+
+# General
+echo "→ Removing macOS files"
+rm -rf .DS_Store
+echo "→ Removing VS Code settings"
+rm -rf .vscode/settings.json
+echo "→ Removing IntelliJ IDEA files"
+rm -rf .idea
+echo "→ Removing vim swap files"
+find . -name '*.swp' -delete 2>/dev/null || true
+echo "→ Removing backup files"
+find . -name '*~' -delete 2>/dev/null || true
+
+print_color green "✓ Clean complete"

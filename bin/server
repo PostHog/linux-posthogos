@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#/ Usage: bin/server
+#/ Description: Starts all necessary services (database, cache, etc.)
+#/
+#/ This script starts background services required by the application.
+#/ Use bin/start to run the application itself.
+
+source bin/helpers/_utils.sh
+set_source_and_root_dir
+parse_common_args "$@"
+set -e
+
+print_color blue "Starting services..."
+
+# Docker Compose services
+if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
+    echo "→ Starting Docker services"
+    docker-compose up -d db redis
+
+# Individual services
+else
+    # PostgreSQL
+    if grep -q "postgres" Gemfile 2>/dev/null || grep -q "psycopg" requirements.txt 2>/dev/null || grep -q "pg" package.json 2>/dev/null; then
+        if command_exists pg_ctl; then
+            echo "→ Starting PostgreSQL"
+            pg_ctl start
+        elif command_exists brew; then
+            echo "→ Starting PostgreSQL"
+            brew services start postgresql
+        fi
+    fi
+
+    # MySQL
+    if grep -q "mysql" Gemfile 2>/dev/null || grep -q "mysql" requirements.txt 2>/dev/null || grep -q "mysql" package.json 2>/dev/null; then
+        if command_exists mysql.server; then
+            echo "→ Starting MySQL"
+            mysql.server start
+        elif command_exists brew; then
+            echo "→ Starting MySQL"
+            brew services start mysql
+        fi
+    fi
+
+    # Redis
+    if grep -q "redis" Gemfile 2>/dev/null || grep -q "redis" requirements.txt 2>/dev/null || grep -q "redis" package.json 2>/dev/null; then
+        if command_exists redis-server; then
+            echo "→ Starting Redis"
+            redis-server --daemonize yes
+        elif command_exists brew; then
+            echo "→ Starting Redis"
+            brew services start redis
+        fi
+    fi
+
+    # MongoDB
+    if grep -q "mongo" package.json 2>/dev/null || grep -q "pymongo" requirements.txt 2>/dev/null; then
+        if command_exists mongod; then
+            echo "→ Starting MongoDB"
+            mongod --fork --logpath /var/log/mongodb.log
+        elif command_exists brew; then
+            echo "→ Starting MongoDB"
+            brew services start mongodb-community
+        fi
+    fi
+
+    # Elasticsearch
+    if grep -q "elasticsearch" Gemfile 2>/dev/null || grep -q "elasticsearch" requirements.txt 2>/dev/null || grep -q "elasticsearch" package.json 2>/dev/null; then
+        if command_exists elasticsearch; then
+            echo "→ Starting Elasticsearch"
+            elasticsearch -d
+        elif command_exists brew; then
+            echo "→ Starting Elasticsearch"
+            brew services start elasticsearch
+        fi
+    fi
+fi
+
+print_color green "✓ Services started"
+print_color yellow "Run 'bin/start' to start the application"

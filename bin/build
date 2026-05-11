@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+#/ Usage: bin/build [options]
+#/ Description: Builds the project for production
+#/ Options:
+#/   -o, --output DIR   Output directory
+#/   -v, --verbose      Verbose output
+
+source bin/helpers/_utils.sh
+set_source_and_root_dir
+
+output=""
+
+while (( "$#" )); do
+    case "$1" in
+        -o|--output)
+            output="$2"
+            shift 2
+            ;;
+        -v|--verbose)
+            export VERBOSE=1
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+set -e
+
+print_color blue "Building project..."
+
+# Node.js
+if [ -f "package.json" ] && grep -q '"build"' package.json; then
+    if [ -n "$output" ]; then
+        export BUILD_OUTPUT="$output"
+    fi
+    echo "→ Building Node.js project"
+    npm run build
+fi
+
+# TypeScript
+if [ -f "tsconfig.json" ] && ! grep -q '"build"' package.json 2>/dev/null; then
+    cmd="npx tsc"
+    if [ -n "$output" ]; then
+        cmd="$cmd --outDir $output"
+    fi
+    echo "→ Building TypeScript project"
+    $cmd
+fi
+
+# Python
+if [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+    if [ -f "pyproject.toml" ] && command_exists poetry; then
+        echo "→ Building Python package with Poetry"
+        poetry build
+    else
+        echo "→ Building Python package"
+        python3 -m build
+    fi
+fi
+
+# Ruby
+if [ -f "Gemfile" ] && [ -f "Rakefile" ]; then
+    if grep -q "build" Rakefile; then
+        echo "→ Building Ruby project"
+        bundle exec rake build
+    fi
+fi
+
+# .NET
+if compgen -G "*.sln" > /dev/null || compgen -G "*.csproj" > /dev/null; then
+    cmd="dotnet build --configuration Release"
+    if [ -n "$output" ]; then
+        cmd="$cmd --output $output"
+    fi
+    echo "→ Building .NET project"
+    $cmd
+fi
+
+# Go
+if [ -f "go.mod" ]; then
+    output_file="${output:-./bin/app}"
+    mkdir -p "$(dirname "$output_file")"
+    echo "→ Building Go project"
+    go build -o "$output_file"
+fi
+
+# Rust
+if [ -f "Cargo.toml" ]; then
+    if [ -n "$output" ]; then
+        export CARGO_TARGET_DIR="$output"
+    fi
+    echo "→ Building Rust project"
+    cargo build --release
+fi
+
+# Java/Maven
+if [ -f "pom.xml" ]; then
+    echo "→ Building Maven project"
+    mvn clean package
+fi
+
+# Java/Gradle
+if [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+    echo "→ Building Gradle project"
+    ./gradlew build
+fi
+
+# Docker
+if [ -f "Dockerfile" ]; then
+    image_name="${PROJECT_NAME:-app}"
+    echo "→ Building Docker image"
+    docker build -t "$image_name" .
+fi
+
+print_color green "✓ Build complete"
