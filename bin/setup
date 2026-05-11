@@ -1,51 +1,41 @@
 #!/usr/bin/env bash
 #/ Usage: bin/setup
-#/ Description: Sets up the project for the first time
-#/ 
-#/ This script is idempotent and can be run multiple times.
-#/ It will check for and install system dependencies.
+#/ Description: Verify host has the tools needed to build and test PosthogOS.
+#/
+#/ macOS host:  needs docker + qemu-system-x86_64
+#/ Arch host:   needs archiso + qemu-system-x86_64 (and you'd run bin/build --native)
 
 source bin/helpers/_utils.sh
 set_source_and_root_dir
-parse_common_args "$@"
 
-print_color blue "Setting up project..."
+print_color blue "Checking host prerequisites..."
 
-# Example: Check for common development tools
-# Customize based on your project needs
-
-# Node.js projects
-if [ -f "package.json" ]; then
-    require_commands node npm
-    print_color green "✓ Node.js environment detected"
+if [ ! -d upstream/archiso ]; then
+    print_color blue "Initializing upstream/ submodule..."
+    git submodule update --init upstream || fatal "Submodule init failed"
 fi
 
-# Python projects
-if [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "Pipfile" ]; then
-    require_commands python3
-    print_color green "✓ Python environment detected"
-fi
+case "$(uname -s)" in
+    Darwin)
+        require_commands docker qemu-system-x86_64
+        success "Docker found ($(docker --version))"
+        success "QEMU found ($(qemu-system-x86_64 --version | head -1))"
+        docker info >/dev/null 2>&1 || fatal "Docker daemon not running. Start Docker Desktop / OrbStack."
+        success "Docker daemon is up"
+        ;;
+    Linux)
+        if grep -qi 'arch\|cachyos' /etc/os-release 2>/dev/null; then
+            require_commands mkarchiso qemu-system-x86_64
+            success "Native Arch host detected — run bin/build --native"
+        else
+            require_commands docker qemu-system-x86_64
+            success "Non-Arch Linux host — using Docker path"
+            docker info >/dev/null 2>&1 || fatal "Docker daemon not running."
+        fi
+        ;;
+    *)
+        fatal "Unsupported host: $(uname -s)"
+        ;;
+esac
 
-# Ruby projects
-if [ -f "Gemfile" ]; then
-    require_commands ruby bundle
-    print_color green "✓ Ruby environment detected"
-fi
-
-# .NET projects
-if [ -f "*.sln" ] || [ -f "*.csproj" ]; then
-    require_commands dotnet
-    print_color green "✓ .NET environment detected"
-fi
-
-# Go projects
-if [ -f "go.mod" ]; then
-    require_commands go
-    print_color green "✓ Go environment detected"
-fi
-
-# Run bootstrap to install dependencies
-print_color blue "Running bootstrap..."
-bin/bootstrap
-
-print_color green "Setup complete! Run 'bin/start' to start the application."
+print_color green "Setup OK. Run 'bin/build' to produce an ISO."

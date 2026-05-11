@@ -1,121 +1,78 @@
 #!/usr/bin/env bash
-#/ Usage: bin/test [options] [test-args]
-#/ Description: Runs the test suite
-#/ Options:
-#/   -c, --coverage    Run with coverage reporting
-#/   -w, --watch      Run in watch mode
-#/   -v, --verbose    Verbose output
+#/ Usage: bin/test [--install] [--iso PATH]
+#/ Description: Boot the latest PosthogOS ISO in QEMU for smoke-testing.
+#/
+#/ By default boots the newest out/*.iso live-only.
+#/ --install attaches a 30G qcow2 disk so you can run Calamares end-to-end.
+#/ --iso PATH overrides the auto-detected ISO.
+#/
+#/ Notes:
+#/   - On macOS uses -accel hvf (Apple Hypervisor). Slower than KVM but works.
+#/   - On Linux uses -enable-kvm.
+#/   - Requires OVMF firmware (UEFI boot). Path is auto-discovered.
 
 source bin/helpers/_utils.sh
 set_source_and_root_dir
+set -e
 
-coverage=false
-watch=false
-test_args=()
-
-while (( "$#" )); do
+install_mode=false
+iso=""
+while (( $# )); do
     case "$1" in
-        -c|--coverage)
-            coverage=true
-            shift
-            ;;
-        -w|--watch)
-            watch=true
-            shift
-            ;;
-        -v|--verbose)
-            export VERBOSE=1
-            shift
-            ;;
-        -h|--help)
-            show_help
-            exit 0
-            ;;
-        *)
-            test_args+=("$1")
-            shift
-            ;;
+        --install) install_mode=true; shift;;
+        --iso)     iso="$2"; shift 2;;
+        -h|--help) show_help; exit 0;;
+        *) fatal "Unknown arg: $1";;
     esac
 done
 
-set -e
+require_commands qemu-system-x86_64
 
-print_color blue "Running tests..."
+if [ -z "$iso" ]; then
+    iso=$(ls -1t out/*.iso 2>/dev/null | head -n1 || true)
+fi
+[ -n "$iso" ] && [ -f "$iso" ] || fatal "No ISO found. Run bin/build first or pass --iso PATH."
 
-# Node.js
-if [ -f "package.json" ]; then
-    if grep -q '"test"' package.json; then
-        cmd="npm test"
-        if $coverage && grep -q '"test:coverage"' package.json; then
-            cmd="npm run test:coverage"
-        fi
-        if $watch && grep -q '"test:watch"' package.json; then
-            cmd="npm run test:watch"
-        fi
-        echo "→ Running Node.js tests"
-        $cmd "${test_args[@]}"
+# Locate OVMF firmware (UEFI). Search common locations.
+ovmf=""
+for candidate in \
+    /opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+    /usr/local/share/qemu/edk2-x86_64-code.fd \
+    /usr/share/edk2-ovmf/x64/OVMF_CODE.fd \
+    /usr/share/edk2/x64/OVMF_CODE.fd \
+    /usr/share/OVMF/OVMF_CODE.fd; do
+    [ -f "$candidate" ] && ovmf="$candidate" && break
+done
+[ -n "$ovmf" ] || fatal "OVMF firmware not found. Install qemu's edk2 firmware package."
+
+accel="tcg"
+case "$(uname -s)" in
+    Darwin) accel="hvf";;
+    Linux)  [ -e /dev/kvm ] && accel="kvm";;
+esac
+
+args=(
+    -machine "type=q35,accel=$accel"
+    -m 4G -smp 2
+    -drive "if=pflash,format=raw,readonly=on,file=$ovmf"
+    -drive "file=$iso,media=cdrom,readonly=on"
+    -boot order=d
+    -net nic,model=virtio -net user
+    -vga virtio
+    -display default
+)
+
+# Only use -cpu host with hardware acceleration; tcg doesn't support it.
+[ "$accel" != "tcg" ] && args=(-cpu host "${args[@]}")
+
+if [ "$install_mode" = true ]; then
+    disk="out/test-disk.qcow2"
+    if [ ! -f "$disk" ]; then
+        print_color blue "Creating $disk (30G)..."
+        qemu-img create -f qcow2 "$disk" 30G >/dev/null
     fi
+    args+=(-drive "file=$disk,if=virtio,format=qcow2")
 fi
 
-# Python
-if [ -f "pytest.ini" ] || [ -f "setup.cfg" ] || [ -f "pyproject.toml" ]; then
-    if command_exists pytest; then
-        cmd="pytest"
-        if $coverage; then
-            cmd="$cmd --cov"
-        fi
-        if $watch && command_exists ptw; then
-            cmd="ptw"
-        fi
-        echo "→ Running Python tests"
-        $cmd "${test_args[@]}"
-    fi
-elif [ -d "tests" ] || [ -d "test" ]; then
-    echo "→ Running Python tests"
-    python3 -m unittest discover "${test_args[@]}"
-fi
-
-# Ruby
-if [ -f "Gemfile" ] && grep -q "rspec" Gemfile; then
-    cmd="bundle exec rspec"
-    if $coverage; then
-        export COVERAGE=true
-    fi
-    echo "→ Running Ruby tests"
-    $cmd "${test_args[@]}"
-fi
-
-# .NET
-if compgen -G "*.sln" > /dev/null || compgen -G "*Tests.csproj" > /dev/null; then
-    cmd="dotnet test"
-    if $coverage; then
-        cmd="$cmd --collect:\"XPlat Code Coverage\""
-    fi
-    echo "→ Running .NET tests"
-    $cmd "${test_args[@]}"
-fi
-
-# Go
-if [ -f "go.mod" ]; then
-    cmd="go test ./..."
-    if $coverage; then
-        cmd="$cmd -cover"
-    fi
-    if [ "$VERBOSE" = "1" ]; then
-        cmd="$cmd -v"
-    fi
-    echo "→ Running Go tests"
-    $cmd "${test_args[@]}"
-fi
-
-# Rust
-if [ -f "Cargo.toml" ]; then
-    cmd="cargo test"
-    if [ "$VERBOSE" = "1" ]; then
-        cmd="$cmd --verbose"
-    fi
-    echo "→ Running Rust tests"
-    $cmd "${test_args[@]}"
-fi
-
-print_color green "✓ Tests completed"
+print_color blue "Booting $iso (accel=$accel)..."
+exec qemu-system-x86_64 "${args[@]}"

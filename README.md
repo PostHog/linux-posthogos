@@ -1,88 +1,111 @@
-# PostHog Project Template
+# PosthogOS
 
-A standardized project template for consistent development workflows across all of PostHog's repositories. This template provides a solid foundation with common scripts, configuration files, license, and project structure that can be customized for your specific needs.
+A custom-styled CachyOS KDE spin. Forks [CachyOS/CachyOS-Live-ISO](https://github.com/CachyOS/CachyOS-Live-ISO) and rebrands the boot splash, login screen, desktop, and installer.
 
-## Using This Template
+The output is a bootable `.iso` that runs as a live environment and installs to disk via a re-branded Calamares.
 
-### Creating a New Project
+## Repo layout
 
-1. **Clone from Template**: Use GitHub's "Use this template" button or clone directly:
+```
+.
+├── bin/                  # host scripts (build, test, setup, clean)
+├── scripts/              # scripts that run inside the build container
+├── Dockerfile            # Arch + archiso build image (for macOS hosts)
+├── upstream/             # git submodule → CachyOS/CachyOS-Live-ISO (do not edit)
+├── overlay/              # files merged into upstream/archiso/airootfs/ at build time
+│                         #   mirrors the airootfs/ layout exactly
+└── branding/posthogos/   # source artwork (logo SVG, wallpaper, slideshow PNGs)
+```
+
+`upstream/` is a git submodule pinned to a specific CachyOS-Live-ISO commit. The pin lives in this repo's index (see `git submodule status`). Never edit `upstream/` in place — all customisations live in `overlay/` or `scripts/posthogos-customize.sh`, which are applied on top at build time. This keeps upstream bumps tractable.
+
+### Bumping upstream
 
 ```bash
-git clone https://github.com/PostHog/template.git your-project-name
-cd your-project-name
+cd upstream && git fetch && git checkout <new-sha> && cd ..
+git add upstream
+git commit -m "upstream: bump to <new-sha>"
 ```
 
-2. **Initialize as New Repository**: Remove the template's git history and start fresh:
+Or `git submodule update --remote upstream` to track upstream `master` directly (less controlled — prefer pinning explicit SHAs).
+
+## Cloning
+
+This repo uses a submodule for upstream. Clone with:
 
 ```bash
-rm -rf .git
-git init
-git add .
-git commit -m "Initial commit from template"
+git clone --recurse-submodules <repo-url>
+# or, if already cloned:
+git submodule update --init
 ```
 
-3. **Replace README**: Replace this template README with the project-specific one from [README.demo.md](README.demo.md):
+`bin/setup` and `bin/build` will auto-init the submodule if missing.
+
+## Prerequisites
+
+### macOS host (local iteration)
+
+- Docker Desktop (or OrbStack / Colima with `--privileged` support)
+- QEMU for booting the output ISO: `brew install qemu`
+- ~20 GB free disk for the build tree + ISO output
+
+`mkarchiso` does not run on macOS directly — `bin/build` invokes it inside a privileged Arch container.
+
+### Arch / CachyOS host (production builds)
+
+- `archiso`, `mkinitcpio-archiso`, `git`, `squashfs-tools`, `grub` installed
+- `qemu-desktop`, `edk2-ovmf` for testing
+
+On a real Arch host you can skip Docker — `bin/build --native` runs `buildiso.sh` directly.
+
+## Usage
 
 ```bash
-mv README.demo.md README.md
+bin/setup     # verify host has docker + qemu
+bin/build     # produce out/<iso_name>-<date>-x86_64.iso
+bin/test      # boot the latest ISO in QEMU
+bin/clean     # rm -rf build/ out/
 ```
 
-4. **Customize for Your Project**:
-   - Customize your README including language-specific requirements
-   - Update configuration files
-   - Add your source code and dependencies
-   - Update documentation
+## How the build works
 
-### What's Included
+1. `bin/build` builds the `posthogos-builder` Docker image (`Dockerfile`).
+2. It runs the image with `--privileged` and the repo bind-mounted at `/work`.
+3. Inside the container, [scripts/in-container-build.sh](scripts/in-container-build.sh):
+   - Copies `upstream/` to a writable build directory.
+   - Rsyncs `overlay/` onto `archiso/airootfs/` (overlay wins).
+   - Drops `scripts/posthogos-customize.sh` into the airootfs so it runs at chroot time.
+   - Invokes `./buildiso.sh -p desktop -v -w` (upstream's wrapper around `mkarchiso`).
+4. The resulting `.iso` is copied back to `./out/`.
 
-This template provides:
+The chroot hook ([scripts/posthogos-customize.sh](scripts/posthogos-customize.sh)) handles things the overlay can't express as static files: regenerating the initramfs with the Plymouth theme baked in, patching `/etc/calamares/settings.conf` to point at our branding, refreshing icon/gtk caches, enabling SDDM.
 
-- **Standardized Scripts**: Common development tasks in `bin/` directory
-- **Project Structure**: Consistent organization across projects
-- **Configuration Files**: Common `.gitignore`, `.gitattributes`, etc.
-- **Documentation**: Templates and guides for customization
-- **Github Configuration**: Basic issues/PR templates inside the [.github](./.github) folder
+## Branding scope
 
-## Scripts to Rule Them All
+- Boot splash: Plymouth theme `posthogos` (`/usr/share/plymouth/themes/posthogos/`)
+- Login screen: SDDM theme `posthogos` (`/usr/share/sddm/themes/posthogos/`)
+- Desktop: Plasma look-and-feel `posthogos`, matching color scheme, GTK theme, wallpaper
+- Installer: Calamares branding `posthogos` (logo, slideshow, support URLs)
+- ISO identity: rebranded `os-release`, `lsb-release`, boot menu titles, ISO label `POSTHOGOS_YYYYMM`
 
-The `bin/` directory contains standardized scripts following the "Scripts to Rule Them All" pattern, providing a consistent interface for common development tasks across different projects and languages.
+CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, `cachyos-calamares-next`, `cachyos-hello`) stay installed — their files are shadowed by `overlay/` or patched by the chroot hook. This avoids forking those packages.
 
-### Script Structure
+## Verification checklist
 
-```
-bin/
-├── helpers/
-│   └── _utils.sh     # Common utility functions
-├── setup             # Initial project setup
-├── bootstrap         # Resolve dependencies
-├── start             # Start the application
-├── test              # Run tests
-├── fmt               # Format code
-├── lint              # Run linters
-├── build             # Build the project
-├── clean             # Clean build artifacts
-└── update            # Update dependencies
-```
+Run end-to-end before declaring a build done:
 
-### Usage
+- [ ] ISO boots in UEFI mode in QEMU
+- [ ] Boot menu shows PosthogOS titles, not CachyOS
+- [ ] Plymouth splash shows the PosthogOS logo
+- [ ] SDDM greeter uses the PosthogOS theme
+- [ ] Desktop session loads with PosthogOS wallpaper + colour scheme
+- [ ] `cat /etc/os-release` in the live env shows `PRETTY_NAME="PosthogOS"`
+- [ ] Calamares opens with PosthogOS branding + slideshow
+- [ ] Full install to a qcow2 disk completes; installed system boots with branding intact
 
-1. Customize scripts for your specific language/framework
-2. Run scripts from project root: `bin/test`
+## Out of scope
 
-### Script Guidelines
-
-- All scripts should be idempotent
-- Include help text with `#/` comments
-- Source `bin/helpers/_utils.sh` for common functions
-- Set working directory to project root
-- Exit with appropriate status codes
-
-### Best Practices
-
-1. **Keep scripts simple**: Each script should do one thing well
-2. **Use helpers**: Don't repeat code, add it to [`_utils.sh`](./bin/helpers/_utils.sh)
-3. **Provide feedback**: Use print_color to show progress
-4. **Handle errors**: Check return codes and fail gracefully
-5. **Document options**: Use `#/` comments for help text
-6. **Be idempotent**: Scripts should be safe to run multiple times
+- ISO signing / Secure Boot
+- ISO hosting / distribution
+- Custom pacman repo for shipping packaged themes
+- CI (build on push) — iterate locally first
