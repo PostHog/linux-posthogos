@@ -56,8 +56,11 @@ install -D -m 0755 scripts/posthogos-customize.sh \
 
 echo "==> Running upstream buildiso.sh"
 cd "$build_dir"
+# We never pass -w. buildiso.sh's `-w` cleanup does `rm -rf` over the build
+# tree, which fails on dirs left mode 0555 by package post-install hooks
+# (notably /etc/ca-certificates/extracted/cadir). Cleanup happens below
+# instead, with chmod first.
 buildiso_args=(-p desktop -v)
-[ "${KEEP_BUILD:-0}" = "1" ] || buildiso_args+=(-w)
 
 # buildiso.sh requires root for bind mounts. sudo -E preserves env when not
 # already root (native path); inside container we run as root already.
@@ -68,8 +71,9 @@ else
 fi
 
 echo "==> Copying ISO to out/"
-shopt -s nullglob
-iso_files=("$build_dir"/out/*.iso)
+shopt -s nullglob globstar
+# util-iso.sh places the final renamed ISO at build/out/<profile>/<name>.iso.
+iso_files=("$build_dir"/out/**/*.iso)
 if [ ${#iso_files[@]} -eq 0 ]; then
     echo "ERROR: no ISO produced under $build_dir/out/" >&2
     exit 1
@@ -77,6 +81,14 @@ fi
 for f in "${iso_files[@]}"; do
     cp -v "$f" "$out_dir/"
 done
+chmod 644 "$out_dir"/*.iso 2>/dev/null || true
+
+if [ "${KEEP_BUILD:-0}" != "1" ]; then
+    echo "==> Removing build/ (KEEP_BUILD=0)"
+    # 0555 dirs (ca-certificates/extracted/cadir) block plain rm; chmod first.
+    chmod -R u+w "$build_dir" 2>/dev/null || true
+    rm -rf "$build_dir"
+fi
 
 echo "==> Done. ISO(s) at:"
 ls -lh "$out_dir"/*.iso

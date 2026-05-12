@@ -118,6 +118,33 @@ mkdir -p "$out/grub" "$out/syslinux"
     PNG8:"$out/grub/splash.png"
 cp "$out/grub/splash.png" "$out/syslinux/splash.png"
 
+# --- SDDM theme assets ----------------------------------------------------
+# Blurred 1920×1080 wallpaper as background, PostHog full lockup (white) as
+# the in-card logo. Background is heavily blurred so the centered login
+# card stays the focus.
+log "Generating SDDM theme assets"
+sddm_dst="$out/airootfs/usr/share/sddm/themes/posthogos"
+mkdir -p "$sddm_dst"
+"$MAGICK" "$src/wallpapers/Keyboard Garden [dark] [4K].png" \
+    -resize 1920x1080 -blur 0x18 \
+    "$sddm_dst/background.png"
+"$MAGICK" "$src/logos/posthog-logo-stacked.svg" \
+    -background none -resize 240x \
+    "$sddm_dst/logo.png"
+
+# --- Plymouth theme assets -----------------------------------------------
+# Centered logomark @ 256×256, plus a small 16×16 dot for the loading
+# indicator (white, low opacity by default, the script animates it).
+log "Generating Plymouth theme assets"
+ply_dst="$out/airootfs/usr/share/plymouth/themes/posthogos"
+mkdir -p "$ply_dst"
+"$MAGICK" "$src/logos/posthog-logo-stacked.svg" \
+    -background none -resize 256x256 \
+    "$ply_dst/logo.png"
+"$MAGICK" -size 16x16 xc:none \
+    -fill '#EEEFE9' -draw 'circle 8,8 8,2' \
+    "$ply_dst/dot.png"
+
 # --- Calamares brand images ----------------------------------------------
 log "Installing Calamares brand images"
 cal_dst="$out/airootfs/usr/share/calamares/branding/posthogos"

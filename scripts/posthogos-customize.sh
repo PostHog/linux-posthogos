@@ -42,6 +42,44 @@ DISTRIB_RELEASE=rolling
 DISTRIB_DESCRIPTION="PosthogOS"
 EOF
 
+# ---- Plasma + GTK defaults for new users ---------------------------------
+# /etc/skel content seeds new accounts on first login. cachyos-kde-settings
+# ships its own kdeglobals + gtk settings here, so we can't pre-stage these
+# via the overlay (pacstrap refuses conflicting files). Writing post-pacstrap
+# overwrites the CachyOS defaults cleanly.
+log "Writing /etc/skel Plasma + GTK defaults"
+mkdir -p /etc/skel/.config/gtk-3.0 /etc/skel/.config/gtk-4.0
+
+cat >/etc/skel/.config/kdeglobals <<'EOF'
+[General]
+ColorScheme=PosthogosDark
+Name=PosthogOS Dark
+font=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+smallestReadableFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+toolBarFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+
+[KDE]
+LookAndFeelPackage=com.posthog.posthogos
+widgetStyle=Breeze
+SingleClick=false
+
+[Icons]
+Theme=breeze-dark
+EOF
+
+for v in gtk-3.0 gtk-4.0; do
+    cat >"/etc/skel/.config/$v/settings.ini" <<'EOF'
+[Settings]
+gtk-theme-name=Breeze-Dark
+gtk-icon-theme-name=breeze-dark
+gtk-font-name=Inter 11
+gtk-cursor-theme-name=breeze_cursors
+gtk-application-prefer-dark-theme=true
+EOF
+done
+
 # ---- Plymouth ------------------------------------------------------------
 # Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
 # from the overlay. We point plymouthd at it, then regenerate the initramfs.

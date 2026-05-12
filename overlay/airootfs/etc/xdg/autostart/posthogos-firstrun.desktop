@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PosthogOS first-run setup
+Comment=Apply the PosthogOS Plasma theme on first login
+Exec=/usr/local/bin/posthogos-firstrun.sh
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2
+NoDisplay=true
+Terminal=false
