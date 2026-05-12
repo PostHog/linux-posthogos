@@ -82,10 +82,26 @@ if [ "${SKIP_AIRFS_CACHE:-0}" != "1" ] && [ -f "$airfs_cache" ]; then
     zstd -dc --long=31 "$airfs_cache" \
         | tar -x --numeric-owner --xattrs -C "$build_dir/build/x86_64/"
     # Tell mkarchiso pacstrap is already done. customize/squashfs/iso markers
-    # are NOT set, so those phases still run — overlay/customize edits get
-    # picked up on cache-hit builds.
+    # are NOT set, so those phases still run.
     touch "$build_dir/build/build.make_pacstrap"
     cache_hit=1
+
+    # CRITICAL: the cached airootfs contains the previous build's overlay
+    # files AND customize_airootfs.sh. mkarchiso, with pacstrap skipped,
+    # won't re-copy from archiso/airootfs/ — it'll use whatever is already
+    # in build/x86_64/airootfs/. To pick up overlay edits and the *latest*
+    # customize script, re-apply both onto the restored tree before letting
+    # mkarchiso run.
+    echo "==> Re-applying overlay + customize hook onto cached airootfs"
+    if [ -d overlay ]; then
+        rsync -a --exclude='.gitkeep' --exclude='README.md' \
+            overlay/airootfs/ "$build_dir/build/x86_64/airootfs/" 2>/dev/null || true
+    fi
+    if [ -d overlay-generated/airootfs ]; then
+        rsync -a overlay-generated/airootfs/ "$build_dir/build/x86_64/airootfs/"
+    fi
+    install -D -m 0755 scripts/posthogos-customize.sh \
+        "$build_dir/build/x86_64/airootfs/root/customize_airootfs.sh"
 else
     echo "==> Airootfs cache miss ($airfs_hash); pacstrap will run from scratch"
 fi
