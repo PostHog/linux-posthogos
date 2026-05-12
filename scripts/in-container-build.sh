@@ -6,6 +6,7 @@
 # Expected env:
 #   KEEP_BUILD=1   (default 0) — keep build/ work tree after build
 #   FAST_BUILD=1   (default 0) — use zstd not xz for squashfs (see pre-build.sh)
+#   SKIP_AIRFS_CACHE=1 (default 0) — bypass the airootfs cache (forces pacstrap)
 
 set -euo pipefail
 
@@ -54,6 +55,41 @@ echo "==> Installing chroot hook"
 install -D -m 0755 scripts/posthogos-customize.sh \
     "$build_dir/archiso/airootfs/root/customize_airootfs.sh"
 
+# --- Airootfs cache --------------------------------------------------------
+# Snapshot the post-pacstrap airootfs and reuse it across builds when the
+# inputs that drive pacstrap haven't changed. The cache only invalidates on
+# package-list / pacman-config / upstream-revision changes. Overlay tweaks
+# and customize-script edits do NOT invalidate, so iteration on branding
+# stays fast (customize re-runs every build, idempotently).
+cache_dir="$repo_root/.airootfs-cache"
+mkdir -p "$cache_dir"
+airfs_hash_inputs=(
+    "$build_dir/archiso/packages_desktop.x86_64"
+    "$build_dir/archiso/bootstrap_packages.x86_64"
+    "$build_dir/archiso/pacman.conf"
+    "$build_dir/archiso/profiledef.sh"
+)
+airfs_hash=$(
+    cat "${airfs_hash_inputs[@]}" 2>/dev/null
+    git -C "$repo_root/upstream" rev-parse HEAD 2>/dev/null
+)
+airfs_hash=$(printf '%s' "$airfs_hash" | sha256sum | cut -c1-16)
+airfs_cache="$cache_dir/$airfs_hash.tar.zst"
+cache_hit=0
+if [ "${SKIP_AIRFS_CACHE:-0}" != "1" ] && [ -f "$airfs_cache" ]; then
+    echo "==> Airootfs cache hit: $airfs_hash ($(du -h "$airfs_cache" | cut -f1))"
+    mkdir -p "$build_dir/build/x86_64"
+    zstd -dc --long=31 "$airfs_cache" \
+        | tar -x --numeric-owner --xattrs -C "$build_dir/build/x86_64/"
+    # Tell mkarchiso pacstrap is already done. customize/squashfs/iso markers
+    # are NOT set, so those phases still run — overlay/customize edits get
+    # picked up on cache-hit builds.
+    touch "$build_dir/build/build.make_pacstrap"
+    cache_hit=1
+else
+    echo "==> Airootfs cache miss ($airfs_hash); pacstrap will run from scratch"
+fi
+
 echo "==> Running upstream buildiso.sh"
 cd "$build_dir"
 # We never pass -w. buildiso.sh's `-w` cleanup does `rm -rf` over the build
@@ -68,6 +104,21 @@ if [ "$(id -u)" -eq 0 ]; then
     ./buildiso.sh "${buildiso_args[@]}"
 else
     sudo -E ./buildiso.sh "${buildiso_args[@]}"
+fi
+
+# Snapshot the airootfs for next run — but only if we did a real pacstrap.
+# On a cache-hit build, the airootfs is identical to what's already cached
+# (post-customize state differs, but pacstrap content doesn't).
+if [ "$cache_hit" = "0" ] && [ -d "$build_dir/build/x86_64/airootfs" ]; then
+    echo "==> Snapshotting airootfs → $airfs_cache"
+    # --xattrs --numeric-owner preserves caps + uids exactly.
+    # zstd --long=31 enables long-range matching (better compression on
+    # ~6 GB trees with repeated content).
+    tar -C "$build_dir/build/x86_64" -cf - --xattrs --numeric-owner airootfs \
+        | zstd -3 -T0 --long=31 -o "$airfs_cache.tmp" \
+        && mv "$airfs_cache.tmp" "$airfs_cache" \
+        && echo "    saved $(du -h "$airfs_cache" | cut -f1)" \
+        || echo "    WARN: snapshot failed (build still succeeded)"
 fi
 
 echo "==> Copying ISO to out/"

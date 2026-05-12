@@ -172,8 +172,8 @@ MaximumUid=60000
 WallpaperPluginId=org.kde.image
 
 [Greeter][Wallpaper][org.kde.image][General]
-Image=PosthogosKeyboardGarden
-PreviewImage=PosthogosKeyboardGarden
+Image=file:///usr/share/wallpapers/PosthogosKeyboardGarden/contents/images_dark/3840x2160.png
+PreviewImage=file:///usr/share/wallpapers/PosthogosKeyboardGarden/contents/images_dark/3840x2160.png
 FillMode=2
 EOF
 
