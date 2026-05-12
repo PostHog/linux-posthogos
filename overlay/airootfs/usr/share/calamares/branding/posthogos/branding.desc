@@ -1,0 +1,35 @@
+---
+componentName: posthogos
+
+welcomeStyleCalamares: true
+welcomeExpandingLogo: true
+windowExpanding: normal
+windowSize: 800px,520px
+windowPlacement: center
+
+strings:
+    productName:         PosthogOS
+    shortProductName:    PosthogOS
+    version:             rolling
+    shortVersion:        rolling
+    versionedName:       PosthogOS rolling
+    shortVersionedName:  PosthogOS rolling
+    bootloaderEntryName: PosthogOS
+    productUrl:          https://github.com/posthog/linux-posthogos
+    supportUrl:          https://github.com/posthog/linux-posthogos/issues
+    knownIssuesUrl:      https://github.com/posthog/linux-posthogos/issues
+    releaseNotesUrl:     https://github.com/posthog/linux-posthogos/releases
+    donateUrl:           https://posthog.com
+
+images:
+    productLogo:         logo.png
+    productIcon:         logo.png
+    productWelcome:      welcome.png
+
+slideshow:               show.qml
+
+style:
+    sidebarBackground:   "#151515"
+    sidebarText:         "#EEEFE9"
+    sidebarTextSelect:   "#F54E00"
+    sidebarTextHighlight: "#F54E00"

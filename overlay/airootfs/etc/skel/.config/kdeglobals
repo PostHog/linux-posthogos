@@ -1,0 +1,16 @@
+[General]
+ColorScheme=PosthogosDark
+Name=PosthogOS Dark
+font=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+smallestReadableFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+toolBarFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+
+[KDE]
+LookAndFeelPackage=com.posthog.posthogos
+widgetStyle=Breeze
+SingleClick=false
+
+[Icons]
+Theme=breeze-dark

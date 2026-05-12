@@ -27,6 +27,9 @@ mkdir -p "$build_dir"
 # git archive gives the checked-in tree without the submodule .git pointer.
 git -C upstream archive --format=tar HEAD | tar -x -C "$build_dir"
 
+echo "==> Generating derived assets (resampled wallpapers, slideshow, splash)"
+"$repo_root/scripts/build-assets.sh"
+
 echo "==> Applying overlay/ → archiso/"
 if [ -d overlay ] && find overlay -mindepth 1 -not -name '.gitkeep' -not -name 'README.md' \
         | grep -q .; then
@@ -35,6 +38,11 @@ if [ -d overlay ] && find overlay -mindepth 1 -not -name '.gitkeep' -not -name '
         overlay/ "$build_dir/archiso/"
 else
     echo "    (overlay/ has no payload files — skipping)"
+fi
+
+echo "==> Applying overlay-generated/ → archiso/"
+if [ -d overlay-generated ]; then
+    rsync -a --info=stats1 overlay-generated/ "$build_dir/archiso/"
 fi
 
 echo "==> Running pre-build patches"

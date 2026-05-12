@@ -93,10 +93,13 @@ fi
 systemctl enable sddm.service 2>/dev/null || true
 
 # ---- Caches --------------------------------------------------------------
-log "Refreshing desktop / icon / gtk caches"
+log "Refreshing desktop / icon / gtk / font caches"
 [ -d /usr/share/icons ] && find /usr/share/icons -maxdepth 1 -mindepth 1 -type d \
     -exec gtk-update-icon-cache -q -t -f {} \; 2>/dev/null || true
 update-desktop-database -q 2>/dev/null || true
 glib-compile-schemas /usr/share/glib-2.0/schemas/ 2>/dev/null || true
+# Register Squeak + Loud Noises (installed via overlay-generated/ to
+# /usr/share/fonts/posthogos/) so apps can use them by family name.
+fc-cache -f /usr/share/fonts 2>/dev/null || true
 
 log "Done."

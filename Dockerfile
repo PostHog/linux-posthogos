@@ -20,6 +20,8 @@ RUN pacman -Syu --noconfirm --needed \
     rsync \
     sudo \
     base-devel \
+    imagemagick \
+    librsvg \
  && pacman -Scc --noconfirm
 
 # CachyOS-specific repos and keyring. mkarchiso runs pacstrap inside the

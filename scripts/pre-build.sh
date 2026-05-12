@@ -81,6 +81,20 @@ if [ ${#boot_files[@]} -gt 0 ]; then
     log "Patched ${#boot_files[@]} boot config file(s)"
 fi
 
+# --- Extra packages -------------------------------------------------------
+# Append PosthogOS-required packages to the package list. Appending (rather
+# than shadowing the file) lets upstream additions flow through on rebase.
+pkglist="archiso/packages_desktop.x86_64"
+if [ -f "$pkglist" ]; then
+    posthogos_pkgs=(
+        inter-font   # Free Matter SQ analog; primary system body font
+    )
+    log "Appending PosthogOS packages to $pkglist"
+    for pkg in "${posthogos_pkgs[@]}"; do
+        grep -qxF "$pkg" "$pkglist" || echo "$pkg" >> "$pkglist"
+    done
+fi
+
 # --- util-iso.sh post-build fixups ----------------------------------------
 # Upstream's util-iso.sh has three bugs we need to patch:
 #   1. `sudo chown $USER $outFolder` — $USER unset in container → invalid syntax
