@@ -75,15 +75,23 @@ cp "$src/fonts/"*.otf "$src/fonts/"*.ttf "$fonts_dst/"
 # --- Logos / system icon --------------------------------------------------
 # Drop the logomark as a system icon under hicolor so /etc/os-release LOGO=posthogos
 # can resolve, and apps using GIcon can pick it up.
+#
+# Hicolor icons must be SQUARE — file managers / launchers / docks all draw
+# them at WxW. Source: posthog-logomark-square.png (pre-padded to 1:1 with
+# transparent fill). Resampling down from a 1024×1024 master keeps edges
+# crisp at all standard sizes.
 log "Installing system logo (hicolor icon)"
 icon_dst="$out/airootfs/usr/share/icons/hicolor"
+square_src="$src/logos/posthog-logomark-square.png"
 for size in 64 128 256 512; do
     dir="$icon_dst/${size}x${size}/apps"
     mkdir -p "$dir"
-    "$MAGICK" "$src/logos/posthog-logomark.svg" \
-        -background none -resize "${size}x${size}" \
+    "$MAGICK" "$square_src" -filter Lanczos -resize "${size}x${size}" \
         "$dir/posthogos.png"
 done
+# Scalable fallback — left as the native-aspect logomark SVG. Real apps
+# use the rasterized PNGs above; the scalable dir is a fallback for unusual
+# sizes and is rarely queried.
 mkdir -p "$icon_dst/scalable/apps"
 cp "$src/logos/posthog-logomark.svg" "$icon_dst/scalable/apps/posthogos.svg"
 
