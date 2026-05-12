@@ -42,6 +42,38 @@ DISTRIB_RELEASE=rolling
 DISTRIB_DESCRIPTION="PosthogOS"
 EOF
 
+log "Writing /etc/hostname"
+echo "posthogos" > /etc/hostname
+
+# ---- /etc/motd -----------------------------------------------------------
+# util-iso.sh's generate_motd() runs *before* this chroot hook and writes a
+# CachyOS-branded welcome banner. Overwrite it.
+log "Writing /etc/motd"
+cat >/etc/motd <<'EOF'
+
+  Welcome to PosthogOS — a CachyOS-based spin with PostHog branding.
+
+  Live environment ready. Pick "Install PosthogOS" from the desktop to
+  install to disk, or explore the live session.
+
+  Source: https://github.com/posthog/linux-posthogos
+  Issues: https://github.com/posthog/linux-posthogos/issues
+
+EOF
+
+# ---- liveuser home perms -------------------------------------------------
+# Without this, liveuser can't cd into /home/liveuser and Plasma session
+# start crashes immediately ("home = /" fallback, .bash_profile permission
+# denied). Belt-and-suspenders: re-assert ownership + perms even though
+# useradd should already do this correctly.
+if id liveuser >/dev/null 2>&1 && [ -d /home/liveuser ]; then
+    log "Re-asserting /home/liveuser ownership + perms"
+    chown -R liveuser:liveuser /home/liveuser
+    chmod 0755 /home/liveuser
+fi
+# /home itself must be traversable.
+[ -d /home ] && chmod 0755 /home
+
 # ---- Plasma + GTK defaults for new users ---------------------------------
 # /etc/skel content seeds new accounts on first login. cachyos-kde-settings
 # ships its own kdeglobals + gtk settings here, so we can't pre-stage these

@@ -44,6 +44,8 @@ docker run --rm --privileged \
     -v "$PWD":/work \
     -e KEEP_BUILD \
     -e FAST_BUILD \
+    -e SDDM_BG \
+    -e SDDM_BG_BLUR \
     -w /work \
     posthogos-builder \
     /work/scripts/in-container-build.sh

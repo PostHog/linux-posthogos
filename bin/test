@@ -47,7 +47,9 @@ done
 
 accel="tcg"
 case "$(uname -s)" in
-    Darwin) accel="hvf";;
+    # hvf:tcg = try HVF (works on Intel Macs + arm64 guests on Apple Silicon),
+    # fall back to TCG software emulation (Apple Silicon running x86_64 guest).
+    Darwin) accel="hvf:tcg";;
     Linux)  [ -e /dev/kvm ] && accel="kvm";;
 esac
 
@@ -62,8 +64,11 @@ args=(
     -display default
 )
 
-# Only use -cpu host with hardware acceleration; tcg doesn't support it.
-[ "$accel" != "tcg" ] && args=(-cpu host "${args[@]}")
+# Only use -cpu host with hardware acceleration. On Apple Silicon emulating
+# x86_64, HVF gets rejected → tcg, and -cpu host won't work either.
+if [ "$accel" = "kvm" ] || ([ "$accel" = "hvf:tcg" ] && [ "$(uname -m)" = "x86_64" ]); then
+    args=(-cpu host "${args[@]}")
+fi
 
 if [ "$install_mode" = true ]; then
     disk="out/test-disk.qcow2"

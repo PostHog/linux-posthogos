@@ -122,11 +122,20 @@ cp "$out/grub/splash.png" "$out/syslinux/splash.png"
 # Blurred 1920×1080 wallpaper as background, PostHog full lockup (white) as
 # the in-card logo. Background is heavily blurred so the centered login
 # card stays the focus.
-log "Generating SDDM theme assets"
+#
+# Source wallpaper picks via SDDM_BG env var (basename, no extension):
+#   SDDM_BG="Hogzilla [dark] [4K]"             bin/build
+#   SDDM_BG="Office Party [light] [4K]"        bin/build
+# Default: "Keyboard Garden [dark] [4K]"
+sddm_bg_name="${SDDM_BG:-Keyboard Garden [dark] [4K]}"
+sddm_bg_src="$src/wallpapers/${sddm_bg_name}.png"
+[ -f "$sddm_bg_src" ] || sddm_bg_src="$src/wallpapers/Keyboard Garden [dark] [4K].png"
+log "Generating SDDM theme assets (background: $(basename "$sddm_bg_src"))"
 sddm_dst="$out/airootfs/usr/share/sddm/themes/posthogos"
 mkdir -p "$sddm_dst"
-"$MAGICK" "$src/wallpapers/Keyboard Garden [dark] [4K].png" \
-    -resize 1920x1080 -blur 0x18 \
+# blur 0=none, 18=heavy. Override with SDDM_BG_BLUR=N.
+"$MAGICK" "$sddm_bg_src" \
+    -resize 1920x1080 -blur "0x${SDDM_BG_BLUR:-18}" \
     "$sddm_dst/background.png"
 "$MAGICK" "$src/logos/posthog-logo-stacked.svg" \
     -background none -resize 240x \
