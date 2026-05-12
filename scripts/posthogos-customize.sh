@@ -144,8 +144,15 @@ else
     log "Calamares branding '$BRAND' not present — leaving CachyOS default"
 fi
 
-# ---- SDDM theme ----------------------------------------------------------
-# Requires both metadata.desktop and Main.qml to be a working theme.
+# ---- Display manager: SDDM ----------------------------------------------
+# CachyOS upstream ships plasma-login-manager (`plasmalogin`) as the default
+# DM. We replace it with SDDM so our themed greeter ("posthogos") activates.
+# `sddm` is added to packages_desktop.x86_64 by pre-build.sh.
+log "Switching display manager: plasmalogin → sddm"
+systemctl disable plasmalogin.service 2>/dev/null || true
+systemctl enable sddm.service 2>/dev/null || true
+
+# SDDM theme: posthogos (background + logo from build-assets.sh)
 if [ -f "/usr/share/sddm/themes/$BRAND/Main.qml" ] && \
    [ -f "/usr/share/sddm/themes/$BRAND/metadata.desktop" ]; then
     log "Setting SDDM current theme: $BRAND"
@@ -155,12 +162,23 @@ if [ -f "/usr/share/sddm/themes/$BRAND/Main.qml" ] && \
 Current=$BRAND
 EOF
 else
-    log "SDDM theme '$BRAND' not present (Main.qml missing) — leaving CachyOS default"
+    log "SDDM theme '$BRAND' not present (Main.qml missing) — using SDDM default"
 fi
 
-# Make sure SDDM is the active display manager (CachyOS does this already,
-# but double-checking is cheap).
-systemctl enable sddm.service 2>/dev/null || true
+# Autologin for the live user. Mirrors upstream's plasmalogin autologin
+# config so the live ISO drops straight into Plasma (no manual login step).
+log "Configuring SDDM autologin for liveuser"
+mkdir -p /etc/sddm.conf.d
+cat >/etc/sddm.conf.d/00-posthogos-autologin.conf <<'EOF'
+[Autologin]
+User=liveuser
+Session=plasma.desktop
+Relogin=false
+
+[Users]
+MinimumUid=100
+MaximumUid=60000
+EOF
 
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"
