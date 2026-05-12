@@ -144,32 +144,15 @@ else
     log "Calamares branding '$BRAND' not present — leaving CachyOS default"
 fi
 
-# ---- Display manager: SDDM ----------------------------------------------
-# CachyOS upstream ships plasma-login-manager (`plasmalogin`) as the default
-# DM. We replace it with SDDM so our themed greeter ("posthogos") activates.
-# `sddm` is added to packages_desktop.x86_64 by pre-build.sh.
-log "Switching display manager: plasmalogin → sddm"
-systemctl disable plasmalogin.service 2>/dev/null || true
-systemctl enable sddm.service 2>/dev/null || true
-
-# SDDM theme: posthogos (background + logo from build-assets.sh)
-if [ -f "/usr/share/sddm/themes/$BRAND/Main.qml" ] && \
-   [ -f "/usr/share/sddm/themes/$BRAND/metadata.desktop" ]; then
-    log "Setting SDDM current theme: $BRAND"
-    mkdir -p /etc/sddm.conf.d
-    cat >/etc/sddm.conf.d/10-posthogos-branding.conf <<EOF
-[Theme]
-Current=$BRAND
-EOF
-else
-    log "SDDM theme '$BRAND' not present (Main.qml missing) — using SDDM default"
-fi
-
-# Autologin for the live user. Mirrors upstream's plasmalogin autologin
-# config so the live ISO drops straight into Plasma (no manual login step).
-log "Configuring SDDM autologin for liveuser"
-mkdir -p /etc/sddm.conf.d
-cat >/etc/sddm.conf.d/00-posthogos-autologin.conf <<'EOF'
+# ---- Display manager: plasma-login-manager (plasmalogin) ----------------
+# plasma-login-manager is upstream KDE's SDDM fork with a new Plasma-native
+# greeter that integrates the standard Plasma wallpaper plugin. CachyOS ships
+# it as the default DM; we keep it and just override the wallpaper.
+#
+# Important: per upstream's known bug, config under /etc/plasmalogin.conf.d/
+# is silently ignored. The only working config path is /etc/plasmalogin.conf.
+log "Writing /etc/plasmalogin.conf (autologin + branded wallpaper)"
+cat >/etc/plasmalogin.conf <<'EOF'
 [Autologin]
 User=liveuser
 Session=plasma.desktop
@@ -178,7 +161,16 @@ Relogin=false
 [Users]
 MinimumUid=100
 MaximumUid=60000
+
+[Greeter][Wallpaper][org.kde.image][General]
+Image=PosthogosKeyboardGarden
 EOF
+
+# Our SDDM theme files (overlay/airootfs/usr/share/sddm/themes/posthogos/)
+# stay shipped as a fallback for anyone who later switches to SDDM via
+# `pacman -S sddm && systemctl enable sddm`. The chroot hook used to flip
+# the active DM here; that's now plasma-login-manager's job and the user
+# chose not to fight upstream.
 
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"

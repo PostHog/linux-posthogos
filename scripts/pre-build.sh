@@ -88,9 +88,6 @@ pkglist="archiso/packages_desktop.x86_64"
 if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
         inter-font   # Free Matter SQ analog; primary system body font
-        sddm         # Replace plasmalogin (CachyOS default) so our themed
-                     # SDDM greeter activates instead of the upstream-default
-                     # Plasma pine-trees wallpaper
     )
     log "Appending PosthogOS packages to $pkglist"
     for pkg in "${posthogos_pkgs[@]}"; do
