@@ -152,6 +152,12 @@ fi
 # Important: per upstream's known bug, config under /etc/plasmalogin.conf.d/
 # is silently ignored. The only working config path is /etc/plasmalogin.conf.
 log "Writing /etc/plasmalogin.conf (autologin + branded wallpaper)"
+# Two keys needed for the wallpaper:
+#   [Greeter] WallpaperPluginId=org.kde.image  → "which plugin shows the wallpaper"
+#   [Greeter][Wallpaper][org.kde.image][General] Image=  → "which image"
+# Missing the first one made plasmalogin try to load an applet with empty
+# plugin id → "Error loading Applet: package  does not exist" before the
+# greeter rendered.
 cat >/etc/plasmalogin.conf <<'EOF'
 [Autologin]
 User=liveuser
@@ -162,8 +168,13 @@ Relogin=false
 MinimumUid=100
 MaximumUid=60000
 
+[Greeter]
+WallpaperPluginId=org.kde.image
+
 [Greeter][Wallpaper][org.kde.image][General]
 Image=PosthogosKeyboardGarden
+PreviewImage=PosthogosKeyboardGarden
+FillMode=2
 EOF
 
 # Our SDDM theme files (overlay/airootfs/usr/share/sddm/themes/posthogos/)

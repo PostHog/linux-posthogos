@@ -1,0 +1,11 @@
+{
+    "KPlugin": {
+        "Authors": [
+            { "Name": "PostHog", "Email": "marketing@posthog.com" }
+        ],
+        "Id": "PosthogosKeyboardGarden",
+        "Name": "Keyboard Garden",
+        "License": "Proprietary",
+        "Version": "1.0"
+    }
+}
