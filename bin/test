@@ -59,7 +59,13 @@ args=(
     -drive "if=pflash,format=raw,readonly=on,file=$ovmf"
     -drive "file=$iso,media=cdrom,readonly=on"
     -boot order=d
-    -net nic,model=virtio -net user
+    # User-mode networking + port forward: host:2222 → guest:22, host:8000
+    # → guest:8000. SSH into the live ISO for proper copy/paste with:
+    #   sudo systemctl start sshd && sudo passwd liveuser
+    #   # then from host:
+    #   ssh -o StrictHostKeyChecking=no -p 2222 liveuser@localhost
+    -netdev user,id=net0,hostfwd=tcp::2222-:22,hostfwd=tcp::8000-:8000
+    -device virtio-net-pci,netdev=net0
     -vga virtio
     -display default
 )

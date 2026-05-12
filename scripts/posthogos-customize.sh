@@ -69,22 +69,25 @@ EOF
 # subdirs must exist with liveuser:liveuser ownership *before* first
 # login. Apps creating .cache lazily fails when the home tree was
 # populated by root during pacstrap post-install hooks.
-if id liveuser >/dev/null 2>&1; then
-    log "Provisioning /home/liveuser with XDG base dirs"
-    install -d -o liveuser -g liveuser -m 0755 \
-        /home/liveuser \
-        /home/liveuser/.cache \
-        /home/liveuser/.config \
-        /home/liveuser/.local \
-        /home/liveuser/.local/share \
-        /home/liveuser/.local/state \
-        /home/liveuser/Desktop \
-        /home/liveuser/Documents \
-        /home/liveuser/Downloads \
-        /home/liveuser/Pictures
-    # Recursive chown in case any package post-install dropped files as root.
-    chown -R liveuser:liveuser /home/liveuser
-fi
+# Don't gate on `id liveuser` — nsswitch may not be fully primed inside
+# the pacstrap chroot, causing id to fail even though /etc/passwd has
+# liveuser. Use the UID/GID directly. This is also belt-and-suspenders for
+# the systemd-tmpfiles entry at /etc/tmpfiles.d/posthogos-liveuser.conf
+# (which is the actual load-bearing fix; runs at boot regardless).
+log "Provisioning /home/liveuser with XDG base dirs (uid=1000)"
+install -d -o 1000 -g 1000 -m 0755 \
+    /home/liveuser \
+    /home/liveuser/.cache \
+    /home/liveuser/.config \
+    /home/liveuser/.local \
+    /home/liveuser/.local/share \
+    /home/liveuser/.local/state \
+    /home/liveuser/Desktop \
+    /home/liveuser/Documents \
+    /home/liveuser/Downloads \
+    /home/liveuser/Pictures
+chown -R 1000:1000 /home/liveuser
+ls -ld /home/liveuser /home/liveuser/.cache  # log the resulting state
 # /home itself must be traversable.
 [ -d /home ] && chmod 0755 /home
 
