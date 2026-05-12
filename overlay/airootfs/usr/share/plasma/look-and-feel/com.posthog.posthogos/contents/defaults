@@ -19,9 +19,5 @@ library=org.kde.breeze
 theme=Breeze
 NoPlugin=false
 
-[Wallpaper]
-Image=PosthogosKeyboardGarden
-defaultWallpaperTheme=PosthogosKeyboardGarden
-defaultFileSuffix=.png
-defaultWidth=3840
-defaultHeight=2160
+[plasma-org.kde.plasma.desktop-appletsrc][Containments][1][Wallpaper][org.kde.image][General]
+Image=/usr/share/wallpapers/PosthogosKeyboardGarden/
