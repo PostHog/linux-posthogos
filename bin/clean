@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-#/ Usage: bin/clean [--deep]
+#/ Usage: bin/clean [--deep] [--cache]
 #/ Description: Remove build artifacts.
 #/   default: rm -rf build/ out/
-#/   --deep:  also remove the posthogos-builder Docker image
+#/   --cache: also remove the pacman package cache (.pacman-cache/).
+#/            Next build will re-download ~2.4 GB.
+#/   --deep:  --cache + remove the posthogos-builder Docker image.
 
 source bin/helpers/_utils.sh
 set_source_and_root_dir
 set -e
 
 deep=false
-[ "${1:-}" = "--deep" ] && deep=true
-[ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] && { show_help; exit 0; }
+clean_cache=false
+case "${1:-}" in
+    --deep)        deep=true; clean_cache=true ;;
+    --cache)       clean_cache=true ;;
+    -h|--help)     show_help; exit 0 ;;
+    "")            ;;
+    *)             fatal "Unknown arg: $1" ;;
+esac
 
 print_color blue "Removing build/ and out/..."
 # mkarchiso leaves some dirs mode 0555 (e.g. ca-certificates/extracted/cadir),
@@ -25,6 +33,15 @@ for d in build out; do
         sudo rm -rf "$d"
     fi
 done
+
+if [ "$clean_cache" = true ] && [ -d .pacman-cache ]; then
+    print_color blue "Removing pacman package cache..."
+    if [ -w .pacman-cache ]; then
+        rm -rf .pacman-cache
+    else
+        sudo rm -rf .pacman-cache
+    fi
+fi
 
 if [ "$deep" = true ]; then
     if command_exists docker; then

@@ -12,6 +12,7 @@
 build/
 out/
 overlay-generated/
+.pacman-cache/
 *.iso
 test-disk.qcow2
 
