@@ -126,6 +126,10 @@ mkdir -p "$out/grub" "$out/syslinux"
     PNG8:"$out/grub/splash.png"
 cp "$out/grub/splash.png" "$out/syslinux/splash.png"
 
+# Pre-rendered 1024×1024 logomark for surfaces that need a square logo
+# (hicolor done above; SDDM + Plymouth below).
+square_logo="$src/logos/posthog-logomark-square.png"
+
 # --- SDDM theme assets ----------------------------------------------------
 # Blurred 1920×1080 wallpaper as background, PostHog full lockup (white) as
 # the in-card logo. Background is heavily blurred so the centered login
@@ -145,8 +149,11 @@ mkdir -p "$sddm_dst"
 "$MAGICK" "$sddm_bg_src" \
     -resize 1920x1080 -blur "0x${SDDM_BG_BLUR:-18}" \
     "$sddm_dst/background.png"
-"$MAGICK" "$src/logos/posthog-logomark.svg" \
-    -background none -resize 240x \
+# Square logo from the pre-padded 1024×1024 master, downscaled cleanly
+# via Lanczos to 240px — matches Main.qml's Layout.preferredHeight: 72
+# (Plasma renders at the available width then scales; square source keeps
+# the in-card logo visually balanced).
+"$MAGICK" "$square_logo" -filter Lanczos -resize 240x240 \
     "$sddm_dst/logo.png"
 
 # --- Plymouth theme assets -----------------------------------------------
@@ -155,8 +162,9 @@ mkdir -p "$sddm_dst"
 log "Generating Plymouth theme assets"
 ply_dst="$out/airootfs/usr/share/plymouth/themes/posthogos"
 mkdir -p "$ply_dst"
-"$MAGICK" "$src/logos/posthog-logomark.svg" \
-    -background none -resize 256x256 \
+# Square logo for Plymouth so the centering math in posthogos.script
+# produces a visually balanced splash (logo.GetWidth() == logo.GetHeight()).
+"$MAGICK" "$square_logo" -filter Lanczos -resize 256x256 \
     "$ply_dst/logo.png"
 "$MAGICK" -size 16x16 xc:none \
     -fill '#EEEFE9' -draw 'circle 8,8 8,2' \
