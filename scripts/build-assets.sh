@@ -174,9 +174,13 @@ mkdir -p "$ply_dst"
 log "Installing Calamares brand images"
 cal_dst="$out/airootfs/usr/share/calamares/branding/posthogos"
 mkdir -p "$cal_dst"
-# Logo top-left of installer header
+# Header logo: native-aspect logomark, scaled to ~200px wide.
 "$MAGICK" "$src/logos/posthog-logomark.svg" -background none -resize 200x \
     "$cal_dst/logo.png"
+# Window/title bar icon: must be square (WMs draw it as a square tile).
+# 256×256 from the square master.
+"$MAGICK" "$square_logo" -filter Lanczos -resize 256x256 \
+    "$cal_dst/logo-icon.png"
 # Welcome screen banner image — use Vibecoding (hedgehog in a tractor),
 # friendly first-screen vibe.
 "$MAGICK" "$src/hoglife/Vibecoding.png" -resize 1280x \

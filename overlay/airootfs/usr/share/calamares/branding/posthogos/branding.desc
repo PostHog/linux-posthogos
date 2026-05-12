@@ -22,8 +22,8 @@ strings:
     donateUrl:           https://posthog.com
 
 images:
-    productLogo:         logo.png
-    productIcon:         logo.png
+    productLogo:         logo.png       # native-aspect, header banner
+    productIcon:         logo-icon.png  # square, window title bar
     productWelcome:      welcome.png
 
 slideshow:               show.qml
