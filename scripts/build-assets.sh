@@ -137,7 +137,7 @@ mkdir -p "$sddm_dst"
 "$MAGICK" "$sddm_bg_src" \
     -resize 1920x1080 -blur "0x${SDDM_BG_BLUR:-18}" \
     "$sddm_dst/background.png"
-"$MAGICK" "$src/logos/posthog-logo-stacked.svg" \
+"$MAGICK" "$src/logos/posthog-logomark.svg" \
     -background none -resize 240x \
     "$sddm_dst/logo.png"
 
@@ -147,7 +147,7 @@ mkdir -p "$sddm_dst"
 log "Generating Plymouth theme assets"
 ply_dst="$out/airootfs/usr/share/plymouth/themes/posthogos"
 mkdir -p "$ply_dst"
-"$MAGICK" "$src/logos/posthog-logo-stacked.svg" \
+"$MAGICK" "$src/logos/posthog-logomark.svg" \
     -background none -resize 256x256 \
     "$ply_dst/logo.png"
 "$MAGICK" -size 16x16 xc:none \

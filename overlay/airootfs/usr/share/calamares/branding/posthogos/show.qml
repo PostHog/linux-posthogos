@@ -42,8 +42,6 @@ Presentation {
     Slide { Image { source: "slideshow/lumberjacks.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
     Slide { Image { source: "slideshow/noir.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
     Slide { Image { source: "slideshow/looking-back.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
-    Slide { Image { source: "slideshow/poolside.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
-    Slide { Image { source: "slideshow/circus.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
     Slide { Image { source: "slideshow/final-destination.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
     Slide { Image { source: "slideshow/this-is-fine.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
     Slide { Image { source: "slideshow/zombi.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
