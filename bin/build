@@ -43,7 +43,7 @@ print_color blue "Running build in privileged container..."
 # Wipe with: rm -rf .pacman-cache  (or bin/clean --cache)
 mkdir -p .pacman-cache .airootfs-cache
 docker run --rm --privileged \
-    --name posthogos-build \
+    --name posthogos \
     --platform=linux/amd64 \
     -v "$PWD":/work \
     -v "$PWD/.pacman-cache":/var/cache/pacman/pkg \

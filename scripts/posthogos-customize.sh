@@ -61,18 +61,37 @@ cat >/etc/motd <<'EOF'
 
 EOF
 
-# ---- liveuser home perms -------------------------------------------------
-# Without this, liveuser can't cd into /home/liveuser and Plasma session
-# start crashes immediately ("home = /" fallback, .bash_profile permission
-# denied). Belt-and-suspenders: re-assert ownership + perms even though
-# useradd should already do this correctly.
-if id liveuser >/dev/null 2>&1 && [ -d /home/liveuser ]; then
-    log "Re-asserting /home/liveuser ownership + perms"
+# ---- liveuser home + XDG base dirs --------------------------------------
+# Plasma session crashes with "Error loading Applet: package  does not
+# exist" when ksycoca (KDE's service cache) can't write ~/.cache, which
+# happens if liveuser doesn't own /home/liveuser/.cache or the dir
+# doesn't exist yet. Chmod alone on the home root isn't enough — the
+# subdirs must exist with liveuser:liveuser ownership *before* first
+# login. Apps creating .cache lazily fails when the home tree was
+# populated by root during pacstrap post-install hooks.
+if id liveuser >/dev/null 2>&1; then
+    log "Provisioning /home/liveuser with XDG base dirs"
+    install -d -o liveuser -g liveuser -m 0755 \
+        /home/liveuser \
+        /home/liveuser/.cache \
+        /home/liveuser/.config \
+        /home/liveuser/.local \
+        /home/liveuser/.local/share \
+        /home/liveuser/.local/state \
+        /home/liveuser/Desktop \
+        /home/liveuser/Documents \
+        /home/liveuser/Downloads \
+        /home/liveuser/Pictures
+    # Recursive chown in case any package post-install dropped files as root.
     chown -R liveuser:liveuser /home/liveuser
-    chmod 0755 /home/liveuser
 fi
 # /home itself must be traversable.
 [ -d /home ] && chmod 0755 /home
+
+# Fontconfig cache: writable by all users. Without this, every Plasma startup
+# spams "Fontconfig error: No writable cache directories" (we saw 100+ such
+# lines in journalctl right before the kded sycoca failure).
+install -d -m 0755 /var/cache/fontconfig
 
 # ---- Plasma + GTK defaults for new users ---------------------------------
 # /etc/skel content seeds new accounts on first login. cachyos-kde-settings
