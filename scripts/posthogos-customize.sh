@@ -96,6 +96,27 @@ ls -ld /home/liveuser /home/liveuser/.cache  # log the resulting state
 # lines in journalctl right before the kded sycoca failure).
 install -d -m 0755 /var/cache/fontconfig
 
+# ---- Suppress CachyOS Hello popup ---------------------------------------
+# cachyos-hello pops up a welcome window on every login (toggle is in the
+# app itself but defaults to on). Override its autostart by dropping a
+# user-level .desktop with Hidden=true — XDG autostart spec gives user-level
+# precedence over /etc/xdg.
+log "Suppressing cachyos-hello autostart"
+hello_override='[Desktop Entry]
+Type=Application
+Name=CachyOS Hello
+Hidden=true
+'
+# /etc/skel for future Calamares-installed users:
+install -d -m 0755 /etc/skel/.config/autostart
+printf '%s' "$hello_override" > /etc/skel/.config/autostart/cachyos-hello.desktop
+# /home/liveuser for the live ISO user (home already populated by now):
+if [ -d /home/liveuser ]; then
+    install -d -o 1000 -g 1000 -m 0755 /home/liveuser/.config/autostart
+    printf '%s' "$hello_override" > /home/liveuser/.config/autostart/cachyos-hello.desktop
+    chown 1000:1000 /home/liveuser/.config/autostart/cachyos-hello.desktop
+fi
+
 # ---- Plasma + GTK defaults for new users ---------------------------------
 # /etc/skel content seeds new accounts on first login. cachyos-kde-settings
 # ships its own kdeglobals + gtk settings here, so we can't pre-stage these
