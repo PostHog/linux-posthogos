@@ -41,16 +41,14 @@ docker build --platform=linux/amd64 -t posthogos-builder -f Dockerfile .
 print_color blue "Running build in privileged container..."
 # Persistent pacman cache: ~2.4 GB on first build, near-zero deltas after.
 # Wipe with: rm -rf .pacman-cache  (or bin/clean --cache)
-mkdir -p .pacman-cache .airootfs-cache
+mkdir -p .pacman-cache
 docker run --rm --privileged \
     --name posthogos \
     --platform=linux/amd64 \
     -v "$PWD":/work \
     -v "$PWD/.pacman-cache":/var/cache/pacman/pkg \
-    -v "$PWD/.airootfs-cache":/work/.airootfs-cache \
     -e KEEP_BUILD \
     -e FAST_BUILD \
-    -e SKIP_AIRFS_CACHE \
     -e SDDM_BG \
     -e SDDM_BG_BLUR \
     -w /work \

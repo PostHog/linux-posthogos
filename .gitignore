@@ -13,7 +13,6 @@ build/
 out/
 overlay-generated/
 .pacman-cache/
-.airootfs-cache/
 *.iso
 test-disk.qcow2
 
