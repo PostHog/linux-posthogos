@@ -23,6 +23,15 @@ out_dir="$repo_root/out"
 mkdir -p "$out_dir"
 
 echo "==> Resetting build tree at $build_dir"
+# Belt-and-suspenders chmod before the rm: pacstrap leaves
+# /etc/ca-certificates/extracted/cadir/ as mode 0555 (read-only dir), and
+# plain `rm -rf` can't unlink files inside a 0555 parent dir → "Permission
+# denied" spam, aborted reset, doomed build. The end-of-build cleanup also
+# does this, but it only fires on success + KEEP_BUILD=0 — interrupted or
+# KEEP_BUILD'd builds leave the 0555 dirs around for the NEXT run to trip on.
+if [ -d "$build_dir" ]; then
+    chmod -R u+w "$build_dir" 2>/dev/null || true
+fi
 rm -rf "$build_dir"
 mkdir -p "$build_dir"
 # git archive gives the checked-in tree without the submodule .git pointer.
