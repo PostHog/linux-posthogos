@@ -89,6 +89,7 @@ if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
+        qt6-declarative      # Provides qml6 for the PosthogOS welcome app
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.
@@ -96,6 +97,21 @@ if [ -f "$pkglist" ]; then
     log "Appending PosthogOS packages to $pkglist"
     for pkg in "${posthogos_pkgs[@]}"; do
         grep -qxF "$pkg" "$pkglist" || echo "$pkg" >> "$pkglist"
+    done
+
+    # Packages we don't want installed. Removing here saves disk + boot time
+    # and makes sure our replacements (e.g. posthogos-welcome) are the only
+    # implementations in play.
+    posthogos_remove_pkgs=(
+        cachyos-hello   # Replaced by /usr/local/bin/posthogos-welcome (QML)
+    )
+    log "Removing CachyOS packages we're replacing"
+    for pkg in "${posthogos_remove_pkgs[@]}"; do
+        if grep -qxF "$pkg" "$pkglist"; then
+            sed -i.bak "/^${pkg}$/d" "$pkglist"
+            rm -f "${pkglist}.bak"
+            log "  removed: $pkg"
+        fi
     done
 fi
 

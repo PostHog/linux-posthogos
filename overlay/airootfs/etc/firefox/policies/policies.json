@@ -1,0 +1,13 @@
+{
+    "policies": {
+        "Homepage": {
+            "URL": "https://posthog.com",
+            "Locked": false,
+            "Additional": [],
+            "StartPage": "homepage"
+        },
+        "OverrideFirstRunPage": "https://posthog.com",
+        "OverridePostUpdatePage": "",
+        "DontCheckDefaultBrowser": true
+    }
+}

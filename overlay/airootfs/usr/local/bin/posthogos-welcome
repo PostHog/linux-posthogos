@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Launcher for the PosthogOS welcome app. Reads QtCore.Settings written by
+# the QML side to decide whether to skip on autostart, then runs the QML
+# window and dispatches follow-up actions based on the exit code.
+#
+# Exit codes from welcome.qml:
+#   0   normal close
+#   10  user clicked "Install to disk"  → launch Calamares
+#   11  user clicked "Open terminal"     → launch Konsole
+
+set -e
+
+# QtCore.Settings persists to ~/.config/<orgname>/<appname>.conf. The QML
+# file doesn't set Application.organization/name explicitly, so Qt uses
+# defaults — the conf path resolves to ~/.config/QtProject.conf if not
+# overridden. We set them via env so the location is predictable.
+export QT_APPLICATION_NAME="PosthogOS-Welcome"
+export QT_ORGANIZATION_NAME="PostHog"
+prefs="${XDG_CONFIG_HOME:-$HOME/.config}/PostHog/PosthogOS-Welcome.conf"
+
+# Honor the "Show on next startup" checkbox state. Default = show.
+# Only the autostart entry passes --autostart; manual launches from the
+# app menu always show the window regardless of the setting.
+if [ "${1:-}" = "--autostart" ] && [ -f "$prefs" ]; then
+    if grep -q '^showOnStartup=false' "$prefs"; then
+        exit 0
+    fi
+fi
+
+qml=/usr/share/posthogos/welcome.qml
+[ -f "$qml" ] || { echo "Missing $qml" >&2; exit 1; }
+
+# Prefer qml6 (Qt6) when available; fall back to plain qml.
+qml_bin=$(command -v qml6 || command -v qml || true)
+[ -n "$qml_bin" ] || { echo "Neither qml6 nor qml is installed (need qt6-declarative)" >&2; exit 1; }
+
+set +e
+"$qml_bin" "$qml"
+ec=$?
+set -e
+
+case "$ec" in
+    10) exec sudo -E calamares ;;        # Install to disk
+    11) exec konsole ;;                  # Open terminal
+    *)  exit 0 ;;
+esac

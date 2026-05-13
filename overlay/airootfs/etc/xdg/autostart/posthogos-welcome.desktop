@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=PosthogOS Welcome
+Comment=First-boot welcome and quick actions for PosthogOS
+Exec=/usr/local/bin/posthogos-welcome --autostart
+Icon=posthogos
+Terminal=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=plasma-session-running
+Categories=System;

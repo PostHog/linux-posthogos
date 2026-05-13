@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=PosthogOS Welcome
+GenericName=Welcome Screen
+Comment=Quick actions and links for PosthogOS
+Exec=/usr/local/bin/posthogos-welcome
+Icon=posthogos
+Terminal=false
+Categories=System;Utility;
+Keywords=welcome;hello;intro;help;

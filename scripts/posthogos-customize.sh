@@ -102,7 +102,9 @@ install -d -m 0755 /var/cache/fontconfig
 # which point autostart entries pointing at non-executable scripts fail
 # silently with "Permission denied".
 if [ -d /usr/local/bin ]; then
-    chmod +x /usr/local/bin/posthogos-*.sh 2>/dev/null || true
+    # Everything we ship under /usr/local/bin/posthogos-* is intended to
+    # be executable (helpers + launchers), so chmod the whole namespace.
+    chmod +x /usr/local/bin/posthogos-* 2>/dev/null || true
     chmod +x /usr/local/bin/papirus-folders 2>/dev/null || true
 fi
 
