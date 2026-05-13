@@ -92,6 +92,8 @@ if [ -f "$pkglist" ]; then
         qt6-declarative      # Provides qml6 for the PosthogOS welcome app
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
+        docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)
+        docker-compose       # Compose plugin alongside docker
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.

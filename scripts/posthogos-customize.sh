@@ -276,6 +276,25 @@ if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders 
         || log "WARN: papirus-folders failed"
 fi
 
+# ---- External pkg installs (Docker Desktop) -----------------------------
+# build-assets.sh staged third-party Arch packages into /opt/posthogos/pkgs/
+# before the chroot started. Install them via pacman -U here so they land in
+# the pacman db (proper dep resolution + uninstallable), then delete the
+# staged pkg from the airootfs so we don't ship installer + installed copy.
+#
+# Docker Desktop depends on `docker` + a few common libs (libnotify, pass,
+# qemu-base). Those are pulled in by the pacstrap'd package list (see
+# pre-build.sh adding `docker` + `docker-compose`).
+if [ -d /opt/posthogos/pkgs ]; then
+    for pkg in /opt/posthogos/pkgs/*.pkg.tar.zst; do
+        [ -f "$pkg" ] || continue
+        log "Installing staged pkg: $(basename "$pkg")"
+        pacman -U --noconfirm "$pkg" || log "WARN: install failed for $pkg (continuing)"
+        rm -f "$pkg"
+    done
+    rmdir /opt/posthogos/pkgs 2>/dev/null || true
+fi
+
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"
 [ -d /usr/share/icons ] && find /usr/share/icons -maxdepth 1 -mindepth 1 -type d \
