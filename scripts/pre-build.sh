@@ -89,8 +89,9 @@ if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
-        qt6-declarative      # qml6 binary + QtQuick/Layouts/Window/QtCore QML modules
-        qt6-quickcontrols2   # QtQuick.Controls module — ApplicationWindow/Button/CheckBox in welcome.qml
+        qt6-declarative      # qml6 + ALL Qt6 QML modules including QtQuick.Controls
+                             # (unlike Qt5 where qt5-quickcontrols2 was separate, the
+                             #  Qt6 modules are consolidated into this one package on Arch)
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)
@@ -107,15 +108,6 @@ if [ -f "$pkglist" ]; then
     # Packages we don't want installed. Removing here saves disk + boot time
     # and makes sure our replacements (e.g. posthogos-welcome) are the only
     # implementations in play.
-    #
-    # Note: we KEEP all six CachyOS kernel variants (linux-cachyos, -lts,
-    # -zfs, -nvidia-open, -lts-zfs, -lts-nvidia-open). Only two are wired
-    # into the boot menu (linux-cachyos default + linux-cachyos-lts fallback),
-    # but the -zfs variants are required if anyone wants ZFS — the zfs
-    # kernel modules ship baked into those kernel packages, not as a
-    # separate DKMS package by default. Removing them broke any "install
-    # to ZFS" path through Calamares and any live-ISO read of existing
-    # zpools. ~300 MB per kernel is the cost; restored after that lesson.
     posthogos_remove_pkgs=(
         cachyos-hello   # Replaced by /usr/local/bin/posthogos-welcome (QML)
     )
