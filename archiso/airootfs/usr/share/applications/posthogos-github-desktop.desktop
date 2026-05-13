@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=GitHub Desktop
+Comment=Open GitHub Desktop
+Exec=github-desktop
+Icon=posthogos-github
+Terminal=false
+Categories=Development;

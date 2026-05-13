@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Claude Desktop
+Comment=Open Claude Desktop
+Exec=claude-desktop
+Icon=posthogos-claude
+Terminal=false
+Categories=Development;

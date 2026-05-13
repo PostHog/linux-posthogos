@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Claude Code
+Comment=Run Claude Code in the baked PostHog checkout
+Exec=konsole --workdir /opt/posthogos/code/posthog -e bash -lc "claude; exec bash"
+Icon=posthogos-claude-code
+Terminal=false
+Categories=Development;

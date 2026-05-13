@@ -1,0 +1,56 @@
+# Maintainer: PostHogOS
+pkgname=posthogos-ai-clis
+pkgver=0.130.0_2.1.138
+pkgrel=2
+pkgdesc="OpenAI Codex and Anthropic Claude Code CLIs for PostHogOS"
+arch=('any')
+url="https://posthog.com"
+license=('custom')
+depends=('nodejs' 'npm' 'git')
+provides=('codex' 'claude-code')
+options=('!strip' '!debug')
+
+_codex_version=0.130.0
+_claude_code_version=2.1.138
+
+source=(
+  "codex-${_codex_version}.tgz::https://registry.npmjs.org/@openai/codex/-/codex-${_codex_version}.tgz"
+  "claude-code-${_claude_code_version}.tgz::https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-${_claude_code_version}.tgz"
+)
+sha256sums=(
+  'c3ffcf268d1800bcbfce50dca964e05d6abccd8f1d20e944b3bb877e71642fca'
+  '7d4b1ca1a685f798e70ef422420b04f3bb2f13039dccf36e886b06641637de4b'
+)
+
+package() {
+  local npm_cache="$srcdir/npm-cache"
+  mkdir -p "$npm_cache"
+
+  npm install --global --prefix "$pkgdir/usr" \
+    --cache "$npm_cache" \
+    --omit=dev \
+    --ignore-scripts \
+    "$srcdir/codex-${_codex_version}.tgz" \
+    "$srcdir/claude-code-${_claude_code_version}.tgz"
+
+  rm -f "$pkgdir/usr/bin/claude"
+  install -Dm0755 /dev/stdin "$pkgdir/usr/bin/claude" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+claude_root=/usr/lib/node_modules/@anthropic-ai/claude-code
+native="$claude_root/node_modules/@anthropic-ai/claude-code-linux-x64/claude"
+wrapper="$claude_root/cli-wrapper.cjs"
+
+if [ -x "$native" ]; then
+  exec "$native" "$@"
+fi
+
+exec node "$wrapper" "$@"
+EOF
+
+  install -Dm0644 /dev/stdin "$pkgdir/usr/share/licenses/$pkgname/LICENSE" <<'EOF'
+This package bundles upstream npm packages under their respective upstream licenses.
+Review /usr/lib/node_modules/@openai/codex and /usr/lib/node_modules/@anthropic-ai/claude-code for package metadata.
+EOF
+}

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PostHog code
+Comment=Open the baked PostHog source checkout
+Exec=dolphin /opt/posthogos/code/posthog
+Icon=posthogos
+Terminal=false
+Categories=Development;

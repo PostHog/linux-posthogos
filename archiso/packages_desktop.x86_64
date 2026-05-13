@@ -146,6 +146,7 @@ plasma-nm
 plasma-pa
 plasma-thunderbolt
 plasma-workspace
+plasma-x11-session
 polkit
 polkit-kde-agent
 power-profiles-daemon
@@ -173,6 +174,7 @@ tcpdump
 testdisk
 tpm2-tss
 traceroute
+ttf-ibm-plex
 ttf-bitstream-vera
 ttf-dejavu
 ttf-liberation
@@ -195,4 +197,40 @@ xdg-user-dirs-gtk
 xdg-utils
 xfsprogs
 xl2tpd
+xorg-server
 zfs-utils
+
+# PostHogOS baked developer image layer
+base-devel
+bun
+chromium
+cmake
+direnv
+docker
+git
+git-lfs
+github-cli
+go
+kdialog
+lazydocker
+ninja
+nodejs
+npm
+pnpm
+postgresql
+protobuf
+python-pip
+python-pipx
+ripgrep
+rustup
+uv
+
+# PostHogOS local repository packages.
+# Build these with posthogos/build-local-repo.sh before running buildiso.sh.
+claude-desktop-bin
+codex-desktop
+cursor-bin
+docker-desktop
+github-desktop-bin
+posthogos-ai-clis
+posthogos-posthog-code

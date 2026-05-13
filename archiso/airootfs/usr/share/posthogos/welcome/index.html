@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PostHogOS</title>
+    <style>
+      :root {
+        --bg: #fdfdf8;
+        --desktop: #eeefe9;
+        --bar: #e5e7e0;
+        --border: #bfc1b7;
+        --border-strong: #4d4f46;
+        --text: #262720;
+        --muted: #686a60;
+        --orange: #eb9d2a;
+        --orange-dark: #b17816;
+        --orange-shadow: #cd8407;
+        --blue: #2f80fa;
+        --green: #6a7b38;
+        --red: #f54e00;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        color: var(--text);
+        font-family: "IBM Plex Sans", "Inter", "Noto Sans", system-ui, sans-serif;
+        font-size: 14px;
+        line-height: 1.35;
+        background: var(--bg);
+        overflow: hidden;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        height: 100%;
+        border: 1px solid var(--border-strong);
+        background: var(--bg);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        height: 52px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bar);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand img {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .brand span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 3px;
+      }
+
+      .repo-pill {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        max-width: 340px;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: var(--bg);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .repo-pill code {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.95fr);
+        gap: 18px;
+        min-height: 0;
+        padding: 18px;
+        overflow: hidden;
+      }
+
+      .panel {
+        min-width: 0;
+        border: 1px solid var(--border-strong);
+        border-radius: 7px;
+        background: var(--bg);
+        box-shadow: 5px 5px 0 rgba(38, 39, 32, 0.12);
+        overflow: hidden;
+      }
+
+      .hero {
+        display: grid;
+        align-content: start;
+        gap: 16px;
+        min-height: 0;
+        padding: 22px;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 44ch;
+      }
+
+      .terminal-card {
+        display: grid;
+        gap: 10px;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #fbfbf4;
+      }
+
+      .prompt {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+        font-size: 15px;
+      }
+
+      .prompt::before {
+        content: "";
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: var(--red);
+        box-shadow: 15px 0 0 var(--orange), 30px 0 0 #2cc3a7;
+        margin-right: 28px;
+      }
+
+      .terminal-card ul {
+        display: grid;
+        gap: 7px;
+        margin: 0;
+        padding: 0;
+        color: var(--muted);
+        list-style: none;
+      }
+
+      .primary {
+        justify-self: start;
+        min-height: 42px;
+        padding: 0 18px;
+        border: 1px solid var(--orange-dark);
+        border-radius: 5px;
+        background: var(--orange);
+        box-shadow: inset 0 -2px 0 var(--orange-shadow);
+        color: #1f1f18;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .primary:hover,
+      .primary:focus-visible {
+        filter: saturate(1.04) brightness(1.02);
+        outline: 2px solid #74a7ff;
+        outline-offset: 2px;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-height: 0;
+      }
+
+      .actions h2 {
+        margin: 0;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bar);
+        font-size: 14px;
+      }
+
+      .action-list {
+        display: grid;
+        align-content: start;
+        gap: 5px;
+        padding: 10px;
+        overflow: auto;
+      }
+
+      .action {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        min-height: 42px;
+        width: 100%;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--text);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .action:hover,
+      .action:focus-visible,
+      .action.is-selected {
+        border-color: var(--orange-dark);
+        background: #fff2db;
+        outline: 0;
+      }
+
+      .action .icon {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border: 1px solid var(--border-strong);
+        border-radius: 4px;
+        background: var(--bg);
+        color: var(--green);
+        font-weight: 700;
+      }
+
+      .action strong {
+        display: block;
+        overflow: hidden;
+        color: var(--text);
+        font-size: 13px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .action span {
+        display: block;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="/usr/share/pixmaps/posthogos.svg" alt="" />
+          <div>
+            <strong>PostHogOS</strong>
+            <span>CachyOS base, PostHog batteries included</span>
+          </div>
+        </div>
+        <div class="repo-pill"><code>/opt/posthogos/code/posthog</code></div>
+      </header>
+
+      <main>
+        <section class="panel hero">
+          <div>
+            <h1>Build PostHog from the desktop.</h1>
+            <p>PostHog code, dev tools, Docker, and AI coding tools are already in the image.</p>
+          </div>
+
+          <div class="terminal-card">
+            <div class="prompt">$ pnpm start</div>
+            <ul>
+              <li>PostHog repo preloaded</li>
+              <li>Cursor, GitHub Desktop, Docker Desktop</li>
+              <li>Claude Code, Codex CLI, Claude Desktop</li>
+            </ul>
+          </div>
+
+          <button class="primary" data-action="terminal">Open PostHog terminal</button>
+        </section>
+
+        <section class="panel actions">
+          <h2>Pick what you want to open</h2>
+          <div class="action-list">
+            <button class="action is-selected" data-action="install">
+              <span class="icon">I</span>
+              <span><strong>Install PostHogOS</strong><span>Launch the native installer</span></span>
+            </button>
+            <button class="action" data-action="code">
+              <span class="icon">P</span>
+              <span><strong>Open PostHog code</strong><span>Browse the checked-out source</span></span>
+            </button>
+            <button class="action" data-action="cursor">
+              <span class="icon">C</span>
+              <span><strong>Open PostHog in Cursor</strong><span>Start editing from the repo root</span></span>
+            </button>
+            <button class="action" data-action="terminal">
+              <span class="icon">$</span>
+              <span><strong>Open terminal in PostHog repo</strong><span>Run pnpm, docker, tests, and scripts</span></span>
+            </button>
+            <button class="action" data-action="claude-code">
+              <span class="icon">A</span>
+              <span><strong>Claude Code in PostHog repo</strong><span>Open Claude in the repo</span></span>
+            </button>
+            <button class="action" data-action="codex-cli">
+              <span class="icon">X</span>
+              <span><strong>Codex CLI in PostHog repo</strong><span>Open Codex in the repo</span></span>
+            </button>
+            <button class="action" data-action="claude-desktop">
+              <span class="icon">D</span>
+              <span><strong>Claude Desktop</strong><span>Open the desktop app</span></span>
+            </button>
+            <button class="action" data-action="codex-desktop">
+              <span class="icon">K</span>
+              <span><strong>Codex desktop launcher</strong><span>Open Codex desktop or CLI fallback</span></span>
+            </button>
+            <button class="action" data-action="github">
+              <span class="icon">G</span>
+              <span><strong>GitHub Desktop</strong><span>Open the GitHub client</span></span>
+            </button>
+            <button class="action" data-action="docker">
+              <span class="icon">D</span>
+              <span><strong>Docker Desktop</strong><span>Start Docker and open the GUI</span></span>
+            </button>
+            <button class="action" data-action="docs">
+              <span class="icon">?</span>
+              <span><strong>PostHog docs</strong><span>Open docs in the browser</span></span>
+            </button>
+          </div>
+        </section>
+      </main>
+
+    </div>
+
+    <script>
+      const actions = [...document.querySelectorAll('[data-action]')]
+
+      function select(button) {
+        actions.forEach((item) => item.classList.remove('is-selected'))
+        button.classList.add('is-selected')
+      }
+
+      actions.forEach((button) => {
+        button.addEventListener('focus', () => select(button))
+        button.addEventListener('mouseenter', () => select(button))
+        button.addEventListener('click', () => {
+          select(button)
+          window.posthogos.runAction(button.dataset.action)
+        })
+      })
+    </script>
+  </body>
+</html>

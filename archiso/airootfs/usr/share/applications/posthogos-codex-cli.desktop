@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Codex CLI
+Comment=Run Codex in the baked PostHog checkout
+Exec=konsole --workdir /opt/posthogos/code/posthog -e codex
+Icon=posthogos-codex
+Terminal=false
+Categories=Development;

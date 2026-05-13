@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
+  <defs>
+    <style>
+      .paper { fill: #fdfdf8; }
+      .edge { fill: #bfc1b7; }
+      .none { fill: none; }
+    </style>
+  </defs>
+  <rect id="hint-stretch-borders" class="none" x="0" y="0" width="1" height="1"/>
+  <rect id="center" class="paper" x="2" y="2" width="30" height="30"/>
+  <rect id="top" class="edge" x="2" y="0" width="30" height="2"/>
+  <rect id="bottom" class="edge" x="2" y="32" width="30" height="2"/>
+  <rect id="left" class="edge" x="0" y="2" width="2" height="30"/>
+  <rect id="right" class="edge" x="32" y="2" width="2" height="30"/>
+  <rect id="topleft" class="edge" x="0" y="0" width="2" height="2"/>
+  <rect id="topright" class="edge" x="32" y="0" width="2" height="2"/>
+  <rect id="bottomleft" class="edge" x="0" y="32" width="2" height="2"/>
+  <rect id="bottomright" class="edge" x="32" y="32" width="2" height="2"/>
+</svg>

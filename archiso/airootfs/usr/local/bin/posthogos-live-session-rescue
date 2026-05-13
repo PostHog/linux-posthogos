@@ -1,0 +1,201 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+user="${POSTHOGOS_LIVE_USER:-liveuser}"
+uid="$(id -u "$user" 2>/dev/null || true)"
+if [ -z "$uid" ]; then
+    exit 0
+fi
+
+home="$(getent passwd "$user" | awk -F: '{print $6}')"
+log="/tmp/posthogos-live-session-rescue.log"
+
+write_hidden_cachyos_hello() {
+    if [ -n "$home" ] && [ -d "$home" ]; then
+        mkdir -p "$home/.config/autostart"
+        install -o "$user" -g "$user" -m 0644 /dev/stdin "$home/.config/autostart/cachyos-hello.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=CachyOS Hello
+Hidden=true
+EOF
+    fi
+}
+
+env_value() {
+    local key="$1"
+    local file="$2"
+    grep -m1 "^${key}=" "$file" | cut -d= -f2- || true
+}
+
+capture_process_env() {
+    local env_file="$1"
+    shift
+
+    local pid process_name
+    for process_name in "$@"; do
+        for pid in $(pgrep -u "$uid" -x "$process_name" || true); do
+            [ -r "/proc/$pid/environ" ] || continue
+            tr '\0' '\n' < "/proc/$pid/environ" > "$env_file.tmp" || continue
+            if grep -q '^DBUS_SESSION_BUS_ADDRESS=' "$env_file.tmp" && grep -q '^XDG_RUNTIME_DIR=' "$env_file.tmp"; then
+                mv "$env_file.tmp" "$env_file"
+                return 0
+            fi
+        done
+    done
+    rm -f "$env_file.tmp"
+    return 1
+}
+
+capture_kwin_env() {
+    capture_process_env "$1" kwin_x11 kwin_wayland
+}
+
+capture_session_env() {
+    capture_process_env "$1" kwin_x11 kwin_wayland plasmashell startplasma-x11 startplasma-wayland
+}
+
+has_kwin() {
+    pgrep -u "$uid" -x kwin_x11 >/dev/null 2>&1 || pgrep -u "$uid" -x kwin_wayland >/dev/null 2>&1
+}
+
+run_in_session() {
+    local env_file="$1"
+    shift
+
+    local dbus xdg wayland display xauthority desktop session_desktop session_type kde_session_version kde_full_session qt_wayland_reconnect lang lc_all qt_qpa_platform default_qt_platform default_wayland_display
+    dbus="$(env_value DBUS_SESSION_BUS_ADDRESS "$env_file")"
+    xdg="$(env_value XDG_RUNTIME_DIR "$env_file")"
+    wayland="$(env_value WAYLAND_DISPLAY "$env_file")"
+    display="$(env_value DISPLAY "$env_file")"
+    xauthority="$(env_value XAUTHORITY "$env_file")"
+    if [ -z "${xauthority:-}" ] && [ -d "/run/user/$uid" ]; then
+        xauthority="$(find "/run/user/$uid" -maxdepth 1 -name 'xauth_*' -print -quit 2>/dev/null || true)"
+    fi
+    desktop="$(env_value XDG_CURRENT_DESKTOP "$env_file")"
+    session_desktop="$(env_value XDG_SESSION_DESKTOP "$env_file")"
+    session_type="$(env_value XDG_SESSION_TYPE "$env_file")"
+    kde_session_version="$(env_value KDE_SESSION_VERSION "$env_file")"
+    kde_full_session="$(env_value KDE_FULL_SESSION "$env_file")"
+    qt_wayland_reconnect="$(env_value QT_WAYLAND_RECONNECT "$env_file")"
+    lang="$(env_value LANG "$env_file")"
+    lc_all="$(env_value LC_ALL "$env_file")"
+    qt_qpa_platform="$(env_value QT_QPA_PLATFORM "$env_file")"
+    default_qt_platform="wayland"
+    default_wayland_display="wayland-0"
+    if [ "${session_type:-}" = "x11" ]; then
+        default_qt_platform="xcb"
+        default_wayland_display=""
+    fi
+
+    runuser -u "$user" -- env \
+        DBUS_SESSION_BUS_ADDRESS="$dbus" \
+        XDG_RUNTIME_DIR="$xdg" \
+        WAYLAND_DISPLAY="${wayland:-$default_wayland_display}" \
+        DISPLAY="${display:-:0}" \
+        XAUTHORITY="${xauthority:-}" \
+        XDG_CURRENT_DESKTOP="${desktop:-KDE}" \
+        XDG_SESSION_DESKTOP="${session_desktop:-KDE}" \
+        XDG_SESSION_TYPE="${session_type:-wayland}" \
+        KDE_SESSION_VERSION="${kde_session_version:-6}" \
+        KDE_FULL_SESSION="${kde_full_session:-true}" \
+        QT_WAYLAND_RECONNECT="${qt_wayland_reconnect:-1}" \
+        QT_QPA_PLATFORM="${qt_qpa_platform:-$default_qt_platform}" \
+        LANG="${lang:-C.UTF-8}" \
+        LC_ALL="${lc_all:-C.UTF-8}" \
+        "$@"
+}
+
+set_x11_mode() {
+    local env_file="$1"
+    [ "$(env_value XDG_SESSION_TYPE "$env_file")" = "x11" ] || return 0
+
+    run_in_session "$env_file" bash -lc '
+        command -v xrandr >/dev/null 2>&1 || exit 0
+        for _ in $(seq 1 15); do
+            output="$(xrandr | awk "/ connected/{print \$1; exit}")"
+            if [ -n "$output" ] && xrandr --output "$output" --auto --mode 1920x1080 >/dev/null 2>&1; then
+                exit 0
+            fi
+            sleep 2
+        done
+    ' || true
+}
+
+start_kwin_if_missing() {
+    local env_file="$1"
+
+    has_kwin && return 0
+    [ "$(env_value XDG_SESSION_TYPE "$env_file")" = "x11" ] || return 0
+    command -v kwin_x11 >/dev/null 2>&1 || return 0
+
+    echo "starting kwin_x11 on Plasma session bus"
+    run_in_session "$env_file" setsid -f kwin_x11 --replace >/tmp/posthogos-kwin-x11.log 2>&1 || true
+}
+
+{
+    echo "posthogos-live-session-rescue starting"
+    write_hidden_cachyos_hello
+
+    env_file="$(mktemp /tmp/posthogos-session-env.XXXXXX)"
+    trap 'rm -f "$env_file" "$env_file.tmp"' EXIT
+
+    for _ in $(seq 1 60); do
+        if capture_kwin_env "$env_file"; then
+            break
+        fi
+        sleep 1
+    done
+
+    if [ ! -s "$env_file" ]; then
+        echo "no KWin env found yet, looking for a Plasma session env"
+        for _ in $(seq 1 30); do
+            if capture_session_env "$env_file"; then
+                break
+            fi
+            sleep 1
+        done
+    fi
+
+    if [ ! -s "$env_file" ]; then
+        echo "no graphical session env found"
+        exit 0
+    fi
+
+    set_x11_mode "$env_file"
+    start_kwin_if_missing "$env_file"
+
+    for _ in $(seq 1 30); do
+        if capture_kwin_env "$env_file"; then
+            break
+        fi
+        sleep 1
+    done
+
+    set_x11_mode "$env_file"
+    pkill -u "$uid" -f cachyos-hello >/dev/null 2>&1 || true
+
+    sleep 5
+
+    if ! pgrep -u "$uid" -x plasmashell >/dev/null 2>&1; then
+        echo "starting plasmashell on Plasma session bus"
+        run_in_session "$env_file" setsid -f plasmashell --no-respawn >/tmp/posthogos-plasmashell.log 2>&1 || true
+    fi
+
+    for _ in $(seq 1 30); do
+        pgrep -u "$uid" -x plasmashell >/dev/null 2>&1 && break
+        sleep 1
+    done
+
+    set_x11_mode "$env_file"
+    pkill -u "$uid" -f cachyos-hello >/dev/null 2>&1 || true
+
+    if [ -x /usr/local/bin/posthogos-live-setup ]; then
+        echo "running posthogos-live-setup on Plasma session bus"
+        run_in_session "$env_file" timeout 120 /usr/local/bin/posthogos-live-setup >/tmp/posthogos-live-setup-rescue.log 2>&1 || true
+    fi
+
+    set_x11_mode "$env_file"
+    pkill -u "$uid" -f cachyos-hello >/dev/null 2>&1 || true
+    echo "posthogos-live-session-rescue done"
+} >> "$log" 2>&1

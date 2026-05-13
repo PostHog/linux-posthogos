@@ -1,0 +1,7 @@
+{
+  "name": "posthogos-welcome",
+  "version": "1.0.0",
+  "description": "PostHogOS themed welcome launcher",
+  "main": "main.js",
+  "private": true
+}

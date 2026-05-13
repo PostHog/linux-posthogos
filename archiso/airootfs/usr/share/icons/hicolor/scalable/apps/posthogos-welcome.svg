@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect x="12" y="14" width="104" height="92" rx="7" fill="#fdfdf8" stroke="#37352f" stroke-width="5"/>
+  <rect x="12" y="14" width="104" height="22" rx="7" fill="#e4e1d5"/>
+  <circle cx="27" cy="25" r="4" fill="#f54e00"/>
+  <circle cx="41" cy="25" r="4" fill="#f7a501"/>
+  <circle cx="55" cy="25" r="4" fill="#29dbbb"/>
+  <text x="64" y="58" font-family="IBM Plex Sans, Noto Sans, Arial, sans-serif" font-size="15" font-weight="800" text-anchor="middle" fill="#151515">home.mdx</text>
+  <rect x="29" y="70" width="70" height="18" rx="4" fill="#e59f2a" stroke="#9b650f" stroke-width="3"/>
+  <path d="M36 97h56" stroke="#2b6ff4" stroke-width="7" stroke-linecap="round"/>
+</svg>

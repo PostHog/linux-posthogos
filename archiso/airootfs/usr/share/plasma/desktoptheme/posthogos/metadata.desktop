@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=PostHogOS
+Comment=PostHogOS Plasma desktop theme
+X-KDE-PluginInfo-Name=posthogos
+X-KDE-PluginInfo-Author=PostHog
+X-KDE-PluginInfo-Email=hey@posthog.com
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-Website=https://posthog.com
+X-KDE-PluginInfo-License=CC-BY-SA-4.0
+X-KDE-PluginInfo-EnabledByDefault=true

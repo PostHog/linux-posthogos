@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Cursor with PostHog
+Comment=Open the baked PostHog checkout in Cursor
+Exec=cursor /opt/posthogos/code/posthog
+Icon=posthogos-cursor
+Terminal=false
+Categories=Development;IDE;

@@ -1,0 +1,11 @@
+[Unit]
+Description=PostHogOS live Plasma session rescue
+After=display-manager.service plasmalogin.service systemd-user-sessions.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/posthogos-live-session-rescue
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

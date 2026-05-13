@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=PostHogOS live setup
+Exec=/usr/local/bin/posthogos-live-setup
+Icon=posthogos
+Terminal=false
+X-GNOME-Autostart-enabled=true

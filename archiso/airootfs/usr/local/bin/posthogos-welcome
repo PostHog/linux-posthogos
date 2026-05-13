@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="/opt/posthogos/code/posthog"
+
+open_terminal() {
+    if command -v konsole >/dev/null 2>&1; then
+        exec konsole --workdir "$repo_dir" -e bash -lc "$1; exec bash"
+    fi
+
+    exec xterm -e "cd '$repo_dir' && $1; exec bash"
+}
+
+open_url() {
+    if command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$1" >/dev/null 2>&1 &
+    fi
+}
+
+handle_choice() {
+    local choice="$1"
+
+    case "$choice" in
+    welcome)
+        exec /usr/local/bin/posthogos-welcome
+        ;;
+    install)
+        open_terminal "sudo /usr/local/bin/calamares-online.sh"
+        ;;
+    code)
+        exec dolphin "$repo_dir"
+        ;;
+    cursor)
+        exec cursor "$repo_dir"
+        ;;
+    terminal)
+        open_terminal "pwd"
+        ;;
+    claude-code)
+        open_terminal "claude"
+        ;;
+    codex-cli)
+        open_terminal "codex"
+        ;;
+    claude-desktop)
+        exec claude-desktop
+        ;;
+    codex-desktop)
+        if command -v codex-desktop >/dev/null 2>&1; then
+            exec codex-desktop
+        fi
+        open_terminal "codex"
+        ;;
+    github)
+        exec github-desktop
+        ;;
+    docker)
+        sudo systemctl start docker.service >/dev/null 2>&1 || true
+        exec docker-desktop
+        ;;
+    docs)
+        open_url "https://posthog.com/docs"
+        ;;
+    esac
+}
+
+if [ "${1:-}" = "--action" ]; then
+    handle_choice "${2:-welcome}"
+    exit 0
+fi
+
+run_qml_welcome() {
+    local output status choice
+
+    set +e
+    output="$(qml6 /usr/share/posthogos/welcome/welcome.qml 2>&1)"
+    status=$?
+    set -e
+
+    choice="$(printf '%s\n' "$output" | sed -n 's/.*POSTHOGOS_ACTION://p' | tail -n 1)"
+    if [ -n "$choice" ]; then
+        handle_choice "$choice"
+        exit 0
+    fi
+
+    if [ "$status" -eq 0 ]; then
+        exit 0
+    fi
+
+    printf '%s\n' "$output" >&2
+}
+
+if command -v qml6 >/dev/null 2>&1 && [ -f /usr/share/posthogos/welcome/welcome.qml ]; then
+    run_qml_welcome
+fi
+
+if ! command -v kdialog >/dev/null 2>&1; then
+    open_terminal "printf 'PostHogOS\\n\\nPostHog repo: $repo_dir\\n'; bash"
+fi
+
+choice="$(kdialog --title "PostHogOS" --icon posthogos --menu "PostHogOS is ready. Pick what you want to open." \
+    install "Install PostHogOS" \
+    code "Open PostHog code" \
+    cursor "Open PostHog in Cursor" \
+    terminal "Open terminal in PostHog repo" \
+    claude-code "Claude Code in PostHog repo" \
+    codex-cli "Codex CLI in PostHog repo" \
+    claude-desktop "Claude Desktop" \
+    codex-desktop "Codex desktop launcher" \
+    github "GitHub Desktop" \
+    docker "Docker Desktop" \
+    docs "PostHog docs" 2>/dev/null || true)"
+
+handle_choice "$choice"

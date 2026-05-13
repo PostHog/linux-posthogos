@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="/opt/posthogos/code/posthog"
+
+if command -v codex-desktop >/dev/null 2>&1; then
+    exec codex-desktop
+fi
+
+if command -v konsole >/dev/null 2>&1; then
+    exec konsole --workdir "$repo_dir" -e codex
+fi
+
+exec codex

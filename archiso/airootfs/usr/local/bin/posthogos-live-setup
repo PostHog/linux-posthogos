@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+done_file="${XDG_CACHE_HOME:-$HOME/.cache}/posthogos-live-setup.done"
+mkdir -p "$(dirname "$done_file")"
+
+wallpaper="/usr/share/wallpapers/PostHogOS/contents/images/3840x2160.png"
+repo_dir="/opt/posthogos/code/posthog"
+desktop_dir="$(xdg-user-dir DESKTOP 2>/dev/null || printf '%s/Desktop' "$HOME")"
+
+mkdir -p "$HOME/code" "$desktop_dir"
+
+qdbus_call() {
+    if command -v qdbus6 >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+        timeout 5 qdbus6 "$@" >/dev/null 2>&1 || true
+    elif command -v qdbus6 >/dev/null 2>&1; then
+        qdbus6 "$@" >/dev/null 2>&1 || true
+    fi
+}
+
+if command -v posthogos-ensure-plasmashell >/dev/null 2>&1; then
+    posthogos-ensure-plasmashell || true
+fi
+
+if command -v sudo >/dev/null 2>&1 && [ -f /usr/share/applications/org.kde.dolphin.desktop ]; then
+    sudo sed -i 's/^Icon=.*/Icon=folder/' /usr/share/applications/org.kde.dolphin.desktop >/dev/null 2>&1 || true
+fi
+
+if [ -d "$repo_dir/.git" ] && [ ! -e "$HOME/code/posthog" ] && command -v git >/dev/null 2>&1; then
+    git config --global --add safe.directory "$repo_dir" >/dev/null 2>&1 || true
+    git clone --shared "$repo_dir" "$HOME/code/posthog" >/dev/null 2>&1 || ln -s "$repo_dir" "$HOME/code/posthog"
+elif [ -d "$repo_dir" ] && [ ! -e "$HOME/code/posthog" ]; then
+    ln -s "$repo_dir" "$HOME/code/posthog"
+fi
+
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
+fi
+
+if command -v kwriteconfig6 >/dev/null 2>&1; then
+    kwriteconfig6 --file kdeglobals --group General --key ColorScheme PostHogOS || true
+    kwriteconfig6 --file kdeglobals --group General --key Name PostHogOS || true
+    kwriteconfig6 --file kdeglobals --group General --key AccentColor "245,78,0" || true
+    kwriteconfig6 --file kdeglobals --group General --key font "IBM Plex Sans,10,-1,5,50,0,0,0,0,0" || true
+    kwriteconfig6 --file kdeglobals --group General --key fixed "IBM Plex Mono,10,-1,5,50,0,0,0,0,0" || true
+    kwriteconfig6 --file kdeglobals --group Icons --key Theme posthogos || true
+    kwriteconfig6 --file kdeglobals --group KDE --key LookAndFeelPackage org.kde.breeze.desktop || true
+    kwriteconfig6 --file plasmarc --group Theme --key name posthogos || true
+    kwriteconfig6 --file plasmashellrc --group PlasmaViews --group "Panel 2" --group Defaults --key floating 0 || true
+    kwriteconfig6 --file plasmashellrc --group PlasmaViews --group "Panel 2" --group Defaults --key thickness 48 || true
+    kwriteconfig6 --file plasmashellrc --group PlasmaViews --group "Panel 2" --key floating 0 || true
+    kwriteconfig6 --file plasmashellrc --group PlasmaViews --group "Panel 2" --key panelLengthMode 0 || true
+    kwriteconfig6 --file plasmashellrc --group PlasmaViews --group "Panel 2" --group Horizontal1280 --key floating 0 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --key location 3 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group General --key alignment 132 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group General --key floating 0 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group General --key height 48 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group General --key lengthMode 0 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group General --key offset 0 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group General --key panelVisibility 0 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group General --key thickness 48 || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group Applets --group 3 --key plugin org.posthogos.launcher || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group Applets --group 3 --group Configuration --group General --key icon posthogos || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group Applets --group 3 --group Configuration --group General --key favorites "applications:posthogos-welcome.desktop,applications:posthogos-posthog-code.desktop,applications:posthogos-cursor.desktop,applications:posthogos-claude-code.desktop,applications:posthogos-codex-cli.desktop,applications:posthogos-github-desktop.desktop,applications:posthogos-docker-desktop.desktop,applications:posthogos-file-explorer.desktop" || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group Applets --group 4 --group Configuration --group General --key launchers "applications:posthogos-welcome.desktop,applications:posthogos-posthog-code.desktop,applications:posthogos-cursor.desktop,applications:posthogos-claude-code.desktop,applications:posthogos-codex-cli.desktop,applications:posthogos-github-desktop.desktop,applications:posthogos-docker-desktop.desktop,applications:posthogos-file-explorer.desktop" || true
+    kwriteconfig6 --file plasma-org.kde.plasma.desktop-appletsrc --group Containments --group 2 --group Applets --group 7 --key plugin org.posthogos.clock || true
+fi
+
+if command -v qdbus6 >/dev/null 2>&1; then
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        timeout 2 qdbus6 org.kde.plasmashell /PlasmaShell org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 && break
+        sleep 1
+    done
+fi
+
+if [ -f "$wallpaper" ] && command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
+    timeout 10 plasma-apply-wallpaperimage "$wallpaper" >/dev/null 2>&1 || true
+fi
+
+if command -v qdbus6 >/dev/null 2>&1; then
+    plasma_script=$(cat <<EOF
+        var image = "file://${wallpaper}";
+        for (const desktop of desktops()) {
+            desktop.wallpaperPlugin = "org.kde.image";
+            desktop.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
+            desktop.writeConfig("Image", image);
+            desktop.writeConfig("PreviewImage", image);
+        }
+
+        for (const panel of panels()) {
+            panel.location = "top";
+            panel.height = 48;
+            panel.hiding = "none";
+            panel.alignment = "left";
+            panel.lengthMode = "fill";
+            panel.floating = false;
+            panel.offset = 0;
+        }
+EOF
+    )
+    qdbus_call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$plasma_script"
+fi
+
+pkill -f cachyos-hello >/dev/null 2>&1 || true
+
+# Keep the first desktop impression close to the PostHog website OS mockup.
+# Launchers remain available through the application menu and PostHogOS welcome.
+
+if command -v sudo >/dev/null 2>&1 && command -v usermod >/dev/null 2>&1; then
+    sudo usermod -aG docker "$USER" >/dev/null 2>&1 || true
+fi
+
+touch "$done_file"

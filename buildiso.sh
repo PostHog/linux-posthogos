@@ -15,8 +15,8 @@ src_dir=$(pwd)
 import ${src_dir}/util.sh
 
 # setting of the general parameters
-work_dir="${src_dir}/build"
-outFolder="${src_dir}/out"
+work_dir="${POSTHOGOS_WORK_DIR:-${src_dir}/build}"
+outFolder="${POSTHOGOS_OUT_DIR:-${src_dir}/out}"
 
 build_list_iso="desktop"
 clean_first=true

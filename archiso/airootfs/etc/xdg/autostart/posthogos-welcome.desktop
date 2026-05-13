@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PostHogOS welcome
+Exec=/usr/local/bin/posthogos-welcome --first-run
+Icon=posthogos-welcome
+Terminal=false
+Hidden=true
+X-KDE-autostart-after=panel

@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+src="/usr/share/posthogos/branding/etc/skel/.config"
+dst="/etc/skel/.config"
+
+for config in kdeglobals plasma-org.kde.plasma.desktop-appletsrc plasmarc plasmashellrc; do
+  [ -f "$src/$config" ] && install -Dm0644 "$src/$config" "$dst/$config"
+done
+
+if [ -f /usr/share/applications/org.kde.dolphin.desktop ]; then
+  sed -i 's/^Icon=.*/Icon=folder/' /usr/share/applications/org.kde.dolphin.desktop
+fi
+
+for icon in org.kde.dolphin system-file-manager file-manager; do
+  if [ -f /usr/share/icons/posthogos/scalable/places/folder.svg ]; then
+    install -Dm0644 /usr/share/icons/posthogos/scalable/places/folder.svg "/usr/share/icons/hicolor/scalable/apps/${icon}.svg"
+  fi
+done
+
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
+fi
+
+install -Dm0644 /dev/stdin /etc/xdg/autostart/cachyos-hello.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=CachyOS Hello
+Hidden=true
+EOF
+
+install -Dm0644 /dev/stdin /etc/skel/.config/autostart/cachyos-hello.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=CachyOS Hello
+Hidden=true
+EOF

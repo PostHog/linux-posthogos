@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-iso_name="cachyos"
-iso_label="COS_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
-iso_publisher="CachyOS <https://cachyos.org>"
-iso_application="CachyOS Live/Rescue DVD"
+iso_name="posthogos"
+iso_label="PHOS_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
+iso_publisher="PostHogOS <https://posthog.com>"
+iso_application="PostHogOS CachyOS-based developer image"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
 install_dir="arch"
 buildmodes=('iso')
@@ -34,4 +34,9 @@ file_permissions=(
   ["/usr/local/bin/prepare-live-desktop.sh"]="0:0:755"
   ["/usr/local/bin/nvidia-module-loader"]="0:0:755"
   ["/usr/local/bin/pkexec-wrapper"]="0:0:755"
+  ["/usr/local/bin/posthogos-codex-desktop"]="0:0:755"
+  ["/usr/local/bin/posthogos-ensure-plasmashell"]="0:0:755"
+  ["/usr/local/bin/posthogos-live-session-rescue"]="0:0:755"
+  ["/usr/local/bin/posthogos-live-setup"]="0:0:755"
+  ["/usr/local/bin/posthogos-welcome"]="0:0:755"
 )

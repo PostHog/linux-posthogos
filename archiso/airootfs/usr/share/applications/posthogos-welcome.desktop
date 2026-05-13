@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=PostHogOS welcome
+Comment=Open the PostHogOS native launcher
+Exec=/usr/local/bin/posthogos-welcome
+Icon=posthogos-welcome
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true
+StartupWMClass=qml6

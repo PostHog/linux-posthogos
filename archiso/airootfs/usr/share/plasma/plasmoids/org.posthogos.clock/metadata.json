@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "PostHogOS"
+            }
+        ],
+        "Category": "Date and Time",
+        "Description": "PostHogOS panel clock",
+        "Icon": "clock",
+        "Id": "org.posthogos.clock",
+        "License": "GPL-2.0-or-later",
+        "Name": "PostHogOS clock",
+        "Version": "1.0",
+        "Website": "https://posthog.com"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

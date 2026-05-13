@@ -1,0 +1,13 @@
+# remove from airootfs!
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = cachyos-kde-settings
+
+[Action]
+Description = Applying PostHogOS KDE defaults...
+When = PostTransaction
+Depends = sh
+Depends = coreutils
+Exec = /bin/sh /usr/share/posthogos/branding/apply-kde-defaults

@@ -1,0 +1,12 @@
+{
+  "KPlugin": {
+    "Authors": [
+      {
+        "Name": "PostHogOS"
+      }
+    ],
+    "Id": "PostHogOS",
+    "License": "CC-BY-SA-4.0",
+    "Name": "PostHogOS"
+  }
+}

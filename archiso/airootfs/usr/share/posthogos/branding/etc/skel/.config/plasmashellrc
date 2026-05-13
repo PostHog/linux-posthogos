@@ -1,0 +1,14 @@
+[PlasmaViews][Panel 2]
+alignment=1
+floating=0
+panelLengthMode=0
+panelVisibility=0
+
+[PlasmaViews][Panel 2][Defaults]
+floating=0
+offset=0
+thickness=48
+
+[PlasmaViews][Panel 2][Horizontal1280]
+alignment=1
+floating=0

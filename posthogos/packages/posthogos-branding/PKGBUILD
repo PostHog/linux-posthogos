@@ -1,0 +1,80 @@
+# Maintainer: PostHogOS
+pkgname=posthogos-branding
+pkgver=2026.05.11
+pkgrel=2
+pkgdesc="PostHogOS identity, KDE defaults, wallpaper, and launchers"
+arch=('any')
+url="https://posthog.com"
+license=('CC-BY-SA-4.0')
+depends=('dolphin' 'kdialog' 'konsole' 'xdg-utils')
+optdepends=(
+  'electron: themed PostHogOS welcome launcher'
+  'cursor-bin: Cursor launcher'
+  'docker-desktop: Docker Desktop launcher'
+  'github-desktop-bin: GitHub Desktop launcher'
+  'claude-desktop-bin: Claude Desktop launcher'
+  'posthogos-ai-clis: Claude Code and Codex CLI launchers'
+)
+install=posthogos-branding.install
+options=('!strip' '!debug')
+
+package() {
+  local repo_root
+  repo_root="$(realpath "$startdir/../../..")"
+  local rootfs="$repo_root/archiso/airootfs"
+
+  local paths=(
+    "etc/cachyos-release"
+    "etc/hostname"
+    "etc/os-release"
+    "etc/skel/.config/autostart/posthogos-live-setup.desktop"
+    "etc/skel/.config/ksplashrc"
+    "etc/skel/.config/plasmarc"
+    "etc/skel/.config/powermanagementprofilesrc"
+    "etc/systemd/system/posthogos-live-session-rescue.service"
+    "etc/xdg/autostart/posthogos-welcome.desktop"
+    "usr/local/bin/posthogos-codex-desktop"
+    "usr/local/bin/posthogos-ensure-plasmashell"
+    "usr/local/bin/posthogos-live-session-rescue"
+    "usr/local/bin/posthogos-live-setup"
+    "usr/local/bin/posthogos-welcome"
+    "usr/share/color-schemes/PostHogOS.colors"
+    "usr/share/plasma/desktoptheme/posthogos"
+    "usr/share/posthogos/branding"
+    "usr/share/posthogos/welcome"
+    "usr/share/applications/posthogos-claude-code.desktop"
+    "usr/share/applications/posthogos-claude-desktop.desktop"
+    "usr/share/applications/posthogos-codex-cli.desktop"
+    "usr/share/applications/posthogos-codex-desktop.desktop"
+    "usr/share/applications/posthogos-cursor.desktop"
+    "usr/share/applications/posthogos-docker-desktop.desktop"
+    "usr/share/applications/posthogos-github-desktop.desktop"
+    "usr/share/applications/posthogos-posthog-code.desktop"
+    "usr/share/applications/posthogos-welcome.desktop"
+    "usr/share/icons/posthogos"
+    "usr/share/icons/hicolor/scalable/apps"
+    "usr/share/pixmaps/posthogos.svg"
+    "usr/share/wallpapers/PostHogOS"
+  )
+
+  for path in "${paths[@]}"; do
+    if [ -d "$rootfs/$path" ]; then
+      mkdir -p "$pkgdir/$path"
+      cp -a "$rootfs/$path/." "$pkgdir/$path/"
+    else
+      install -Dm0644 "$rootfs/$path" "$pkgdir/$path"
+    fi
+  done
+
+  for config in kdeglobals plasma-org.kde.plasma.desktop-appletsrc plasmashellrc; do
+    install -Dm0644 \
+      "$rootfs/usr/share/posthogos/branding/etc/skel/.config/$config" \
+      "$pkgdir/etc/skel/.config/$config"
+  done
+
+  chmod 0755 "$pkgdir/usr/local/bin/posthogos-codex-desktop"
+  chmod 0755 "$pkgdir/usr/local/bin/posthogos-ensure-plasmashell"
+  chmod 0755 "$pkgdir/usr/local/bin/posthogos-live-session-rescue"
+  chmod 0755 "$pkgdir/usr/local/bin/posthogos-live-setup"
+  chmod 0755 "$pkgdir/usr/local/bin/posthogos-welcome"
+}

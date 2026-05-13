@@ -1,0 +1,21 @@
+# Maintainer: PostHogOS
+pkgname=posthogos-posthog-code
+pkgver=2026.05.11
+pkgrel=1
+pkgdesc="A preloaded PostHog source checkout for PostHogOS"
+arch=('any')
+url="https://github.com/PostHog/posthog"
+license=('MIT')
+depends=('git' 'git-lfs')
+options=('!strip' '!debug')
+
+package() {
+  local target="$pkgdir/opt/posthogos/code/posthog"
+
+  install -d "$pkgdir/opt/posthogos/code"
+  git clone --filter=blob:none --depth=1 https://github.com/PostHog/posthog.git "$target"
+  git -C "$target" lfs install --local >/dev/null 2>&1 || true
+
+  install -d "$pkgdir/etc/skel/code"
+  ln -s /opt/posthogos/code/posthog "$pkgdir/etc/skel/code/posthog-reference"
+}

@@ -3,6 +3,12 @@ icon=battery-charging
 
 [AC][DimDisplay]
 idleTime=300000
+performAction=false
+
+[AC][DPMSControl]
+idleTime=0
+lockBeforeTurnOff=0
+performAction=false
 
 [AC][HandleButtonEvents]
 lidAction=1
@@ -32,9 +38,11 @@ icon=battery-060
 [Battery][DPMSControl]
 idleTime=300
 lockBeforeTurnOff=0
+performAction=false
 
 [Battery][DimDisplay]
 idleTime=120000
+performAction=false
 
 [Battery][HandleButtonEvents]
 lidAction=1
@@ -55,9 +63,11 @@ value=30
 [LowBattery][DPMSControl]
 idleTime=120
 lockBeforeTurnOff=0
+performAction=false
 
 [LowBattery][DimDisplay]
 idleTime=60000
+performAction=false
 
 [LowBattery][HandleButtonEvents]
 lidAction=1

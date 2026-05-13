@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Docker Desktop
+Comment=Open Docker Desktop
+Exec=docker-desktop
+Icon=posthogos-docker
+Terminal=false
+Categories=Development;

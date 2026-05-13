@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
+  <defs>
+    <style>
+      .bar { fill: #e4e3d8; }
+      .edge { fill: #bfc1b7; }
+      .none { fill: none; }
+    </style>
+  </defs>
+  <rect id="hint-stretch-borders" class="none" x="0" y="0" width="1" height="1"/>
+  <rect id="hint-no-border-padding" class="none" x="1" y="0" width="1" height="1"/>
+  <rect id="center" class="bar" x="1" y="1" width="32" height="32"/>
+  <rect id="top" class="bar" x="1" y="0" width="32" height="1"/>
+  <rect id="bottom" class="edge" x="1" y="33" width="32" height="1"/>
+  <rect id="left" class="bar" x="0" y="1" width="1" height="32"/>
+  <rect id="right" class="bar" x="33" y="1" width="1" height="32"/>
+  <rect id="topleft" class="bar" x="0" y="0" width="1" height="1"/>
+  <rect id="topright" class="bar" x="33" y="0" width="1" height="1"/>
+  <rect id="bottomleft" class="edge" x="0" y="33" width="1" height="1"/>
+  <rect id="bottomright" class="edge" x="33" y="33" width="1" height="1"/>
+  <rect id="north-center" class="bar" x="1" y="1" width="32" height="32"/>
+  <rect id="north-top" class="bar" x="1" y="0" width="32" height="1"/>
+  <rect id="north-bottom" class="edge" x="1" y="33" width="32" height="1"/>
+  <rect id="north-left" class="bar" x="0" y="1" width="1" height="32"/>
+  <rect id="north-right" class="bar" x="33" y="1" width="1" height="32"/>
+  <rect id="north-topleft" class="bar" x="0" y="0" width="1" height="1"/>
+  <rect id="north-topright" class="bar" x="33" y="0" width="1" height="1"/>
+  <rect id="north-bottomleft" class="edge" x="0" y="33" width="1" height="1"/>
+  <rect id="north-bottomright" class="edge" x="33" y="33" width="1" height="1"/>
+</svg>

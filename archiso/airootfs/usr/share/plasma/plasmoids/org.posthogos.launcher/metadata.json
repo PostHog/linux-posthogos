@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "PostHogOS"
+            }
+        ],
+        "Category": "Application Launchers",
+        "Description": "PostHogOS native launcher",
+        "Icon": "posthogos",
+        "Id": "org.posthogos.launcher",
+        "License": "GPL-2.0-or-later",
+        "Name": "PostHogOS launcher",
+        "Version": "1.0",
+        "Website": "https://posthog.com"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-Provides": [
+        "org.kde.plasma.launchermenu"
+    ]
+}

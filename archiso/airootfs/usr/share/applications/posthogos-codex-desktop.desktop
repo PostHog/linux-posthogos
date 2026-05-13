@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Codex desktop launcher
+Comment=Open Codex Desktop when present, otherwise open Codex CLI
+Exec=/usr/local/bin/posthogos-codex-desktop
+Icon=posthogos-codex
+Terminal=false
+Categories=Development;
