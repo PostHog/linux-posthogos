@@ -1,5 +1,5 @@
 [kdeglobals][General]
-ColorScheme=PosthogosDark
+ColorScheme=PosthogosLight
 font=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
@@ -12,7 +12,7 @@ LookAndFeelPackage=com.posthog.posthogos
 widgetStyle=Breeze
 
 [kdeglobals][Icons]
-Theme=breeze-dark
+Theme=breeze
 
 [kwinrc][org.kde.kdecoration2]
 library=org.kde.breeze

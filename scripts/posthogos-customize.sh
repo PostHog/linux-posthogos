@@ -136,8 +136,8 @@ mkdir -p /etc/skel/.config/gtk-3.0 /etc/skel/.config/gtk-4.0
 
 cat >/etc/skel/.config/kdeglobals <<'EOF'
 [General]
-ColorScheme=PosthogosDark
-Name=PosthogOS Dark
+ColorScheme=PosthogosLight
+Name=PosthogOS Light
 font=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
@@ -150,17 +150,17 @@ widgetStyle=Breeze
 SingleClick=false
 
 [Icons]
-Theme=breeze-dark
+Theme=breeze
 EOF
 
 for v in gtk-3.0 gtk-4.0; do
     cat >"/etc/skel/.config/$v/settings.ini" <<'EOF'
 [Settings]
-gtk-theme-name=Breeze-Dark
-gtk-icon-theme-name=breeze-dark
+gtk-theme-name=Breeze
+gtk-icon-theme-name=breeze
 gtk-font-name=Inter 11
 gtk-cursor-theme-name=breeze_cursors
-gtk-application-prefer-dark-theme=true
+gtk-application-prefer-dark-theme=false
 EOF
 done
 
