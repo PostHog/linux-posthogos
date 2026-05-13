@@ -91,6 +91,14 @@ cache_hit=0
 if [ "${SKIP_AIRFS_CACHE:-0}" != "1" ] && [ -f "$airfs_cache" ]; then
     echo "==> Airootfs cache hit: $airfs_hash ($(du -h "$airfs_cache" | cut -f1))"
     mkdir -p "$build_dir/build/x86_64"
+    # Same pipefail dance as the SNAPSHOT path below (see comments there for
+    # the full story). tar emits non-zero exit codes for xattr replay
+    # warnings on extract — we filter those from stderr but the rc poisons
+    # the pipeline. Disable pipefail + treat tar's rc as advisory. The
+    # extracted airootfs is structurally valid even when tar grumbles
+    # about xattrs it couldn't restore (which the live ISO doesn't use
+    # anyway — security.capability on the few zfs services etc.).
+    set +o pipefail
     zstd -dc --long=31 "$airfs_cache" \
         | tar -x --numeric-owner --xattrs -C "$build_dir/build/x86_64/" \
             2> >(grep -vE \
@@ -98,7 +106,9 @@ if [ "${SKIP_AIRFS_CACHE:-0}" != "1" ] && [ -f "$airfs_cache" ]; then
                  -e "Cannot lsetxattr" \
                  -e "Permission denied" \
                  -e "Too many levels of symbolic links" \
-                 -e "Operation not permitted" >&2)
+                 -e "Operation not permitted" >&2) \
+        || true
+    set -o pipefail
     # Tell mkarchiso pacstrap is done. Customize/squashfs/iso markers are
     # NOT set, so those phases still run → latest customize takes effect.
     touch "$build_dir/build/build.make_pacstrap"
