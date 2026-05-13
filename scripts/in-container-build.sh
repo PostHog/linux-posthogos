@@ -156,8 +156,18 @@ rm -f "$cache_dir"/*.tmp 2>/dev/null || true
 if [ "$cache_hit" = "0" ] && [ -d "$build_dir/build/x86_64/airootfs" ]; then
     echo "==> Snapshotting airootfs → $airfs_cache"
 
-    # `|| true` keeps `set -e` from killing us when the pipeline returns
-    # non-zero (it will, thanks to tar warnings + pipefail).
+    # Disable pipefail for THIS pipeline only — tar may exit non-zero from
+    # the xattrs warnings we already filter from stderr, but the archive
+    # itself is fine. With pipefail off, the pipeline's exit code is just
+    # zstd's (the rightmost command), which is what we actually care about:
+    # a complete .tmp file. Then the `&& mv || warn` chain branches on
+    # that single exit code and the whole expression always exits 0, so
+    # set -e doesn't kill us either.
+    #
+    # Previous attempt used `|| true` after the pipeline + PIPESTATUS[]
+    # checks, but `|| true` resets PIPESTATUS to the array for `true`
+    # alone — so PIPESTATUS[1] became unbound and set -u exploded.
+    set +o pipefail
     {
         tar -C "$build_dir/build/x86_64" -cf - --numeric-owner --xattrs airootfs \
             2> >(grep -vE \
@@ -165,17 +175,11 @@ if [ "$cache_hit" = "0" ] && [ -d "$build_dir/build/x86_64/airootfs" ]; then
                  -e "dbus-daemon-launch-helper.*Permission denied" \
                  -e "Too many levels of symbolic links" \
                  -e "Operation not permitted" >&2)
-    } | zstd -3 -T0 --long=31 -o "$airfs_cache.tmp" || true
-    tar_rc="${PIPESTATUS[0]}"
-    zstd_rc="${PIPESTATUS[1]}"
-
-    if [ "$zstd_rc" = "0" ] && [ -s "$airfs_cache.tmp" ]; then
-        mv "$airfs_cache.tmp" "$airfs_cache"
-        echo "    saved $(du -h "$airfs_cache" | cut -f1) (tar rc=$tar_rc, zstd rc=$zstd_rc)"
-    else
-        echo "    WARN: snapshot failed (tar rc=$tar_rc, zstd rc=$zstd_rc) — keeping prior cache"
-        rm -f "$airfs_cache.tmp"
-    fi
+    } | zstd -3 -T0 --long=31 -o "$airfs_cache.tmp" \
+        && mv "$airfs_cache.tmp" "$airfs_cache" \
+        && echo "    saved $(du -h "$airfs_cache" | cut -f1)" \
+        || { echo "    WARN: snapshot failed — keeping prior cache"; rm -f "$airfs_cache.tmp"; }
+    set -o pipefail
 fi
 
 echo "==> Copying ISO to out/"
