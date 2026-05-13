@@ -136,12 +136,28 @@ fi
 #
 # tar emits a lot of `Cannot llistxattr` warnings on dangling symlinks,
 # circular icon-theme symlinks, the dbus-daemon-launch-helper placeholder,
-# and zfs services with caps the bind-mount can't represent. All
-# harmless — the archive itself is valid. Filter the known-harmless
-# patterns out of stderr to keep the log readable; real failures (exit
-# code) still propagate.
+# and zfs services with caps the bind-mount can't represent. All harmless —
+# the archive itself is valid. We filter the known-harmless patterns from
+# stderr for log readability, but tar's EXIT CODE is still non-zero (it
+# treats some xattr probe failures as warnings worth flagging).
+#
+# Combined with `set -o pipefail` at the top of this script, a non-zero
+# tar exit poisons the whole pipeline → the `&& mv` chain short-circuits,
+# the .tmp file is left orphaned, and the cache file (without .tmp) never
+# materializes. Next build sees no cache → full pacstrap → 10-min penalty.
+# Was silently losing the cache on EVERY build.
+#
+# Fix: check zstd's exit code explicitly via PIPESTATUS, tolerating tar's
+# rc (warnings already filtered above; a real tar failure would also break
+# zstd's input, which we DO check). Also drop any stale .tmp files from
+# previous interrupted/buggy runs so they don't accumulate forever.
+rm -f "$cache_dir"/*.tmp 2>/dev/null || true
+
 if [ "$cache_hit" = "0" ] && [ -d "$build_dir/build/x86_64/airootfs" ]; then
     echo "==> Snapshotting airootfs → $airfs_cache"
+
+    # `|| true` keeps `set -e` from killing us when the pipeline returns
+    # non-zero (it will, thanks to tar warnings + pipefail).
     {
         tar -C "$build_dir/build/x86_64" -cf - --numeric-owner --xattrs airootfs \
             2> >(grep -vE \
@@ -149,10 +165,17 @@ if [ "$cache_hit" = "0" ] && [ -d "$build_dir/build/x86_64/airootfs" ]; then
                  -e "dbus-daemon-launch-helper.*Permission denied" \
                  -e "Too many levels of symbolic links" \
                  -e "Operation not permitted" >&2)
-    } | zstd -3 -T0 --long=31 -o "$airfs_cache.tmp" \
-        && mv "$airfs_cache.tmp" "$airfs_cache" \
-        && echo "    saved $(du -h "$airfs_cache" | cut -f1)" \
-        || echo "    WARN: snapshot failed (build still succeeded)"
+    } | zstd -3 -T0 --long=31 -o "$airfs_cache.tmp" || true
+    tar_rc="${PIPESTATUS[0]}"
+    zstd_rc="${PIPESTATUS[1]}"
+
+    if [ "$zstd_rc" = "0" ] && [ -s "$airfs_cache.tmp" ]; then
+        mv "$airfs_cache.tmp" "$airfs_cache"
+        echo "    saved $(du -h "$airfs_cache" | cut -f1) (tar rc=$tar_rc, zstd rc=$zstd_rc)"
+    else
+        echo "    WARN: snapshot failed (tar rc=$tar_rc, zstd rc=$zstd_rc) — keeping prior cache"
+        rm -f "$airfs_cache.tmp"
+    fi
 fi
 
 echo "==> Copying ISO to out/"
