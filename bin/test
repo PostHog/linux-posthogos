@@ -92,9 +92,6 @@ UTM is launching. First-time setup:
   5. Storage: 30 GB (only needed if you want to run Calamares)
   6. Shared directory: optional
   7. Name it "$vm_name" (so subsequent \`bin/test --utm\` just starts it).
-
-UTM has clipboard sharing, audio, and shared folders out of the box —
-much nicer than bare QEMU for interactive testing.
 EOF
     exit 0
 fi

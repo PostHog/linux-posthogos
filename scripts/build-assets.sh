@@ -97,6 +97,23 @@ for size in 64 128 256 512; do
     "$MAGICK" "$square_src" -filter Lanczos -resize "${size}x${size}" \
         "$dir/posthogos.png"
 done
+# Welcome app icon — Professor Hog. Distinct identity from the system
+# logomark so the Welcome window's title bar / taskbar entry / Kickoff
+# favorite stands out. Padded to square (-extent) since the source image
+# isn't perfectly 1:1 and hicolor expects square apps icons.
+log "Installing welcome app icon (professor hog)"
+hog_src="$src/hedgehogs/professor_hog.png"
+if [ -f "$hog_src" ]; then
+    for size in 64 128 256 512; do
+        dir="$icon_dst/${size}x${size}/apps"
+        mkdir -p "$dir"
+        "$MAGICK" "$hog_src" -filter Lanczos \
+            -resize "${size}x${size}" \
+            -background none -gravity center -extent "${size}x${size}" \
+            "$dir/posthogos-welcome.png"
+    done
+fi
+
 # Scalable fallback — left as the native-aspect logomark SVG. Real apps
 # use the rasterized PNGs above; the scalable dir is a fallback for unusual
 # sizes and is rarely queried.
