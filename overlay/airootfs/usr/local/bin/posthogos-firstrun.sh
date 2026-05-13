@@ -105,21 +105,18 @@ fi
 # break on Plasma upgrades). We patch only specific keys on the applets
 # that match known plugin IDs.
 
-# Detect live-ISO vs installed system. If live, include Calamares in the
-# pinned launchers so users can install with one click.
-is_live=0
-[ -d /run/archiso ] && is_live=1
-
 # Pinned launchers for the taskbar (icontasks). Order matters — left to
 # right. ":" entries are placeholders for the app's .desktop file in
 # /usr/share/applications/. posthog-code.desktop only exists if the
 # AppImage was staged at build time (POSTHOG_CODE_APPIMAGE in bin/build);
 # Plasma silently drops unknown launcher entries, so listing it here is
 # a no-op when absent.
+#
+# Calamares is intentionally NOT pinned to the taskbar — the live ISO's
+# Welcome app (posthogos-welcome) has a prominent "Install to disk" tile
+# that launches it, which is enough surface area without cluttering the
+# bar with an installer that's only relevant for the first few minutes.
 taskbar_launchers="applications:firefox.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:posthogos-welcome.desktop"
-if [ "$is_live" = "1" ]; then
-    taskbar_launchers="$taskbar_launchers,applications:io.calamares.calamares.desktop"
-fi
 
 # Kickoff "Favorites" tab — separator-only different format.
 kickoff_favorites="applications:firefox.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:systemsettings.desktop,applications:posthogos-welcome.desktop"
