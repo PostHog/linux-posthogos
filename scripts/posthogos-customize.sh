@@ -103,6 +103,7 @@ install -d -m 0755 /var/cache/fontconfig
 # silently with "Permission denied".
 if [ -d /usr/local/bin ]; then
     chmod +x /usr/local/bin/posthogos-*.sh 2>/dev/null || true
+    chmod +x /usr/local/bin/papirus-folders 2>/dev/null || true
 fi
 
 # ---- Suppress CachyOS Hello popup ---------------------------------------
@@ -236,31 +237,16 @@ EOF
 # chose not to fight upstream.
 
 # ---- Papirus folder color ------------------------------------------------
-# Recolor Papirus's folder icons (which default to blue) to the warm orange
-# variant. Inline reimplementation of the papirus-folders helper (AUR-only,
-# can't pacstrap it). Papirus ships every folder icon in every color as
-# `folder-<color>-<variant>.svg` plus a non-colored alias symlink
-# `folder-<variant>.svg`. Switching colors = repointing those alias symlinks
-# at the orange siblings.
+# Recolor Papirus's folder icons (default blue → warm orange) using the
+# upstream papirus-folders helper vendored at /usr/local/bin/papirus-folders
+# (overlay/airootfs/usr/local/bin/papirus-folders, pinned to v1.14.0). It's
+# AUR-only as a package so we can't pacstrap it; vendoring the script avoids
+# both the AUR dep and reimplementing the symlink-repoint logic ourselves.
 PAPIRUS_COLOR=orange
-papirus_theme=/usr/share/icons/Papirus-Light
-if [ -d "$papirus_theme" ]; then
-    log "Recoloring Papirus folders → $PAPIRUS_COLOR"
-    swapped=0
-    for places_dir in "$papirus_theme"/*/places "$papirus_theme"/*/devices; do
-        [ -d "$places_dir" ] || continue
-        for colored in "$places_dir"/folder-"$PAPIRUS_COLOR"*.svg; do
-            [ -f "$colored" ] || [ -L "$colored" ] || continue
-            # folder-orange-documents.svg → alias folder-documents.svg
-            # folder-orange.svg          → alias folder.svg
-            base=$(basename "$colored" .svg)
-            alias_name="${base/folder-$PAPIRUS_COLOR/folder}"
-            ln -sfn "$(basename "$colored")" "$places_dir/$alias_name.svg"
-            swapped=$((swapped + 1))
-        done
-    done
-    log "  swapped $swapped folder-icon aliases"
-    gtk-update-icon-cache -q -t -f "$papirus_theme" 2>/dev/null || true
+if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders ]; then
+    log "Recoloring Papirus-Light folders → $PAPIRUS_COLOR (papirus-folders)"
+    /usr/local/bin/papirus-folders -t Papirus-Light -C "$PAPIRUS_COLOR" -v \
+        || log "WARN: papirus-folders failed"
 fi
 
 # ---- Caches --------------------------------------------------------------
