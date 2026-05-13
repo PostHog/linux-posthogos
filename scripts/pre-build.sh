@@ -99,17 +99,21 @@ if [ -f "$pkglist" ]; then
 fi
 
 # --- util-iso.sh post-build fixups ----------------------------------------
-# Upstream's util-iso.sh has three bugs we need to patch:
+# Upstream's util-iso.sh has four issues we need to patch:
 #   1. `sudo chown $USER $outFolder` — $USER unset in container → invalid syntax
 #   2. `mv "$outFolder/$_profile/cachyos-<date>-x86_64.iso" ...` — hardcoded
 #      cachyos- prefix, but mkarchiso writes ${iso_name}-...iso = posthogos-...
 #   3. `gen_iso_fn` adds "cachyos" to renamed filename — should be "posthogos"
+#   4. `gen_iso_fn` appends $(date +%y%m%d) to the filename — we want a stable
+#      "posthogos-desktop-linux.iso" name so each build just overwrites the
+#      previous output instead of accumulating dated copies in out/.
 if [ -f util-iso.sh ]; then
-    log "Patching util-iso.sh (chown, iso filename prefix, gen_iso_fn)"
+    log "Patching util-iso.sh (chown, iso filename prefix, gen_iso_fn, drop date suffix)"
     sed -i.bak \
         -e 's|sudo chown \$USER \$outFolder|true # chown removed by pre-build.sh|' \
         -e 's|/cachyos-\$(date|/posthogos-$(date|' \
         -e 's|vars+=("cachyos")|vars+=("posthogos")|' \
+        -e 's|vars+=("\$(date +%y%m%d)")|# date suffix removed by pre-build.sh|' \
         util-iso.sh
     rm -f util-iso.sh.bak
 fi
