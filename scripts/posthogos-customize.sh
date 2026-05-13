@@ -153,14 +153,14 @@ widgetStyle=Breeze
 SingleClick=false
 
 [Icons]
-Theme=Papirus-Light
+Theme=PosthogOS
 EOF
 
 for v in gtk-3.0 gtk-4.0; do
     cat >"/etc/skel/.config/$v/settings.ini" <<'EOF'
 [Settings]
 gtk-theme-name=Breeze
-gtk-icon-theme-name=Papirus-Light
+gtk-icon-theme-name=PosthogOS
 gtk-font-name=Inter 11
 gtk-cursor-theme-name=breeze_cursors
 gtk-application-prefer-dark-theme=false

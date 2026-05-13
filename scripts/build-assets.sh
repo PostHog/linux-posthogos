@@ -120,6 +120,157 @@ fi
 mkdir -p "$icon_dst/scalable/apps"
 cp "$src/logos/posthog-logomark.svg" "$icon_dst/scalable/apps/posthogos.svg"
 
+# --- PosthogOS icon theme -------------------------------------------------
+# Derivative theme that overrides specific freedesktop icons with PostHog's
+# product illustrations (the chunky pixel-art set from posthog.com — calculator,
+# folder, doc, trash, etc.). Anything not overridden falls through Papirus-Light
+# (declared via Inherits=) so Plasma stays visually coherent across the long
+# tail of icons we don't have art for.
+#
+# Source variant is picked via POSTHOGOS_ICON_VARIANT (default: classic, the
+# Mac OS 9 chiseled look that matches posthog.com's "Product OS" desktop).
+# Override with POSTHOGOS_ICON_VARIANT=modern for the flatter style.
+icon_variant="${POSTHOGOS_ICON_VARIANT:-classic}"
+icon_src="$src/icons/$icon_variant"
+[ -d "$icon_src" ] || { echo "ERROR: icon variant '$icon_variant' not found at $icon_src" >&2; exit 1; }
+
+log "Building PosthogOS icon theme (variant: $icon_variant)"
+icon_theme="$out/airootfs/usr/share/icons/PosthogOS"
+icon_sizes=(32 48 64 128 256)
+icon_contexts=(apps places mimetypes actions categories devices status)
+
+# index.theme: declare the theme + inheritance + every <size>/<context> dir
+# we ship. Plasma reads this to know which dirs to scan and what size to
+# treat each as. Inherits chain falls through to Papirus-Light first, then
+# hicolor as a final safety net.
+mkdir -p "$icon_theme"
+{
+    printf '[Icon Theme]\n'
+    printf 'Name=PosthogOS\n'
+    printf 'Comment=PostHog product icons (%s variant), inheriting from Papirus-Light\n' "$icon_variant"
+    printf 'Inherits=Papirus-Light,hicolor\n'
+    printf 'Example=folder\n'
+    printf 'DisplayDepth=32\n'
+    printf 'Directories='
+    first=1
+    for size in "${icon_sizes[@]}"; do
+        for ctx in "${icon_contexts[@]}"; do
+            [ $first -eq 1 ] && first=0 || printf ','
+            printf '%dx%d/%s' "$size" "$size" "$ctx"
+        done
+    done
+    printf '\n'
+    for size in "${icon_sizes[@]}"; do
+        for ctx in "${icon_contexts[@]}"; do
+            case "$ctx" in
+                apps)       ctx_cap=Applications ;;
+                places)     ctx_cap=Places ;;
+                mimetypes)  ctx_cap=MimeTypes ;;
+                actions)    ctx_cap=Actions ;;
+                categories) ctx_cap=Categories ;;
+                devices)    ctx_cap=Devices ;;
+                status)     ctx_cap=Status ;;
+            esac
+            printf '\n[%dx%d/%s]\nSize=%d\nContext=%s\nType=Threshold\nThreshold=4\n' \
+                "$size" "$size" "$ctx" "$size" "$ctx_cap"
+        done
+    done
+} > "$icon_theme/index.theme"
+
+# Mapping: source-name → freedesktop icon name(s) per context. Each row
+# whitelisted by name maps one PostHog icon to one OR MORE target names
+# (comma-separated) under a specific freedesktop context. This is the
+# "translation layer" between PostHog's product taxonomy and XDG names.
+#
+# After this, ALL source icons also get copied to apps/<source-name>.png
+# unconditionally — so .desktop files can reference them directly via their
+# PostHog name (e.g. Icon=hedgehog-mode) regardless of mapping.
+icon_install() {
+    # $1=src-png $2=context-dir-name $3=target-basename
+    local src_png="$1" ctx="$2" target="$3"
+    for size in "${icon_sizes[@]}"; do
+        local dir="$icon_theme/${size}x${size}/$ctx"
+        mkdir -p "$dir"
+        "$MAGICK" "$src_png" -filter Lanczos -resize "${size}x${size}" \
+            -background none -gravity center -extent "${size}x${size}" \
+            "$dir/$target.png"
+    done
+}
+
+# context  source-name      target-names (comma-separated)
+icon_map=$(cat <<'MAP'
+places     folder           folder,inode-directory,folder-orange,folder-yellow,folder-red,folder-green,folder-blue,folder-teal,folder-violet,folder-magenta,user-home
+places     trash            user-trash,user-trash-full
+mimetypes  doc              text-x-generic,text-x-plain,application-x-generic,text-x-readme
+mimetypes  page             text-html,text-x-markdown
+mimetypes  pdf              application-pdf
+mimetypes  pdf-locked       application-pgp-encrypted
+mimetypes  video            video-x-generic
+mimetypes  spreadsheet      x-office-spreadsheet,application-vnd.oasis.opendocument.spreadsheet
+mimetypes  presentation     x-office-presentation
+mimetypes  report           x-office-document
+mimetypes  sql              application-sql,application-x-sqlite3
+apps       notebook         accessories-text-editor,org.kde.kate,org.kde.kwrite
+apps       contact          contact-new,x-office-address-book,org.kde.kaddressbook
+apps       envelope         mail-message-new,internet-mail,org.kde.kmail2,thunderbird
+apps       forums           internet-chat,network-chat
+apps       games            applications-games
+apps       handbook         accessories-dictionary,help-browser
+apps       compass          applications-internet,internet-web-browser
+apps       map              applications-geography
+apps       bookmark         user-bookmarks,bookmark-new
+apps       canvas           applications-graphics
+apps       hogpaint         gimp,org.kde.krita
+apps       photobooth       camera,camera-photo,org.kde.kamoso
+apps       typewriter       org.kde.kate
+apps       post-it          org.kde.knotes
+apps       switch           system-shutdown,system-log-out
+MAP
+)
+
+while IFS= read -r row; do
+    [ -z "$row" ] && continue
+    # shellcheck disable=SC2086
+    set -- $row
+    ctx="$1"; src_name="$2"; targets="$3"
+    # Try chosen variant first; fall back to the other so we don't lose
+    # coverage on icons that only ship in one style (e.g. `presentation`
+    # and `hogpaint` are modern-only upstream).
+    src_png="$icon_src/$src_name.png"
+    if [ ! -f "$src_png" ]; then
+        alt_variant=$([ "$icon_variant" = "classic" ] && echo modern || echo classic)
+        src_png="$src/icons/$alt_variant/$src_name.png"
+    fi
+    if [ ! -f "$src_png" ]; then
+        echo "  warning: no source for $src_name (tried both variants)" >&2
+        continue
+    fi
+    IFS=',' read -ra target_list <<<"$targets"
+    for target in "${target_list[@]}"; do
+        icon_install "$src_png" "$ctx" "$target"
+    done
+done <<<"$icon_map"
+
+# Pass 2: ship every source PNG as apps/<source-name>.png so .desktop files
+# can reference them directly (Icon=hedgehog-mode, Icon=posthog, etc.) — useful
+# for branded desktop shortcuts down the line. Skip names already produced by
+# the mapping pass to avoid pointless re-encodes.
+for src_png in "$icon_src"/*.png; do
+    name=$(basename "$src_png" .png)
+    for size in "${icon_sizes[@]}"; do
+        dir="$icon_theme/${size}x${size}/apps"
+        out_png="$dir/$name.png"
+        if [ ! -f "$out_png" ]; then
+            mkdir -p "$dir"
+            "$MAGICK" "$src_png" -filter Lanczos -resize "${size}x${size}" \
+                -background none -gravity center -extent "${size}x${size}" \
+                "$out_png"
+        fi
+    done
+done
+
+log "  $(find "$icon_theme" -name '*.png' | wc -l | tr -d ' ') icons in $(find "$icon_theme" -mindepth 1 -type d | wc -l | tr -d ' ') dirs"
+
 # --- Calamares slideshow images -------------------------------------------
 # Hoglife illustrations, normalized to a consistent 1920×1080 16:9 canvas
 # (centered, transparent background → solid brand BG fill, JPEGs and portraits
