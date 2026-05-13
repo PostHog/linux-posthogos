@@ -89,7 +89,8 @@ if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
-        qt6-declarative      # Provides qml6 for the PosthogOS welcome app
+        qt6-declarative      # qml6 binary + QtQuick/Layouts/Window/QtCore QML modules
+        qt6-quickcontrols2   # QtQuick.Controls module — ApplicationWindow/Button/CheckBox in welcome.qml
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)

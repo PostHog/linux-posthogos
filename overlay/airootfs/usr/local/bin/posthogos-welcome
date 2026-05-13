@@ -35,8 +35,16 @@ qml_bin=$(command -v qml6 || command -v qml || true)
 [ -n "$qml_bin" ] || { echo "Neither qml6 nor qml is installed (need qt6-declarative)" >&2; exit 1; }
 
 set +e
-"$qml_bin" "$qml"
+# Capture stderr to a log so silent QML failures (missing import modules,
+# syntax errors, runtime crashes) leave a trace. The autostart path has no
+# attached terminal, so otherwise the user sees "cursor flashes, no window"
+# with zero diagnostic surface. tee so stderr still goes to journal if we
+# were launched via systemd-style logging.
+log=/tmp/posthogos-welcome.log
+{ echo "===== $(date -Iseconds) [pid=$$] $qml_bin $qml (--autostart=${1:-})"; } >>"$log"
+"$qml_bin" "$qml" 2> >(tee -a "$log" >&2)
 ec=$?
+echo "  exit=$ec" >>"$log"
 set -e
 
 case "$ec" in
