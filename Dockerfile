@@ -24,6 +24,14 @@ RUN pacman -Syu --noconfirm --needed \
     librsvg \
  && pacman -Scc --noconfirm
 
+# Mark all dirs as safe for git. Without this, git refuses to operate on
+# bind-mounted workspaces when the host file owner uid (e.g. 1001 on GitHub
+# Actions runners) doesn't match the container's runtime uid (0/root). The
+# Docker-Desktop case works by accident because OSXFS papers over the uids;
+# Linux bind mounts don't, so git's "dubious ownership" check fires and
+# `git -C upstream archive` in scripts/in-container-build.sh aborts.
+RUN git config --system --add safe.directory '*'
+
 # CachyOS-specific repos and keyring. mkarchiso runs pacstrap inside the
 # container; without these, cachyos-* packages from upstream/archiso/
 # packages_desktop.x86_64 won't resolve.
