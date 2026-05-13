@@ -1,0 +1,22 @@
+[Unit]
+Description=PosthogOS first-run setup rescue (re-runs firstrun with proper session env)
+# Wait for the display manager to bring up a session before we start
+# snooping for kwin processes. plasmalogin.service is CachyOS's; we also
+# After= the generic display-manager.service alias so a swap to SDDM or
+# similar still gets correct ordering.
+After=display-manager.service plasmalogin.service systemd-user-sessions.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/posthogos-firstrun-rescue.sh
+# Generous: rescue polls up to 90s for kwin + 30s for env + however long
+# firstrun.sh takes (it has its own internal waits). 5 min ceiling.
+TimeoutStartSec=300
+# Don't restart — rescue is idempotent via marker, so a retry would only
+# fire if the boot loop did, and we don't want to spin on a broken session.
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -24,9 +24,15 @@ fi
 # Wait for plasmashell to be alive on the session DBus before driving
 # Plasma. apply commands return success but visibly do nothing if called
 # before plasmashell has subscribed to the relevant signals.
+#
+# Short timeout here (10s) because posthogos-firstrun-rescue.service is the
+# real safety net for the autostart-fires-too-early race: it polls for kwin
+# at the system level, harvests session env from /proc, and re-invokes us
+# with verified-good env. Spending 30s here on every login just to handle
+# the rare race isn't worth it.
 echo "waiting for plasmashell on session DBus..."
 ready=0
-for i in $(seq 1 30); do
+for i in $(seq 1 10); do
     if qdbus6 org.kde.plasmashell / >/dev/null 2>&1; then
         echo "  plasmashell ready after ${i}s"
         ready=1
@@ -35,7 +41,7 @@ for i in $(seq 1 30); do
     sleep 1
 done
 if [ "$ready" != "1" ]; then
-    echo "  plasmashell did not appear in 30s — applying anyway"
+    echo "  plasmashell did not appear in 10s — applying anyway (rescue service will retry if needed)"
 fi
 
 apply() {
@@ -49,11 +55,45 @@ apply() {
 }
 
 ok=true
+wallpaper=/usr/share/wallpapers/PosthogosKeyboardGarden/contents/images/3840x2160.png
+
 apply plasma-apply-lookandfeel  -a com.posthog.posthogos || ok=false
 apply plasma-apply-colorscheme  PosthogosLight           || ok=false
-apply plasma-apply-wallpaperimage \
-    /usr/share/wallpapers/PosthogosKeyboardGarden/contents/images/3840x2160.png \
-    || ok=false
+apply plasma-apply-wallpaperimage "$wallpaper"           || ok=false
+
+# Belt-and-suspenders wallpaper push via plasmashell's JS scripting API.
+# plasma-apply-wallpaperimage exit 0 doesn't guarantee plasmashell actually
+# consumed the change (the apply binary returns success as long as it can
+# emit the DBus call; if plasmashell wasn't subscribed when the call hit,
+# the wallpaper stays at default). evaluateScript drives plasmashell
+# directly via its public PlasmaShell scripting interface — same path
+# System Settings → Wallpaper uses internally.
+if [ -f "$wallpaper" ] && command -v qdbus6 >/dev/null; then
+    plasma_script=$(cat <<EOF
+        var img = "file://${wallpaper}";
+        for (const d of desktops()) {
+            d.wallpaperPlugin = "org.kde.image";
+            d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
+            d.writeConfig("Image", img);
+            d.writeConfig("PreviewImage", img);
+        }
+EOF
+    )
+    apply qdbus6 org.kde.plasmashell /PlasmaShell \
+        org.kde.PlasmaShell.evaluateScript "$plasma_script" \
+        || echo "  (evaluateScript failed — relying on plasma-apply-wallpaperimage above)"
+fi
+
+# Verify wallpaper actually landed in plasma's appletsrc. If our path
+# isn't there after both apply paths, plasmashell wasn't ready to consume
+# the change — fail loudly so the marker DOESN'T get written and the
+# rescue service picks us up on its next cycle.
+sleep 1   # let plasmashell flush its config write
+appletsrc="${XDG_CONFIG_HOME:-$HOME/.config}/plasma-org.kde.plasma.desktop-appletsrc"
+if [ -f "$appletsrc" ] && ! grep -qF "PosthogosKeyboardGarden" "$appletsrc"; then
+    echo "  WARN: wallpaper apply silently no-op'd (path not in $appletsrc)"
+    ok=false
+fi
 
 # ---- Plasma panel customizations ----------------------------------------
 # Patch plasma-org.kde.plasma.desktop-appletsrc to:
