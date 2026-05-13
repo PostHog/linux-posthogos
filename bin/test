@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-#/ Usage: bin/test [--install] [--iso PATH]
-#/ Description: Boot the latest PosthogOS ISO in QEMU for smoke-testing.
+#/ Usage: bin/test [--install] [--iso PATH] [--utm]
+#/ Description: Boot the latest PosthogOS ISO in an emulator.
 #/
-#/ By default boots the newest out/*.iso live-only.
-#/ --install attaches a 30G qcow2 disk so you can run Calamares end-to-end.
-#/ --iso PATH overrides the auto-detected ISO.
+#/ By default uses bare QEMU, boots live-only.
+#/ --install   attaches a 30G qcow2 disk so you can run Calamares end-to-end
+#/             (qemu mode only — UTM disk attachment is GUI-driven)
+#/ --iso PATH  overrides the auto-detected ISO
+#/ --utm       open the ISO in UTM (macOS only). UTM has proper clipboard
+#/             sharing, audio, shared folders, etc. You'll set up the VM
+#/             interactively on first use.
 #/
 #/ Notes:
-#/   - On macOS uses -accel hvf (Apple Hypervisor). Slower than KVM but works.
-#/   - On Linux uses -enable-kvm.
-#/   - Requires OVMF firmware (UEFI boot). Path is auto-discovered.
+#/   - QEMU mode: on macOS uses -accel hvf:tcg, on Linux uses -enable-kvm.
+#/   - Requires OVMF firmware (UEFI boot) for QEMU mode. Path is auto-discovered.
 
 source bin/helpers/_utils.sh
 set_source_and_root_dir
@@ -17,21 +20,58 @@ set -e
 
 install_mode=false
 iso=""
+emulator="qemu"
 while (( $# )); do
     case "$1" in
-        --install) install_mode=true; shift;;
-        --iso)     iso="$2"; shift 2;;
-        -h|--help) show_help; exit 0;;
+        --install)   install_mode=true; shift;;
+        --iso)       iso="$2"; shift 2;;
+        --utm)       emulator="utm"; shift;;
+        -h|--help)   show_help; exit 0;;
         *) fatal "Unknown arg: $1";;
     esac
 done
-
-require_commands qemu-system-x86_64
 
 if [ -z "$iso" ]; then
     iso=$(ls -1t out/*.iso 2>/dev/null | head -n1 || true)
 fi
 [ -n "$iso" ] && [ -f "$iso" ] || fatal "No ISO found. Run bin/build first or pass --iso PATH."
+
+# Absolute path — UTM needs it to resolve from its own working directory.
+iso=$(cd "$(dirname "$iso")" && printf '%s/%s' "$PWD" "$(basename "$iso")")
+
+# ---- UTM path ------------------------------------------------------------
+if [ "$emulator" = "utm" ]; then
+    [ "$(uname -s)" = "Darwin" ] || fatal "--utm is macOS-only"
+    [ -d /Applications/UTM.app ] || fatal "UTM not installed. brew install --cask utm"
+    if [ "$install_mode" = true ]; then
+        warning "--install is ignored in UTM mode (attach disks via UTM's GUI)"
+    fi
+    print_color blue "Opening $iso in UTM..."
+    # `open -a UTM <iso>` passes the ISO to UTM as a file argument. UTM
+    # responds by offering to create a new VM with the ISO mounted as a
+    # CD-ROM, or to attach it to an existing one.
+    open -a UTM "$iso"
+    cat <<EOF
+
+UTM is launching. First-time setup:
+  1. Click "Create a New Virtual Machine" → "Emulate" (since the ISO is
+     x86_64 and you're likely on Apple Silicon)
+  2. Operating System: Linux
+  3. Browse for the boot ISO and pick:
+       $iso
+  4. CPU/RAM: 2 cores, 4 GB (good defaults)
+  5. Storage: 30 GB (only needed if you want to run Calamares)
+  6. Shared directory: optional
+  7. Name it "PosthogOS" and save.
+
+UTM has clipboard sharing, audio, and shared folders out of the box —
+much nicer than bare QEMU for interactive testing.
+EOF
+    exit 0
+fi
+
+# ---- QEMU path -----------------------------------------------------------
+require_commands qemu-system-x86_64
 
 # Locate OVMF firmware (UEFI). Search common locations.
 ovmf=""
@@ -85,5 +125,5 @@ if [ "$install_mode" = true ]; then
     args+=(-drive "file=$disk,if=virtio,format=qcow2")
 fi
 
-print_color blue "Booting $iso (accel=$accel)..."
+print_color blue "Booting $iso (qemu, accel=$accel)..."
 exec qemu-system-x86_64 "${args[@]}"

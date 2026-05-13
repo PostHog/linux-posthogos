@@ -36,6 +36,7 @@ set_source_and_root_dir() {
 }
 
 # Print the script header (lines starting with #/) as help text.
+# -E for extended regex: BSD sed (macOS) doesn't honor \? in basic regex.
 show_help() {
-    sed -n 's/^#\/ \?//p' "$0"
+    sed -nE 's|^#/ ?||p' "$0"
 }
