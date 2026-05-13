@@ -83,7 +83,13 @@ if [ "${SKIP_AIRFS_CACHE:-0}" != "1" ] && [ -f "$airfs_cache" ]; then
     echo "==> Airootfs cache hit: $airfs_hash ($(du -h "$airfs_cache" | cut -f1))"
     mkdir -p "$build_dir/build/x86_64"
     zstd -dc --long=31 "$airfs_cache" \
-        | tar -x --numeric-owner --xattrs -C "$build_dir/build/x86_64/"
+        | tar -x --numeric-owner --xattrs -C "$build_dir/build/x86_64/" \
+            2> >(grep -vE \
+                 -e "Cannot llistxattr" \
+                 -e "Cannot lsetxattr" \
+                 -e "Permission denied" \
+                 -e "Too many levels of symbolic links" \
+                 -e "Operation not permitted" >&2)
     # Tell mkarchiso pacstrap is done. Customize/squashfs/iso markers are
     # NOT set, so those phases still run → latest customize takes effect.
     touch "$build_dir/build/build.make_pacstrap"
@@ -127,10 +133,23 @@ fi
 
 # Snapshot the airootfs for next build's cache. Only on miss (on hit, the
 # cached snapshot is already correct for pacstrap output).
+#
+# tar emits a lot of `Cannot llistxattr` warnings on dangling symlinks,
+# circular icon-theme symlinks, the dbus-daemon-launch-helper placeholder,
+# and zfs services with caps the bind-mount can't represent. All
+# harmless — the archive itself is valid. Filter the known-harmless
+# patterns out of stderr to keep the log readable; real failures (exit
+# code) still propagate.
 if [ "$cache_hit" = "0" ] && [ -d "$build_dir/build/x86_64/airootfs" ]; then
     echo "==> Snapshotting airootfs → $airfs_cache"
-    tar -C "$build_dir/build/x86_64" -cf - --numeric-owner --xattrs airootfs \
-        | zstd -3 -T0 --long=31 -o "$airfs_cache.tmp" \
+    {
+        tar -C "$build_dir/build/x86_64" -cf - --numeric-owner --xattrs airootfs \
+            2> >(grep -vE \
+                 -e "Cannot llistxattr" \
+                 -e "dbus-daemon-launch-helper.*Permission denied" \
+                 -e "Too many levels of symbolic links" \
+                 -e "Operation not permitted" >&2)
+    } | zstd -3 -T0 --long=31 -o "$airfs_cache.tmp" \
         && mv "$airfs_cache.tmp" "$airfs_cache" \
         && echo "    saved $(du -h "$airfs_cache" | cut -f1)" \
         || echo "    WARN: snapshot failed (build still succeeded)"
