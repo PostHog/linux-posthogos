@@ -1,0 +1,130 @@
+# Build the PosthogOS ISO on every push / PR / manual trigger.
+#
+# Runs the exact same path as a local `bin/build` invocation: build the
+# posthogos-builder Docker image, then run scripts/in-container-build.sh
+# inside it. No CI-specific build path → no drift between what CI tests
+# and what devs run locally.
+#
+# Caches the two big consumers from in-container-build.sh:
+#   .pacman-cache/    ~2.4 GB of pacstrap'd packages
+#   .airootfs-cache/  ~1.5 GB compressed snapshot of post-customize airootfs
+# Cache key is hashed off the files that drive pacstrap output (packages
+# list, bootstrap_packages, pacman.conf, profiledef.sh) plus our pre-build
+# patcher — same inputs in-container-build.sh's airfs_hash uses, so cache
+# hits in CI mirror cache hits locally.
+#
+# Cold build: ~25-30 min. Cached: ~5-8 min (skips pacstrap entirely).
+name: Build ISO
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel in-progress builds for the same branch/PR when a new commit lands —
+# nobody cares about the old ISO once a fresher commit is on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ISO
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      # ubuntu-latest ships ~25 GB free. mkarchiso wants ~10 GB for the build
+      # tree + ~3 GB for the ISO + ~4 GB combined cache restore. Reclaim ~15 GB
+      # by nuking preinstalled toolchains we don't use (Android SDK alone is
+      # ~12 GB). Cheap to run, big headroom payoff.
+      - name: Free up disk space
+        run: |
+          echo "Before:" && df -h /
+          sudo rm -rf \
+              /usr/share/dotnet \
+              /usr/local/lib/android \
+              /opt/ghc \
+              /usr/local/share/boost \
+              "$AGENT_TOOLSDIRECTORY" \
+              /opt/hostedtoolcache
+          echo "After:"  && df -h /
+
+      # Need submodules: recursive so upstream/archiso is populated. Without
+      # it, bin/build's "if [ ! -d upstream/archiso ]" branch fires, but
+      # `git submodule update --init` in CI without the auth context can be
+      # flaky — fetching as part of checkout is cleaner.
+      - name: Checkout (with upstream submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # fetch-depth: 1 is fine — build doesn't need history.
+
+      # Pacman package cache: invalidates only when the package list changes
+      # or the Dockerfile bootstrap changes (different cachyos mirror pin →
+      # potentially different package files). On a hit we skip ~5 min of
+      # downloads on the first pacstrap pass.
+      - name: Restore pacman cache
+        uses: actions/cache@v4
+        with:
+          path: .pacman-cache
+          key: pacman-${{ hashFiles('upstream/archiso/packages_desktop.x86_64', 'upstream/archiso/bootstrap_packages.x86_64', 'Dockerfile') }}
+          restore-keys: |
+            pacman-
+
+      # Airootfs cache: the big one. Skip-on-hit avoids the ~10 min pacstrap
+      # phase entirely (in-container-build.sh restores the tarball, touches
+      # build.make_pacstrap, lets mkarchiso run only customize + squashfs +
+      # iso phases). Key includes pre-build.sh because it sed-patches
+      # packages list / profiledef.sh — those edits change pacstrap output.
+      - name: Restore airootfs cache
+        uses: actions/cache@v4
+        with:
+          path: .airootfs-cache
+          key: airootfs-${{ hashFiles('upstream/archiso/packages_desktop.x86_64', 'upstream/archiso/bootstrap_packages.x86_64', 'upstream/archiso/pacman.conf', 'upstream/archiso/profiledef.sh', 'scripts/pre-build.sh', 'Dockerfile') }}
+          restore-keys: |
+            airootfs-
+
+      # FAST_BUILD=1 swaps squashfs compression from xz → zstd. ~3-5× faster
+      # mksquashfs, ~10% bigger ISO. Acceptable trade for CI; we ship the
+      # xz-compressed ISO from releases anyway (not yet automated).
+      - name: Build ISO
+        run: bin/build
+        env:
+          FAST_BUILD: "1"
+        timeout-minutes: 50
+
+      # Always print sizes — useful for spotting cache regressions or ISO
+      # bloat in PR reviews. `if: always()` so it runs even after build failure
+      # (showing what *did* land before the crash).
+      - name: Show build outputs
+        if: always()
+        run: |
+          echo "=== out/ ==="
+          ls -lh out/ 2>/dev/null || echo "(no out/)"
+          echo ""
+          echo "=== caches ==="
+          du -sh .pacman-cache .airootfs-cache 2>/dev/null || true
+          echo ""
+          echo "=== disk after build ==="
+          df -h /
+
+      # ISO is the artifact reviewers actually want. 14 days is plenty for
+      # PR review cycles; we don't use this as a release distribution channel
+      # (use GitHub Releases for tagged drops if/when we wire that up).
+      # compression-level: 0 — ISO is already zstd-compressed internally,
+      # GHA's tar+zstd pass on top is pointless CPU.
+      - name: Upload ISO artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: posthogos-desktop-linux-${{ github.sha }}
+          path: out/*.iso
+          retention-days: 14
+          if-no-files-found: error
+          compression-level: 0
