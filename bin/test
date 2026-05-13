@@ -6,9 +6,11 @@
 #/ --install   attaches a 30G qcow2 disk so you can run Calamares end-to-end
 #/             (qemu mode only — UTM disk attachment is GUI-driven)
 #/ --iso PATH  overrides the auto-detected ISO
-#/ --utm       open the ISO in UTM (macOS only). UTM has proper clipboard
-#/             sharing, audio, shared folders, etc. You'll set up the VM
-#/             interactively on first use.
+#/ --utm       run in UTM (macOS only). UTM has proper clipboard sharing,
+#/             audio, shared folders, etc. If a UTM VM named "PosthogOS"
+#/             already exists it just starts it; otherwise opens UTM with
+#/             the ISO for first-time setup. Override VM name with env
+#/             POSTHOGOS_UTM_VM=<name>.
 #/
 #/ Notes:
 #/   - QEMU mode: uses HVF/KVM where available, multi-threaded TCG with
@@ -55,10 +57,28 @@ if [ "$emulator" = "utm" ]; then
     if [ "$install_mode" = true ]; then
         warning "--install is ignored in UTM mode (attach disks via UTM's GUI)"
     fi
-    print_color blue "Opening $iso in UTM..."
-    # `open -a UTM <iso>` passes the ISO to UTM as a file argument. UTM
-    # responds by offering to create a new VM with the ISO mounted as a
-    # CD-ROM, or to attach it to an existing one.
+
+    utmctl="/Applications/UTM.app/Contents/MacOS/utmctl"
+    vm_name="${POSTHOGOS_UTM_VM:-PosthogOS}"
+
+    # If a VM with that name already exists in UTM, just start it. This is
+    # the common case after first-time setup — no need to drop back into
+    # the new-VM wizard every time.
+    if [ -x "$utmctl" ]; then
+        # `utmctl list` prints "UUID  Status  Name…" with Name possibly
+        # containing spaces. Strip the first two fields to get the name.
+        if "$utmctl" list 2>/dev/null \
+            | awk 'NR>1 { $1=""; $2=""; sub(/^[ \t]+/, ""); print }' \
+            | grep -qFx "$vm_name"; then
+            print_color blue "Starting UTM VM \"$vm_name\"..."
+            "$utmctl" start "$vm_name" 2>&1
+            exit 0
+        fi
+    fi
+
+    # No matching VM — drop into the new-VM setup flow.
+    print_color blue "No UTM VM named \"$vm_name\" — opening UTM with $iso for first-time setup..."
+    print_color yellow "  (override the expected VM name with: POSTHOGOS_UTM_VM=<name> bin/test --utm)"
     open -a UTM "$iso"
     cat <<EOF
 
@@ -71,7 +91,7 @@ UTM is launching. First-time setup:
   4. CPU/RAM: 2 cores, 4 GB (good defaults)
   5. Storage: 30 GB (only needed if you want to run Calamares)
   6. Shared directory: optional
-  7. Name it "PosthogOS" and save.
+  7. Name it "$vm_name" (so subsequent \`bin/test --utm\` just starts it).
 
 UTM has clipboard sharing, audio, and shared folders out of the box —
 much nicer than bare QEMU for interactive testing.
