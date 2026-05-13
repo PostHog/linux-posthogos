@@ -4,8 +4,9 @@
 # buildiso.sh to produce the ISO.
 #
 # Expected env:
-#   KEEP_BUILD=1   (default 0) — keep build/ work tree after build
-#   FAST_BUILD=1   (default 0) — use zstd not xz for squashfs (see pre-build.sh)
+#   KEEP_BUILD=1       (default 0) — keep build/ work tree after build
+#   FAST_BUILD=1       (default 0) — use zstd not xz for squashfs
+#   SKIP_AIRFS_CACHE=1 (default 0) — bypass airootfs cache (forces full pacstrap)
 
 set -euo pipefail
 
@@ -54,6 +55,60 @@ echo "==> Installing chroot hook"
 install -D -m 0755 scripts/posthogos-customize.sh \
     "$build_dir/archiso/airootfs/root/customize_airootfs.sh"
 
+# ---- Airootfs cache ------------------------------------------------------
+# Cache the post-pacstrap-AND-customize airootfs after a successful build.
+# On the next build, if pacstrap-driving inputs are unchanged, restore the
+# cached airootfs into build/x86_64/airootfs/, set the make_pacstrap marker
+# so mkarchiso skips that ~10-min phase, then re-apply overlay + the
+# latest customize hook. mkarchiso runs customize (idempotently — cat>,
+# chown, sed, mkinitcpio etc. all safe to re-run), squashfs, and ISO.
+#
+# Hash inputs are the things that determine pacstrap output. Overlay edits,
+# customize edits, branding tweaks intentionally don't invalidate — those
+# get re-applied on each build.
+cache_dir="$repo_root/.airootfs-cache"
+mkdir -p "$cache_dir"
+airfs_hash=$(
+    cat "$build_dir/archiso/packages_desktop.x86_64" \
+        "$build_dir/archiso/bootstrap_packages.x86_64" \
+        "$build_dir/archiso/pacman.conf" \
+        "$build_dir/archiso/profiledef.sh" 2>/dev/null
+    git -C "$repo_root/upstream" rev-parse HEAD 2>/dev/null
+)
+airfs_hash=$(printf '%s' "$airfs_hash" | sha256sum | cut -c1-16)
+airfs_cache="$cache_dir/$airfs_hash.tar.zst"
+
+cache_hit=0
+if [ "${SKIP_AIRFS_CACHE:-0}" != "1" ] && [ -f "$airfs_cache" ]; then
+    echo "==> Airootfs cache hit: $airfs_hash ($(du -h "$airfs_cache" | cut -f1))"
+    mkdir -p "$build_dir/build/x86_64"
+    zstd -dc --long=31 "$airfs_cache" \
+        | tar -x --numeric-owner --xattrs -C "$build_dir/build/x86_64/"
+    # Tell mkarchiso pacstrap is done. Customize/squashfs/iso markers are
+    # NOT set, so those phases still run → latest customize takes effect.
+    touch "$build_dir/build/build.make_pacstrap"
+    cache_hit=1
+
+    # Re-apply overlay onto the restored airootfs so the latest overlay
+    # files override the cache's snapshot of last build's overlay.
+    echo "==> Re-applying overlay onto cached airootfs"
+    rsync -a --exclude='.gitkeep' --exclude='README.md' \
+        overlay/airootfs/ "$build_dir/build/x86_64/airootfs/" 2>/dev/null || true
+    if [ -d overlay-generated/airootfs ]; then
+        rsync -a overlay-generated/airootfs/ "$build_dir/build/x86_64/airootfs/"
+    fi
+    # And re-install the latest customize hook (overlay rsync doesn't touch
+    # /root/customize_airootfs.sh — it lives outside airootfs in our layout).
+    install -D -m 0755 scripts/posthogos-customize.sh \
+        "$build_dir/build/x86_64/airootfs/root/customize_airootfs.sh"
+else
+    if [ "${SKIP_AIRFS_CACHE:-0}" = "1" ]; then
+        echo "==> SKIP_AIRFS_CACHE=1 — running full pacstrap"
+    else
+        echo "==> Airootfs cache miss ($airfs_hash); will pacstrap and snapshot"
+    fi
+fi
+
 echo "==> Running upstream buildiso.sh"
 cd "$build_dir"
 # We never pass -w. buildiso.sh's `-w` cleanup does `rm -rf` over the build
@@ -68,6 +123,17 @@ if [ "$(id -u)" -eq 0 ]; then
     ./buildiso.sh "${buildiso_args[@]}"
 else
     sudo -E ./buildiso.sh "${buildiso_args[@]}"
+fi
+
+# Snapshot the airootfs for next build's cache. Only on miss (on hit, the
+# cached snapshot is already correct for pacstrap output).
+if [ "$cache_hit" = "0" ] && [ -d "$build_dir/build/x86_64/airootfs" ]; then
+    echo "==> Snapshotting airootfs → $airfs_cache"
+    tar -C "$build_dir/build/x86_64" -cf - --numeric-owner --xattrs airootfs \
+        | zstd -3 -T0 --long=31 -o "$airfs_cache.tmp" \
+        && mv "$airfs_cache.tmp" "$airfs_cache" \
+        && echo "    saved $(du -h "$airfs_cache" | cut -f1)" \
+        || echo "    WARN: snapshot failed (build still succeeded)"
 fi
 
 echo "==> Copying ISO to out/"
