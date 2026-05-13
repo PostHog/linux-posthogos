@@ -87,7 +87,9 @@ fi
 pkglist="archiso/packages_desktop.x86_64"
 if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
-        inter-font   # Free Matter SQ analog; primary system body font
+        inter-font           # Free Matter SQ analog; primary system body font
+        papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
+        papirus-folders      # Helper CLI for recoloring papirus folder icons
     )
     log "Appending PosthogOS packages to $pkglist"
     for pkg in "${posthogos_pkgs[@]}"; do

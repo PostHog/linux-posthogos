@@ -150,14 +150,14 @@ widgetStyle=Breeze
 SingleClick=false
 
 [Icons]
-Theme=breeze
+Theme=Papirus-Light
 EOF
 
 for v in gtk-3.0 gtk-4.0; do
     cat >"/etc/skel/.config/$v/settings.ini" <<'EOF'
 [Settings]
 gtk-theme-name=Breeze
-gtk-icon-theme-name=breeze
+gtk-icon-theme-name=Papirus-Light
 gtk-font-name=Inter 11
 gtk-cursor-theme-name=breeze_cursors
 gtk-application-prefer-dark-theme=false
@@ -234,6 +234,15 @@ EOF
 # `pacman -S sddm && systemctl enable sddm`. The chroot hook used to flip
 # the active DM here; that's now plasma-login-manager's job and the user
 # chose not to fight upstream.
+
+# ---- Papirus folder color ------------------------------------------------
+# Recolor Papirus's folder icons (which default to blue) to the warm orange
+# variant. Closer to the PostHog brand orange (#F54E00) and matches the
+# "other OS" reference shot we were targeting.
+if command -v papirus-folders >/dev/null 2>&1; then
+    log "Setting Papirus folder color → orange"
+    papirus-folders -C orange --theme Papirus-Light -V 2>&1 | tail -5
+fi
 
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"
