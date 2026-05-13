@@ -276,23 +276,33 @@ if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders 
         || log "WARN: papirus-folders failed"
 fi
 
-# ---- External pkg installs (Docker Desktop) -----------------------------
-# build-assets.sh staged third-party Arch packages into /opt/posthogos/pkgs/
-# before the chroot started. Install them via pacman -U here so they land in
-# the pacman db (proper dep resolution + uninstallable), then delete the
-# staged pkg from the airootfs so we don't ship installer + installed copy.
+# ---- Docker engine setup -------------------------------------------------
+# `docker` + `docker-compose` are pacstrap'd via the package list (see
+# scripts/pre-build.sh). Two more steps to make Docker actually usable
+# without manual setup on first boot:
 #
-# Docker Desktop depends on `docker` + a few common libs (libnotify, pass,
-# qemu-base). Those are pulled in by the pacstrap'd package list (see
-# pre-build.sh adding `docker` + `docker-compose`).
-if [ -d /opt/posthogos/pkgs ]; then
-    for pkg in /opt/posthogos/pkgs/*.pkg.tar.zst; do
-        [ -f "$pkg" ] || continue
-        log "Installing staged pkg: $(basename "$pkg")"
-        pacman -U --noconfirm "$pkg" || log "WARN: install failed for $pkg (continuing)"
-        rm -f "$pkg"
-    done
-    rmdir /opt/posthogos/pkgs 2>/dev/null || true
+#   1. Enable docker.service so the daemon starts at boot. The package
+#      ships the unit but doesn't enable it by default — leaving it off
+#      means every fresh boot needs `sudo systemctl start docker` before
+#      `docker ps` works, which is a paper cut nobody wants.
+#
+#   2. Add liveuser to the `docker` group so they can run `docker` without
+#      sudo. (Post-install: the same will need to happen for whatever user
+#      Calamares creates — Calamares has no hook for this, so we'd need a
+#      first-login service if we want it automatic. For now, live-only.)
+if command -v systemctl >/dev/null && [ -f /usr/lib/systemd/system/docker.service ]; then
+    log "Enabling docker.service"
+    systemctl enable docker.service 2>&1 | sed 's/^/  /' || log "WARN: docker.service enable failed"
+fi
+
+# Use grep on /etc/passwd directly rather than `id liveuser` — nsswitch
+# inside the pacstrap chroot doesn't always resolve users via id (same
+# reason the home-provisioning section above uses uid 1000 numerically).
+# gpasswd reads /etc/group + /etc/passwd as files, so as long as both
+# entries exist, the add works regardless of nsswitch state.
+if getent group docker >/dev/null && grep -q '^liveuser:' /etc/passwd; then
+    log "Adding liveuser to docker group"
+    gpasswd -a liveuser docker 2>&1 | sed 's/^/  /' || log "WARN: gpasswd failed"
 fi
 
 # ---- Caches --------------------------------------------------------------
