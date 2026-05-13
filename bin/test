@@ -11,8 +11,17 @@
 #/             interactively on first use.
 #/
 #/ Notes:
-#/   - QEMU mode: on macOS uses -accel hvf:tcg, on Linux uses -enable-kvm.
+#/   - QEMU mode: uses HVF/KVM where available, multi-threaded TCG with
+#/     enlarged translation cache otherwise (Apple Silicon → x86_64 guest).
 #/   - Requires OVMF firmware (UEFI boot) for QEMU mode. Path is auto-discovered.
+#/
+#/ Tunables (env vars, all optional):
+#/   POSTHOGOS_QEMU_RAM=8G       guest RAM (default 8G)
+#/   POSTHOGOS_QEMU_SMP=8        guest vCPUs (default: min(host-cores, 8))
+#/   POSTHOGOS_QEMU_CPU=Penryn   guest CPU model when emulating (default Penryn —
+#/                               simpler instructions translate faster under TCG;
+#/                               try `qemu64`, `max`, or `Westmere` if you need
+#/                               specific features)
 
 source bin/helpers/_utils.sh
 set_source_and_root_dir
@@ -85,17 +94,59 @@ for candidate in \
 done
 [ -n "$ovmf" ] || fatal "OVMF firmware not found. Install qemu's edk2 firmware package."
 
-accel="tcg"
+# ---- Accel + CPU + perf flags --------------------------------------------
+# Detect what acceleration is actually available and tune accordingly.
+#
+# On Apple Silicon emulating x86_64, HVF is rejected (cross-arch) → falls
+# back to TCG software translation. TCG's defaults are conservative; the
+# tunings below squeeze ~3-5× more performance:
+#   thread=multi   parallelizes guest CPU emulation across host cores
+#                  (default is single-threaded — emulates all guest CPUs
+#                  on one host thread)
+#   tb-size=512    bigger translation-block cache (default ~32 MiB) so
+#                  hot guest code doesn't get re-translated
+#
+# On Intel Macs and Linux+KVM, HVF/KVM handle x86 natively → no TCG
+# tunings needed, just -cpu host for full instruction set.
+
+is_emulating_x86=0   # 1 when we're cross-arch (Apple Silicon → x86 guest)
 case "$(uname -s)" in
-    # hvf:tcg = try HVF (works on Intel Macs + arm64 guests on Apple Silicon),
-    # fall back to TCG software emulation (Apple Silicon running x86_64 guest).
-    Darwin) accel="hvf:tcg";;
-    Linux)  [ -e /dev/kvm ] && accel="kvm";;
+    Darwin)
+        if [ "$(uname -m)" = "arm64" ]; then
+            accel="tcg,thread=multi,tb-size=512"
+            cpu_flag=(-cpu "${POSTHOGOS_QEMU_CPU:-Penryn}")
+            is_emulating_x86=1
+        else
+            accel="hvf:tcg"
+            cpu_flag=(-cpu host)
+        fi
+        ;;
+    Linux)
+        if [ -e /dev/kvm ]; then
+            accel="kvm"
+            cpu_flag=(-cpu host)
+        else
+            accel="tcg,thread=multi,tb-size=512"
+            cpu_flag=(-cpu "${POSTHOGOS_QEMU_CPU:-Penryn}")
+        fi
+        ;;
+    *)
+        accel="tcg,thread=multi,tb-size=512"
+        cpu_flag=(-cpu "${POSTHOGOS_QEMU_CPU:-Penryn}")
+        ;;
 esac
+
+# Host cores → guest vCPUs (capped at 8; TCG threading scales sub-linearly
+# past that). RAM bumped to 8G — KDE Plasma 6 wants room to breathe, and
+# more RAM means less swapping to the (slow, emulated) virtio disk.
+host_cores=$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
+smp_count="${POSTHOGOS_QEMU_SMP:-$(( host_cores > 8 ? 8 : host_cores ))}"
+ram="${POSTHOGOS_QEMU_RAM:-8G}"
 
 args=(
     -machine "type=q35,accel=$accel"
-    -m 4G -smp 2
+    "${cpu_flag[@]}"
+    -m "$ram" -smp "$smp_count"
     -drive "if=pflash,format=raw,readonly=on,file=$ovmf"
     -drive "file=$iso,media=cdrom,readonly=on"
     -boot order=d
@@ -108,13 +159,10 @@ args=(
     -device virtio-net-pci,netdev=net0
     -vga virtio
     -display default
+    # Audio: route guest audio out as a no-op (suppresses the "no audio
+    # backend" warning without burning emulation cycles on actual audio).
+    -audio none
 )
-
-# Only use -cpu host with hardware acceleration. On Apple Silicon emulating
-# x86_64, HVF gets rejected → tcg, and -cpu host won't work either.
-if [ "$accel" = "kvm" ] || ([ "$accel" = "hvf:tcg" ] && [ "$(uname -m)" = "x86_64" ]); then
-    args=(-cpu host "${args[@]}")
-fi
 
 if [ "$install_mode" = true ]; then
     disk="out/test-disk.qcow2"
@@ -125,5 +173,9 @@ if [ "$install_mode" = true ]; then
     args+=(-drive "file=$disk,if=virtio,format=qcow2")
 fi
 
-print_color blue "Booting $iso (qemu, accel=$accel)..."
+if [ "$is_emulating_x86" = "1" ]; then
+    print_color yellow "  emulating x86_64 on $(uname -m): expect ~2-5 min boot via TCG"
+    print_color yellow "  for native speed: bin/test --utm  OR  test on a real x86_64 box"
+fi
+print_color blue "Booting $iso (qemu, accel=$accel, $smp_count vCPUs, $ram RAM)..."
 exec qemu-system-x86_64 "${args[@]}"
