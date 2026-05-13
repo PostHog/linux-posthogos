@@ -146,6 +146,12 @@ fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 smallestReadableFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 toolBarFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+# Default terminal emulator. TerminalApplication is the legacy key (used
+# by older KIO actions); TerminalService is the Plasma 6 form (.desktop
+# basename). Setting both covers Dolphin's "Open Terminal Here", Konsole-
+# replacement integrations, and xdg-terminal-exec fallbacks.
+TerminalApplication=ghostty
+TerminalService=com.mitchellh.ghostty.desktop
 
 [KDE]
 LookAndFeelPackage=com.posthog.posthogos

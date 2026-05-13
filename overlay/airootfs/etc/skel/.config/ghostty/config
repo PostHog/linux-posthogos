@@ -1,0 +1,56 @@
+# PosthogOS Ghostty defaults — palette mirrors the Konsole PosthogOS
+# colorscheme (/usr/share/konsole/PosthogOS.colorscheme) for visual parity
+# between the two terminals.
+#
+# Full reference: https://ghostty.org/docs/config
+# Inspect live config with: ghostty +show-config
+
+# --- Colors -----------------------------------------------------------------
+# Brand palette: cream foreground on near-black background, brand orange
+# for the cursor, brand blue for selection.
+background = 151515
+foreground = EEEFE9
+cursor-color = F54E00
+cursor-text = 151515
+selection-background = 1D4AFF
+selection-foreground = EEEFE9
+
+# 16-color palette — same RGB triplets as Konsole.colorscheme, hex form.
+palette = 0=#151515
+palette = 1=#F54E00
+palette = 2=#2EA043
+palette = 3=#F1A82C
+palette = 4=#1D4AFF
+palette = 5=#B45AFF
+palette = 6=#00B4D8
+palette = 7=#EEEFE9
+palette = 8=#555555
+palette = 9=#FF6B33
+palette = 10=#5DD56D
+palette = 11=#FFD24A
+palette = 12=#4A77FF
+palette = 13=#D282FF
+palette = 14=#4FD1FF
+palette = 15=#FFFFFF
+
+# --- Font -------------------------------------------------------------------
+# DejaVu Sans Mono ships with ttf-dejavu (CachyOS default — guaranteed
+# present). Fallback chain handles boxes / glyphs / emoji.
+font-family = DejaVu Sans Mono
+font-size = 11
+
+# --- Window -----------------------------------------------------------------
+# Modest internal padding so the prompt doesn't crash into the edge.
+# Native KDE chrome stays on (window-decoration default = true) for
+# consistency with other Plasma apps.
+window-padding-x = 8
+window-padding-y = 6
+window-padding-balance = true
+
+# --- Shell behavior ---------------------------------------------------------
+# Confirm-on-close-with-running-process — sensible default for an OS
+# meant for software work; prevents accidental kill of long builds.
+confirm-close-surface = true
+
+# Use the user's $SHELL (zsh is the CachyOS default).
+shell-integration = detect

@@ -116,10 +116,10 @@ fi
 # Welcome app (posthogos-welcome) has a prominent "Install to disk" tile
 # that launches it, which is enough surface area without cluttering the
 # bar with an installer that's only relevant for the first few minutes.
-taskbar_launchers="applications:firefox.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:posthogos-welcome.desktop"
+taskbar_launchers="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:posthogos-welcome.desktop"
 
 # Kickoff "Favorites" tab — separator-only different format.
-kickoff_favorites="applications:firefox.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:systemsettings.desktop,applications:posthogos-welcome.desktop"
+kickoff_favorites="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:systemsettings.desktop,applications:posthogos-welcome.desktop"
 
 appletsrc="${XDG_CONFIG_HOME:-$HOME/.config}/plasma-org.kde.plasma.desktop-appletsrc"
 echo "+ patching $appletsrc"

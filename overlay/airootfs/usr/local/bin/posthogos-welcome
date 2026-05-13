@@ -6,7 +6,7 @@
 # Exit codes from welcome.qml:
 #   0   normal close
 #   10  user clicked "Install to disk"  → launch Calamares
-#   11  user clicked "Open terminal"     → launch Konsole
+#   11  user clicked "Open terminal"     → launch Ghostty
 
 set -e
 
@@ -41,6 +41,6 @@ set -e
 
 case "$ec" in
     10) exec sudo -E calamares ;;        # Install to disk
-    11) exec konsole ;;                  # Open terminal
+    11) exec ghostty ;;                  # Open terminal
     *)  exit 0 ;;
 esac

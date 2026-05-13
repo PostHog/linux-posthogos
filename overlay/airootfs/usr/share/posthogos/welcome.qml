@@ -10,7 +10,7 @@
  * Exit codes:
  *   0   normal close
  *   10  "Install to disk" — wrapper launches Calamares
- *   11  "Open terminal"   — wrapper launches Konsole
+ *   11  "Open terminal"   — wrapper launches Ghostty
  */
 import QtQuick
 import QtQuick.Controls
@@ -139,7 +139,7 @@ ApplicationWindow {
 
             ActionTile {
                 label: "Open terminal"
-                description: "Launch Konsole"
+                description: "Launch Ghostty"
                 accent: root.brandBlue
                 onClicked: Qt.exit(11)
             }

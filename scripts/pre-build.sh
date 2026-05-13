@@ -91,6 +91,7 @@ if [ -f "$pkglist" ]; then
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
         qt6-declarative      # Provides qml6 for the PosthogOS welcome app
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
+        ghostty              # Default terminal emulator (replaces Konsole in pins)
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.
