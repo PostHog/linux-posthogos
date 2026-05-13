@@ -107,8 +107,19 @@ if [ -f "$pkglist" ]; then
     # Packages we don't want installed. Removing here saves disk + boot time
     # and makes sure our replacements (e.g. posthogos-welcome) are the only
     # implementations in play.
+    #
+    # Alternate kernels: CachyOS ships SIX kernel variants by default
+    # (~300 MB each in airootfs + initramfs). Only two are referenced in
+    # the boot menu (linux-cachyos = default, linux-cachyos-lts = grub
+    # fallback + systemd-boot fallback.conf entry). The four below are
+    # installed but never bootable from the menu — pure dead weight.
+    # Saves ~1.2 GB off the ISO + same off the installed system.
     posthogos_remove_pkgs=(
-        cachyos-hello   # Replaced by /usr/local/bin/posthogos-welcome (QML)
+        cachyos-hello                    # Replaced by /usr/local/bin/posthogos-welcome (QML)
+        linux-cachyos-zfs                # Dead weight: not in any boot menu entry
+        linux-cachyos-nvidia-open        # Dead weight: not in any boot menu entry
+        linux-cachyos-lts-zfs            # Dead weight: not in any boot menu entry
+        linux-cachyos-lts-nvidia-open    # Dead weight: not in any boot menu entry
     )
     log "Removing CachyOS packages we're replacing"
     for pkg in "${posthogos_remove_pkgs[@]}"; do
