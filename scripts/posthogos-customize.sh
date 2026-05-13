@@ -167,6 +167,25 @@ gtk-application-prefer-dark-theme=false
 EOF
 done
 
+# Konsole: select the PosthogOS profile (shipped at /usr/share/konsole/
+# PosthogOS.profile, which references the PosthogOS color scheme also
+# shipped there). Setting DefaultProfile in konsolerc makes new windows
+# use it without users touching anything.
+cat >/etc/skel/.config/konsolerc <<'EOF'
+[Desktop Entry]
+DefaultProfile=PosthogOS.profile
+
+[MainWindow]
+MenuBar=Disabled
+ToolBarsMovable=Disabled
+EOF
+# Also for the existing live user
+if [ -d /home/liveuser ]; then
+    install -d -o 1000 -g 1000 -m 0755 /home/liveuser/.config
+    cp /etc/skel/.config/konsolerc /home/liveuser/.config/konsolerc
+    chown 1000:1000 /home/liveuser/.config/konsolerc
+fi
+
 # ---- Plymouth ------------------------------------------------------------
 # Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
 # from the overlay. We point plymouthd at it, then regenerate the initramfs.
