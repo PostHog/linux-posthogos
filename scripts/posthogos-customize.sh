@@ -96,6 +96,15 @@ ls -ld /home/liveuser /home/liveuser/.cache  # log the resulting state
 # lines in journalctl right before the kded sycoca failure).
 install -d -m 0755 /var/cache/fontconfig
 
+# Belt-and-suspenders: ensure every shell script we ship in /usr/local/bin/
+# is executable. The Write tool resets file mode to 0644 when overwriting,
+# and rsync -a faithfully preserves the bad mode into the squashfs — at
+# which point autostart entries pointing at non-executable scripts fail
+# silently with "Permission denied".
+if [ -d /usr/local/bin ]; then
+    chmod +x /usr/local/bin/posthogos-*.sh 2>/dev/null || true
+fi
+
 # ---- Suppress CachyOS Hello popup ---------------------------------------
 # cachyos-hello pops up a welcome window on every login (toggle is in the
 # app itself but defaults to on). Override its autostart by dropping a
