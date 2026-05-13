@@ -237,11 +237,30 @@ EOF
 
 # ---- Papirus folder color ------------------------------------------------
 # Recolor Papirus's folder icons (which default to blue) to the warm orange
-# variant. Closer to the PostHog brand orange (#F54E00) and matches the
-# "other OS" reference shot we were targeting.
-if command -v papirus-folders >/dev/null 2>&1; then
-    log "Setting Papirus folder color → orange"
-    papirus-folders -C orange --theme Papirus-Light -V 2>&1 | tail -5
+# variant. Inline reimplementation of the papirus-folders helper (AUR-only,
+# can't pacstrap it). Papirus ships every folder icon in every color as
+# `folder-<color>-<variant>.svg` plus a non-colored alias symlink
+# `folder-<variant>.svg`. Switching colors = repointing those alias symlinks
+# at the orange siblings.
+PAPIRUS_COLOR=orange
+papirus_theme=/usr/share/icons/Papirus-Light
+if [ -d "$papirus_theme" ]; then
+    log "Recoloring Papirus folders → $PAPIRUS_COLOR"
+    swapped=0
+    for places_dir in "$papirus_theme"/*/places "$papirus_theme"/*/devices; do
+        [ -d "$places_dir" ] || continue
+        for colored in "$places_dir"/folder-"$PAPIRUS_COLOR"*.svg; do
+            [ -f "$colored" ] || [ -L "$colored" ] || continue
+            # folder-orange-documents.svg → alias folder-documents.svg
+            # folder-orange.svg          → alias folder.svg
+            base=$(basename "$colored" .svg)
+            alias_name="${base/folder-$PAPIRUS_COLOR/folder}"
+            ln -sfn "$(basename "$colored")" "$places_dir/$alias_name.svg"
+            swapped=$((swapped + 1))
+        done
+    done
+    log "  swapped $swapped folder-icon aliases"
+    gtk-update-icon-cache -q -t -f "$papirus_theme" 2>/dev/null || true
 fi
 
 # ---- Caches --------------------------------------------------------------

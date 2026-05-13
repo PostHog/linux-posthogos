@@ -89,7 +89,8 @@ if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
-        papirus-folders      # Helper CLI for recoloring papirus folder icons
+        # papirus-folders is AUR-only; we replicate the symlink swap inline
+        # in the customize hook instead of pulling AUR into pacstrap.
     )
     log "Appending PosthogOS packages to $pkglist"
     for pkg in "${posthogos_pkgs[@]}"; do
