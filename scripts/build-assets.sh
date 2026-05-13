@@ -127,10 +127,10 @@ cp "$src/logos/posthog-logomark.svg" "$icon_dst/scalable/apps/posthogos.svg"
 # (declared via Inherits=) so Plasma stays visually coherent across the long
 # tail of icons we don't have art for.
 #
-# Source variant is picked via POSTHOGOS_ICON_VARIANT (default: classic, the
+# Source variant is picked via POSTHOGOS_ICON_VARIANT (default: modern, the
 # Mac OS 9 chiseled look that matches posthog.com's "Product OS" desktop).
-# Override with POSTHOGOS_ICON_VARIANT=modern for the flatter style.
-icon_variant="${POSTHOGOS_ICON_VARIANT:-classic}"
+# Override with POSTHOGOS_ICON_VARIANT=classic for the flatter style.
+icon_variant="${POSTHOGOS_ICON_VARIANT:-modern}"
 icon_src="$src/icons/$icon_variant"
 [ -d "$icon_src" ] || { echo "ERROR: icon variant '$icon_variant' not found at $icon_src" >&2; exit 1; }
 
@@ -361,6 +361,65 @@ mkdir -p "$cal_dst"
 # friendly first-screen vibe.
 "$MAGICK" "$src/hoglife/Vibecoding.png" -resize 1280x \
     "$cal_dst/welcome.png"
+
+# --- PostHog Code AppImage (optional) -------------------------------------
+# Bundled when bin/build stages it via POSTHOG_CODE_APPIMAGE env var into
+# .appimages/posthog-code.AppImage. Silent skip if absent so CI / fresh
+# clones still build cleanly without the dev binary.
+#
+# Layout:
+#   /opt/posthog-code/posthog-code.AppImage   the AppImage itself, +x
+#   /usr/share/applications/posthog-code.desktop   launcher
+#   /usr/share/icons/hicolor/<size>/apps/posthog-code.png   icon
+#
+# Runtime deps: AppImages need libfuse2 to self-mount. We add `fuse2` to
+# the package list in scripts/pre-build.sh whenever this section bundles.
+appimage_src="$repo_root/.appimages/posthog-code.AppImage"
+if [ -f "$appimage_src" ]; then
+    appimage_size=$(du -h "$appimage_src" | cut -f1)
+    log "Bundling PostHog Code AppImage ($appimage_size)"
+    appimage_dst="$out/airootfs/opt/posthog-code"
+    mkdir -p "$appimage_dst" "$out/airootfs/usr/share/applications"
+    cp "$appimage_src" "$appimage_dst/posthog-code.AppImage"
+    chmod 755 "$appimage_dst/posthog-code.AppImage"
+
+    # Desktop launcher. --no-sandbox because Electron's chromium sandbox
+    # frequently fails in unusual contexts (live ISO, freshly-installed
+    # systems without user namespaces fully wired), and PostHog Code is
+    # Electron-based. %F lets file managers pass paths to "Open with".
+    cat > "$out/airootfs/usr/share/applications/posthog-code.desktop" <<'DESKTOP_EOF'
+[Desktop Entry]
+Type=Application
+Name=PostHog Code
+GenericName=Code Editor
+Comment=PostHog's AI-native code editor (dev build)
+Exec=/opt/posthog-code/posthog-code.AppImage --no-sandbox %F
+Icon=posthog-code
+Terminal=false
+Categories=Development;TextEditor;IDE;
+MimeType=text/plain;inode/directory;application/x-yaml;application/json;text/x-python;text/x-c;text/x-c++;text/x-shellscript;
+Keywords=editor;ide;posthog;code;
+StartupWMClass=PostHog Code
+DESKTOP_EOF
+
+    # Icon: reuse the PostHog brand mark from branding/posthogos/icons/.
+    # Prefer modern (matches POSTHOGOS_ICON_VARIANT default) but fall back
+    # if classic was selected.
+    code_icon_src="$src/icons/${POSTHOGOS_ICON_VARIANT:-modern}/posthog.png"
+    [ -f "$code_icon_src" ] || code_icon_src="$src/icons/modern/posthog.png"
+    [ -f "$code_icon_src" ] || code_icon_src="$src/icons/classic/posthog.png"
+    if [ -f "$code_icon_src" ]; then
+        for size in 64 128 256 512; do
+            dir="$out/airootfs/usr/share/icons/hicolor/${size}x${size}/apps"
+            mkdir -p "$dir"
+            "$MAGICK" "$code_icon_src" -filter Lanczos -resize "${size}x${size}" \
+                -background none -gravity center -extent "${size}x${size}" \
+                "$dir/posthog-code.png"
+        done
+    fi
+else
+    log "PostHog Code AppImage absent (.appimages/posthog-code.AppImage) — skipping bundle"
+fi
 
 log "Done. overlay-generated/ ready."
 du -sh "$out" 2>/dev/null || true

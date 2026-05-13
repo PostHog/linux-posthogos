@@ -112,14 +112,17 @@ is_live=0
 
 # Pinned launchers for the taskbar (icontasks). Order matters — left to
 # right. ":" entries are placeholders for the app's .desktop file in
-# /usr/share/applications/.
-taskbar_launchers="applications:firefox.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop,applications:posthogos-welcome.desktop"
+# /usr/share/applications/. posthog-code.desktop only exists if the
+# AppImage was staged at build time (POSTHOG_CODE_APPIMAGE in bin/build);
+# Plasma silently drops unknown launcher entries, so listing it here is
+# a no-op when absent.
+taskbar_launchers="applications:firefox.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:posthogos-welcome.desktop"
 if [ "$is_live" = "1" ]; then
     taskbar_launchers="$taskbar_launchers,applications:io.calamares.calamares.desktop"
 fi
 
 # Kickoff "Favorites" tab — separator-only different format.
-kickoff_favorites="applications:firefox.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop,applications:systemsettings.desktop,applications:posthogos-welcome.desktop"
+kickoff_favorites="applications:firefox.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:systemsettings.desktop,applications:posthogos-welcome.desktop"
 
 appletsrc="${XDG_CONFIG_HOME:-$HOME/.config}/plasma-org.kde.plasma.desktop-appletsrc"
 echo "+ patching $appletsrc"
