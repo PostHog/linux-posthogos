@@ -56,6 +56,14 @@ build_wallpaper_pkg() {
         "$MAGICK" "$dark_src" -filter Lanczos -resize "$res" \
             "$pkg/contents/images_dark/${res}.png"
     done
+
+    # Preview thumbnail. Plasma 6's wallpaper KCM uses contents/screenshot.jpg
+    # at ~400×250; without it every wallpaper shows a broken-image
+    # placeholder in System Settings → Wallpaper. We use the light variant
+    # since the chrome around the thumbnail is also light.
+    "$MAGICK" "$light_src" -filter Lanczos -resize 400x250^ \
+        -gravity center -extent 400x250 -quality 85 \
+        "$pkg/contents/screenshot.jpg"
 }
 
 log "Building wallpaper packages"
