@@ -82,27 +82,6 @@ What makes this *the PostHog OS*, not generic Linux with stickers.
 These are larger commitments worth deliberate decisions before
 expanding the feature surface.
 
-### Atomic / immutable base (deferred decision)
-
-Following the Bazzite/Aurora/Bluefin pattern, build PosthogOS as an
-`rpm-ostree` / `bootc` image rather than a mutable Arch install.
-
-**Pros for an agentic OS:**
-- Agents physically cannot permanently break the system (every change
-  is a transaction, every update is rollback-able at the boot layer)
-- Reproducible — every PosthogOS install is byte-identical at the
-  base layer
-- Atomic updates with zero half-installed states
-
-**Cons:**
-- Bigger lift to switch from our current pacstrap-based build
-- Less Arch-native; loses the "you can `pacman -S whatever`" flexibility
-- Bootc tooling is less mature than the existing arch/calamares flow
-
-**Decision needed:** ship-and-iterate on the current pacstrap approach
-through 2026 Q2; revisit immutability when the user complaint surface
-makes it obvious it'd help.
-
 ### Btrfs root by default
 
 Calamares already supports btrfs install; we just need to make it the
@@ -139,9 +118,7 @@ the menu of options for when polish becomes a priority:
 |---|---|---|
 | **Aurorae window decoration** | ~half day | Titlebar buttons + frame styling, distinct from Breeze chrome. QML-based; tweaking colors is straightforward, custom shapes need real design work |
 | **Kvantum widget theme** | 1-2 days | Every button, slider, progress bar, scrollbar, combo box gets PostHog-specific styling. Big visual shift |
-| **Custom splash screen** | ~1 hour | The screen between SDDM login and Plasma desktop; ~1s of PostHog-specific motion design |
 | **Custom cursor theme** | 1-2 hours | Mouse cursor (currently `breeze_cursors`) replaced with a PostHog-styled cursor pack |
-| **Custom KWin window decorations via QML (aurorae)** + **shipped color variants** (light/dark switchable) | 2-3 days | Full chrome ownership; dark-mode aurorae automatically tracking the active color scheme |
 
 **Decision needed:** defer all of these until the A-J near-term sequence
 below completes. If the OS lacks an agentic-substrate story, no amount

@@ -48,7 +48,7 @@ Rectangle {
             errorMessage.text = textConstants.loginSucceeded
         }
         function onLoginFailed() {
-            errorMessage.color = config.accent || "#F54E00"
+            errorMessage.color = config.accent || "#DC2626"
             errorMessage.text = textConstants.loginFailed
             passwordField.text = ""
             passwordField.forceActiveFocus()
@@ -119,8 +119,8 @@ Rectangle {
                 font.family: config.font || "Inter"
                 background: Rectangle {
                     color: loginButton.down
-                        ? Qt.darker(config.accent || "#F54E00", 1.2)
-                        : (config.accent || "#F54E00")
+                        ? Qt.darker(config.accent || "#EB9D2A", 1.2)
+                        : (config.accent || "#EB9D2A")
                     radius: 6
                 }
                 contentItem: Text {
@@ -138,7 +138,7 @@ Rectangle {
                 id: errorMessage
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
-                color: config.accent || "#F54E00"
+                color: config.accent || "#DC2626"
                 font.pixelSize: 12
                 font.family: config.font || "Inter"
                 wrapMode: Text.WordWrap
