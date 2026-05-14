@@ -240,12 +240,21 @@ fi
 # ---- Calamares branding --------------------------------------------------
 # Only flip the branding pointer if our branding dir actually has a
 # branding.desc. Otherwise Calamares would fail to start.
-if [ -f /etc/calamares/settings.conf ] && \
-   [ -f "/usr/share/calamares/branding/$BRAND/branding.desc" ]; then
-    log "Patching /etc/calamares/settings.conf branding: $BRAND"
-    sed -i "s/^branding:.*/branding: $BRAND/" /etc/calamares/settings.conf
+#
+# Important: cachyos-calamares-next ships settings.conf at
+# /usr/share/calamares/settings.conf (NOT /etc/calamares/settings.conf like
+# vanilla Calamares). Both candidate paths checked so a future upstream
+# refactor doesn't silently break us again — we patch whichever exists.
+cal_settings=""
+for candidate in /usr/share/calamares/settings.conf /etc/calamares/settings.conf; do
+    [ -f "$candidate" ] && cal_settings="$candidate" && break
+done
+if [ -n "$cal_settings" ] && [ -f "/usr/share/calamares/branding/$BRAND/branding.desc" ]; then
+    log "Patching $cal_settings branding: $BRAND"
+    sed -i "s/^branding:.*/branding: $BRAND/" "$cal_settings"
+    log "  result: $(grep '^branding:' "$cal_settings")"
 else
-    log "Calamares branding '$BRAND' not present — leaving CachyOS default"
+    log "Calamares branding '$BRAND' not present at any known settings.conf path — leaving CachyOS default"
 fi
 
 # ---- Display manager: plasma-login-manager (plasmalogin) ----------------
