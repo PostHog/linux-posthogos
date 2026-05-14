@@ -139,6 +139,12 @@ if [ -f "$pkglist" ]; then
         npm                  # Node package manager — needed for the customize-hook
                              # AI CLI install pass + for users to install other tools
                              # post-boot. Also a dep many JS dev workflows assume.
+        asdf-vm              # Per-user runtime version manager — sits ABOVE pacman
+                             # nodejs/python/etc. Users `asdf plugin add nodejs &&
+                             # asdf install nodejs 20.x` to pin per-project tool
+                             # versions via .tool-versions files. Shell init in
+                             # overlay/airootfs/etc/profile.d/asdf.sh wires shims
+                             # onto PATH for every interactive shell.
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.
