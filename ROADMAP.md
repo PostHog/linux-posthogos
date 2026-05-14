@@ -122,12 +122,14 @@ Flathub configured); don't force-migrate existing apps.
 
 ## Visual identity deepening (deferred polish)
 
-The current "PosthogOS" Plasma Look-and-Feel package is intentionally
-**Breeze + reskinning**: we explicitly set `widgetStyle=Breeze` and
-`kwin/decoration=Breeze`, then override ColorScheme, fonts, wallpaper,
-and icon theme on top. Result: when a user picks "PosthogOS" vs "Breeze"
-in System Settings → Global Theme, the cream/orange palette + wallpaper
-swap reads as "PosthogOS" without us owning the entire widget toolkit.
+The current "PosthogOS" + "PosthogOS Dark" Plasma Look-and-Feel
+packages are intentionally **Breeze + reskinning**: we explicitly set
+`widgetStyle=Breeze` and `kwin/decoration=Breeze`, then override
+ColorScheme, fonts, wallpaper, and icon theme on top. Result: when a
+user picks PosthogOS vs Breeze in System Settings → Global Theme, the
+palette + wallpaper swap reads as "PosthogOS" without us owning the
+entire widget toolkit. Light + Dark variants ship side-by-side
+(matching Breeze's Light/Dark/Twilight grid layout).
 
 That's the right trade-off for now (re-skinning every primitive is a
 multi-week project), but the option is there to go deeper. Capturing
