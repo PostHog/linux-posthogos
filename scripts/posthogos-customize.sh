@@ -195,6 +195,15 @@ SingleClick=false
 Theme=PosthogOS
 EOF
 
+# Tell System Settings → Global Theme that PosthogOS is the active LAF.
+# Without this file, the KCM shows no theme selected (or Breeze as a
+# fallback) until firstrun.sh's plasma-apply-lookandfeel writes it,
+# which races against the user opening System Settings. Seeding it
+# explicitly means the UI's "currently selected" state is correct from
+# the moment the user logs in.
+mkdir -p /etc/skel/.config/kdedefaults
+echo 'com.posthog.posthogos' > /etc/skel/.config/kdedefaults/package
+
 for v in gtk-3.0 gtk-4.0; do
     cat >"/etc/skel/.config/$v/settings.ini" <<'EOF'
 [Settings]
