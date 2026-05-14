@@ -120,6 +120,33 @@ specific Ubuntu toolchain for this one project."
 **Decision:** Add Flatpak as a secondary channel (`flatpak` preinstalled,
 Flathub configured); don't force-migrate existing apps.
 
+## Visual identity deepening (deferred polish)
+
+The current "PosthogOS" Plasma Look-and-Feel package is intentionally
+**Breeze + reskinning**: we explicitly set `widgetStyle=Breeze` and
+`kwin/decoration=Breeze`, then override ColorScheme, fonts, wallpaper,
+and icon theme on top. Result: when a user picks "PosthogOS" vs "Breeze"
+in System Settings → Global Theme, the cream/orange palette + wallpaper
+swap reads as "PosthogOS" without us owning the entire widget toolkit.
+
+That's the right trade-off for now (re-skinning every primitive is a
+multi-week project), but the option is there to go deeper. Capturing
+the menu of options for when polish becomes a priority:
+
+| Layer | Effort | What changes |
+|---|---|---|
+| **Aurorae window decoration** | ~half day | Titlebar buttons + frame styling, distinct from Breeze chrome. QML-based; tweaking colors is straightforward, custom shapes need real design work |
+| **Kvantum widget theme** | 1-2 days | Every button, slider, progress bar, scrollbar, combo box gets PostHog-specific styling. Big visual shift |
+| **Custom splash screen** | ~1 hour | The screen between SDDM login and Plasma desktop; ~1s of PostHog-specific motion design |
+| **Custom cursor theme** | 1-2 hours | Mouse cursor (currently `breeze_cursors`) replaced with a PostHog-styled cursor pack |
+| **Custom KWin window decorations via QML (aurorae)** + **shipped color variants** (light/dark switchable) | 2-3 days | Full chrome ownership; dark-mode aurorae automatically tracking the active color scheme |
+
+**Decision needed:** defer all of these until the A-J near-term sequence
+below completes. If the OS lacks an agentic-substrate story, no amount
+of chrome polish saves it; if it has one, this layer is the kind of
+work that takes "looks like CachyOS with branding" to "looks like
+something PostHog built." Revisit after item J ships.
+
 ## What we're explicitly NOT doing
 
 - **`posthogos-agent` CLI** — PostHog Code IS the agent orchestrator,
