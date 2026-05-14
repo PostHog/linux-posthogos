@@ -108,6 +108,30 @@ if [ -d /usr/local/bin ]; then
     chmod +x /usr/local/bin/papirus-folders 2>/dev/null || true
 fi
 
+# ---- Compile the welcome launcher ---------------------------------------
+# Tiny C++ shim that calls QGuiApplication::setDesktopFileName("posthogos-
+# welcome") + setWindowIcon() before loading welcome.qml. Without this, the
+# qml6 binary that previously ran the QML sets app_id to "qml" and Plasma
+# can't match the running window to /usr/share/applications/posthogos-
+# welcome.desktop → generic Qt icon in titlebar + taskbar.
+#
+# Compiled here (rather than pre-built on the host) so the binary is
+# linked against the SAME Qt6 ABI it'll run against — no minor-version-
+# mismatch risk between host container and final airootfs.
+launcher_src=/usr/src/posthogos-welcome-launcher.cpp
+if [ -f "$launcher_src" ] && command -v g++ >/dev/null && command -v pkg-config >/dev/null; then
+    log "Compiling welcome launcher"
+    if g++ -O2 -fPIC -o /usr/local/bin/posthogos-welcome-launcher \
+            "$launcher_src" \
+            $(pkg-config --cflags --libs Qt6Core Qt6Gui Qt6Qml) 2>&1 | sed 's/^/  /'; then
+        chmod +x /usr/local/bin/posthogos-welcome-launcher
+        rm -f "$launcher_src"
+        log "  built /usr/local/bin/posthogos-welcome-launcher ($(stat -c%s /usr/local/bin/posthogos-welcome-launcher) bytes)"
+    else
+        log "  WARN: launcher compile failed — bash wrapper will fall back to qml6 (icon will be generic)"
+    fi
+fi
+
 # ---- Suppress CachyOS Hello popup ---------------------------------------
 # cachyos-hello pops up a welcome window on every login (toggle is in the
 # app itself but defaults to on). Override its autostart by dropping a

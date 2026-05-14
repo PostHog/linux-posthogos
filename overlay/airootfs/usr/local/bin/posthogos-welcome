@@ -10,23 +10,6 @@
 
 set -e
 
-# QtCore.Settings persists to ~/.config/<orgname>/<appname>.conf. The QML
-# file doesn't set Application.organization/name explicitly, so Qt uses
-# defaults — the conf path resolves to ~/.config/QtProject.conf if not
-# overridden. We set them via env so the location is predictable.
-export QT_APPLICATION_NAME="PosthogOS-Welcome"
-export QT_ORGANIZATION_NAME="PostHog"
-
-# Tell Qt (on Wayland) which .desktop file this app belongs to. Without
-# this, qml6's window gets app ID "qml6", the compositor can't match it
-# to /usr/share/applications/posthogos-welcome.desktop, and the titlebar +
-# taskbar entry both show a generic blank icon. With this set, the
-# compositor reads Icon= from that .desktop and uses it everywhere this
-# window appears (titlebar, taskbar, alt-tab switcher, kickoff favorite).
-#
-# X11 fallback path uses StartupWMClass=posthogos-welcome in the .desktop
-# file itself (also set there).
-export QT_QPA_APP_DESKTOP_FILE_NAME=posthogos-welcome
 prefs="${XDG_CONFIG_HOME:-$HOME/.config}/PostHog/PosthogOS-Welcome.conf"
 
 # Honor the "Show on next startup" checkbox state. Default = show.
@@ -38,31 +21,39 @@ if [ "${1:-}" = "--autostart" ] && [ -f "$prefs" ]; then
     fi
 fi
 
-qml=/usr/share/posthogos/welcome.qml
-[ -f "$qml" ] || { echo "Missing $qml" >&2; exit 1; }
-
-# Prefer qml6 (Qt6) when available; fall back to plain qml.
-qml_bin=$(command -v qml6 || command -v qml || true)
-[ -n "$qml_bin" ] || { echo "Neither qml6 nor qml is installed (need qt6-declarative)" >&2; exit 1; }
-
-set +e
-# Capture stderr to a log so silent QML failures (missing import modules,
-# syntax errors, runtime crashes) leave a trace. The autostart path has no
-# attached terminal, so otherwise the user sees "cursor flashes, no window"
-# with zero diagnostic surface.
+# Prefer the compiled launcher binary — it calls QGuiApplication::
+# setDesktopFileName("posthogos-welcome") + setApplicationName() before
+# loading welcome.qml, which is the ONLY way to make Plasma match the
+# running window to /usr/share/applications/posthogos-welcome.desktop and
+# render Professor Hog in the titlebar/taskbar.
 #
-# Plain `2>>` direct-append rather than `tee` via process substitution —
-# `2> >(tee -a "$log" >&2)` is racy: the tee subshell may not flush before
-# the parent exits, and stderr from qml6 silently disappeared in practice.
-# Also enable QML's verbose logging so we get import/module diagnostics.
+# (Previous iterations tried QT_QPA_APP_DESKTOP_FILE_NAME — that env var
+#  doesn't exist in Qt; Qt docs explicitly say setDesktopFileName must be
+#  set programmatically. Hence the C++ shim.)
+#
+# Fall back to plain qml6 if the chroot compile failed during build — the
+# window still works, just with a generic Qt icon.
+launcher=/usr/local/bin/posthogos-welcome-launcher
+qml=/usr/share/posthogos/welcome.qml
+qml_bin=$(command -v qml6 || command -v qml || true)
+
 log=/tmp/posthogos-welcome.log
 {
-    echo "===== $(date -Iseconds) [pid=$$] $qml_bin $qml (--autostart=${1:-})"
+    echo "===== $(date -Iseconds) [pid=$$] autostart=${1:-}"
     echo "env: HOME=$HOME XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-?} DISPLAY=${DISPLAY:-?} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-?}"
-    echo "qml6 version:"
-    "$qml_bin" --version 2>&1 | sed 's/^/  /'
 } >>"$log" 2>&1
-QT_LOGGING_RULES='qt.qml.import.debug=true' "$qml_bin" "$qml" >>"$log" 2>&1
+
+set +e
+if [ -x "$launcher" ]; then
+    echo "  using launcher: $launcher" >>"$log"
+    "$launcher" >>"$log" 2>&1
+elif [ -n "$qml_bin" ] && [ -f "$qml" ]; then
+    echo "  fallback: $qml_bin $qml (launcher missing → icon will be generic)" >>"$log"
+    QT_LOGGING_RULES='qt.qml.import.debug=true' "$qml_bin" "$qml" >>"$log" 2>&1
+else
+    echo "ERROR: no launcher binary and no qml6 fallback available" >>"$log"
+    exit 1
+fi
 ec=$?
 echo "  exit=$ec" >>"$log"
 set -e

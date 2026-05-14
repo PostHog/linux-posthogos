@@ -95,6 +95,9 @@ if [ -f "$pkglist" ]; then
         qqc2-breeze-style    # Breeze QML style for QtQuick.Controls — without this,
                              # QtQuick.Controls picks Breeze as the default style on Plasma
                              # and fails to load org.kde.breeze, killing welcome.qml (exit 2)
+        pkgconf              # pkg-config implementation — chroot compile of
+                             # /usr/src/posthogos-welcome-launcher.cpp uses it
+                             # to discover Qt6 cflags/libs
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)
