@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# posthogos-info — neofetch-style system overview with the PostHog brand
-# mark. No external deps beyond coreutils + uname + procfs + pacman; runs
-# in any shell, in any terminal, including dumb / SSH / TTY.
+# neohog — neofetch-style system overview with the PostHog logomark
+# (sideways horizontal arrangement, matching posthog.com).
 #
-# Brand mark on the left is the four-triangle PostHog logomark
-# approximated in unicode block chars, each triangle in its brand color.
-# System facts on the right, neofetch-style.
+# No external deps beyond coreutils + uname + procfs + pacman; runs in any
+# shell, in any terminal. Defensive about missing tools (`?` fallback for
+# any fact-gathering command that fails) so it works on minimal hosts,
+# containers, even non-Linux preview runs.
 
 # `set -u` only — info-gathering uses `cmd 2>/dev/null || echo "?"`
 # patterns that pipefail would short-circuit. We always want output even
@@ -13,12 +13,15 @@
 set -u
 
 # ---- Brand palette (24-bit truecolor ANSI) -----------------------------
-ORANGE=$'\033[38;2;245;78;0m'    # #F54E00
-HONEY=$'\033[38;2;235;157;42m'   # #EB9D2A
-BLUE=$'\033[38;2;29;74;255m'     # #1D4AFF
-GREEN=$'\033[38;2;46;160;67m'    # #2EA043
-CREAM=$'\033[38;2;238;239;233m'  # #EEEFE9
-DARK=$'\033[38;2;35;37;29m'      # #23251D
+# Hex values lifted from branding/posthogos/logos/posthog-logomark.svg
+# so the ASCII rendering uses the canonical brand colors verbatim.
+BLUE=$'\033[38;2;29;74;255m'      # #1D4AFF  blue P
+YELLOW=$'\033[38;2;249;189;43m'   # #F9BD2B  yellow P
+ORANGE=$'\033[38;2;245;78;0m'     # #F54E00  orange P
+DARK=$'\033[38;2;0;0;0m'          # #000000  black hog block
+HONEY=$'\033[38;2;235;157;42m'    # #EB9D2A  brand accent (used elsewhere)
+GREEN=$'\033[38;2;46;160;67m'     # #2EA043
+CREAM=$'\033[38;2;238;239;233m'   # #EEEFE9
 BOLD=$'\033[1m'
 DIM=$'\033[2m'
 RESET=$'\033[0m'
@@ -42,7 +45,7 @@ case "$shell_name" in
     fish) shell_ver=$(fish --version 2>/dev/null | awk '{print $NF}') ;;
 esac
 terminal="${TERM:-?}"
-[ -n "${TERM_PROGRAM:-}" ] && terminal="$TERM_PROGRAM"   # ghostty / kitty / etc. expose this
+[ -n "${TERM_PROGRAM:-}" ] && terminal="$TERM_PROGRAM"
 de_session="${XDG_CURRENT_DESKTOP:-tty}"
 [ -n "${XDG_SESSION_TYPE:-}" ] && de_session="$de_session ${DIM}($XDG_SESSION_TYPE)${RESET}"
 
@@ -55,28 +58,40 @@ disk=$(df -h / 2>/dev/null | awk 'NR==2{printf "%s / %s (%s used)", $3, $2, $5}'
 pkg_pacman=$(pacman -Q 2>/dev/null | wc -l)
 pkg_flatpak=$(flatpak list --columns=ref 2>/dev/null | wc -l || echo 0)
 
-# Agentic tooling — only show the line if any are installed
 ai_present=()
 for bin in claude codex gemini pi ollama op mitmproxy; do
     command -v "$bin" >/dev/null 2>&1 && ai_present+=("$bin")
 done
 
-# ---- Logo (10 lines, padded to 22 visible cols on each line) -----------
-# Diagonal stairsteps of the four PostHog brand colors, evoking the
-# 4-triangle logomark on posthog.com. Trailing spaces inside each
-# string keep the visible width constant so the info column to the
-# right stays aligned without us computing strlen-after-ANSI.
+# ---- Logo: PostHog logomark, sideways -----------------------------------
+# Matches the canonical brand mark at posthog.com — three groups of
+# parallel diagonal "stripes" (blue, orange, yellow, in that left-to-right
+# order per the SVG) cascading rightward, then a black right-triangle
+# block with the hog's eye on the far right.
+#
+# The brand stripes are SLANTED parallelograms in the real logo. ASCII
+# approximates each stripe as a single character cell containing the
+# diagonal box-drawing glyph `╲` (U+2572, "Box Drawings Light Diagonal
+# Upper Left to Lower Right"). Multiple `╲`s side-by-side render as
+# parallel diagonals — close enough to the parallelogram stripes to
+# read as the PostHog mark at a glance.
+#
+# Hog block on the right is a 5-row right-triangle (`▟▙` corner + base
+# of `▔` bars + filled body) with the brand-orange eye dot near the
+# bottom, mirroring the hog face's eye position in the SVG.
+#
+# Five logo rows + four blank padding rows (two above, two below) to
+# vertically center the logo within the ~10-row info column.
 LOGO=(
-"${BLUE}${BOLD}        ▟▙            ${RESET}"
-"${BLUE}${BOLD}       ▟██▙           ${RESET}"
-"${BLUE}${BOLD}      ▟████▙          ${RESET}"
-"${ORANGE}${BOLD}     ▟██████▙         ${RESET}"
-"${ORANGE}${BOLD}    ▟████████▙        ${RESET}"
-"${HONEY}${BOLD}   ▟██████████▙       ${RESET}"
-"${HONEY}${BOLD}  ▟████████████▙      ${RESET}"
-"${DARK}${BOLD} ▟██████████████▙     ${RESET}"
-"${DARK}${BOLD}▟████████████████▙    ${RESET}"
-"${DARK}${BOLD} ▝▀▀▀▀▀▀▀▀▀▀▀▀▀▀▘     ${RESET}"
+"                            "
+"                            "
+"${BLUE}◥◣    ${ORANGE}◥◣    ${YELLOW}◥◣${RESET}              "
+"${BLUE}◥◣◥◣  ${ORANGE}◥◣◥◣  ${YELLOW}◥◣◥◣${RESET}            "
+"${BLUE}◥◣◥◣◥◣${ORANGE}◥◣◥◣◥◣${YELLOW}◥◣◥◣◥◣${DARK}${RESET}          "
+"${BLUE}◥◣◥◣◥◣${ORANGE}◥◣◥◣◥◣${YELLOW}◥◣◥◣◥◣${DARK}◥◣${RESET}        "
+"${BLUE}◥◣◥◣◥◣${ORANGE}◥◣◥◣◥◣${YELLOW}◥◣◥◣◥◣${DARK} ${CREAM}●${DARK}◥◣${RESET}      "
+"${BLUE}◥◣◥◣◥◣${ORANGE}◥◣◥◣◥◣${YELLOW}◥◣◥◣◥◣${DARK}◥◣◥◣◥◣${RESET}    "
+"                            "
 )
 
 # ---- Info field formatter ----------------------------------------------
@@ -108,6 +123,6 @@ echo
 max=${#LOGO[@]}
 [ ${#INFO[@]} -gt $max ] && max=${#INFO[@]}
 for ((i=0; i<max; i++)); do
-    printf "  %s  %s\n" "${LOGO[i]:-                      }" "${INFO[i]:-}"
+    printf "  %s  %s\n" "${LOGO[i]:-                            }" "${INFO[i]:-}"
 done
 echo
