@@ -234,6 +234,25 @@ if [ -d /home/liveuser ]; then
     chown 1000:1000 /home/liveuser/.config/konsolerc
 fi
 
+# ---- Seed liveuser's home with /etc/skel additions ----------------------
+# liveuser was created BEFORE the overlay rsync, so files we just dropped
+# into /etc/skel don't auto-propagate (skel is only consulted at user-
+# creation time). For Calamares-installed users this is fine — they're
+# created post-overlay so skel works as designed. For liveuser we mirror
+# the relevant skel files in place.
+#
+# Using `cp -an` (archive + no-clobber): preserves modes/timestamps and
+# refuses to overwrite anything the user already touched, so re-runs of
+# customize don't trample user state. Then chown the entire home to
+# liveuser:liveuser to fix up ownership in one shot.
+if [ -d /home/liveuser ] && [ -d /etc/skel ]; then
+    log "Seeding /home/liveuser with /etc/skel contents (dotfiles, configs)"
+    # Copy hidden + visible top-level entries. `cp -an /etc/skel/. /home/liveuser/`
+    # handles dotfiles correctly (the trailing /. is the trick).
+    cp -an /etc/skel/. /home/liveuser/ 2>&1 | sed 's/^/  /' || true
+    chown -R 1000:1000 /home/liveuser
+fi
+
 # ---- Plymouth ------------------------------------------------------------
 # Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
 # from the overlay. We point plymouthd at it, then regenerate the initramfs.
