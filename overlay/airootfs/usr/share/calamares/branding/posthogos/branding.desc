@@ -1,11 +1,23 @@
 ---
 componentName: posthogos
 
-welcomeStyleCalamares: true
-welcomeExpandingLogo: true
-windowExpanding: normal
-windowSize: 800px,520px
-windowPlacement: center
+# `false` → "Welcome to the PosthogOS installer." (we ARE the installer for
+# this distro, no need to disambiguate). `true` would give "Welcome to the
+# Calamares installer for PosthogOS." (used when multiple installers exist).
+welcomeStyleCalamares: false
+welcomeExpandingLogo:  true
+
+windowExpanding:       normal
+windowSize:            1100px,520px   # match CachyOS's wider form factor (extra room for the bottom step pills)
+windowPlacement:       center
+
+# Layout: ship a QML "sidebar" rendered at the BOTTOM of the window (a row
+# of step pills, matching the CachyOS look). The default `widget` sidebar
+# renders steps in a vertical left-hand column with our logo on top — which
+# squashes our native-aspect logo and feels heavy. The qml,bottom layout
+# uses calamares-sidebar.qml in this same folder.
+sidebar:    qml,bottom
+navigation: widget
 
 strings:
     productName:         PosthogOS
@@ -22,14 +34,18 @@ strings:
     donateUrl:           https://posthog.com
 
 images:
-    productLogo:         logo.png       # native-aspect, header banner
+    productLogo:         logo.png       # 80x80 square in the bottom bar's left-end logo slot
     productIcon:         logo-icon.png  # square, window title bar
-    productWelcome:      welcome.png
+    productWelcome:      welcome.png    # the big banner on the welcome page
 
-slideshow:               show.qml
+slideshow:    show.qml
+slideshowAPI: 2
 
+# Style: brand palette for the bottom step bar.
+# Capital-K key names match what cachyos uses (Calamares accepts both
+# spellings; capitalized form is the docs-recommended one).
 style:
-    sidebarBackground:   "#151515"
-    sidebarText:         "#EEEFE9"
-    sidebarTextSelect:   "#F54E00"
-    sidebarTextHighlight: "#F54E00"
+    SidebarBackground:        "#151515"
+    SidebarText:              "#EEEFE9"
+    SidebarBackgroundCurrent: "#F54E00"
+    SidebarTextCurrent:       "#FFFFFF"

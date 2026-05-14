@@ -350,8 +350,12 @@ mkdir -p "$ply_dst"
 log "Installing Calamares brand images"
 cal_dst="$out/airootfs/usr/share/calamares/branding/posthogos"
 mkdir -p "$cal_dst"
-# Header logo: native-aspect logomark, scaled to ~200px wide.
-"$MAGICK" "$src/logos/posthog-logomark.svg" -background none -resize 200x \
+# Header/sidebar logo: SQUARE. calamares-sidebar.qml renders it at 30x30
+# in the bottom step bar. Was previously native-aspect 200x — squashed
+# horribly when Calamares fell back to the default vertical sidebar, and
+# would also look off in the new qml,bottom layout. 96x96 = 30×3 for
+# clean HiDPI scaling. Source is the pre-padded square logomark master.
+"$MAGICK" "$square_logo" -filter Lanczos -resize 96x96 \
     "$cal_dst/logo.png"
 # Window/title bar icon: must be square (WMs draw it as a square tile).
 # 256×256 from the square master.
