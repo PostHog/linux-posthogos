@@ -139,12 +139,9 @@ if [ -f "$pkglist" ]; then
         npm                  # Node package manager — needed for the customize-hook
                              # AI CLI install pass + for users to install other tools
                              # post-boot. Also a dep many JS dev workflows assume.
-        asdf-vm              # Per-user runtime version manager — sits ABOVE pacman
-                             # nodejs/python/etc. Users `asdf plugin add nodejs &&
-                             # asdf install nodejs 20.x` to pin per-project tool
-                             # versions via .tool-versions files. Shell init in
-                             # overlay/airootfs/etc/profile.d/asdf.sh wires shims
-                             # onto PATH for every interactive shell.
+        # asdf-vm: NOT in Arch repos (AUR-only as `asdf-vm` / `asdf-vm-bin`).
+        # customize.sh downloads the static binary from the official
+        # GitHub release directly — same model as the 1Password CLI install.
         mitmproxy            # HTTPS-intercepting proxy. Agent-safe dev surface
                              # from ROADMAP Tier 2: route agent HTTP calls
                              # through `mitmproxy` to audit what they're doing.
@@ -167,8 +164,9 @@ if [ -f "$pkglist" ]; then
         fd                   # `find` replacement, sensible defaults
         fzf                  # Fuzzy finder. Powers shell ctrl-R / kill -9 pid
         jq                   # JSON query/manipulation
-        yq-go                # YAML/TOML/XML query (Mike Farah's Go yq, not the
-                             # Python one — Go yq is the de-facto modern one)
+        go-yq                # YAML/TOML/XML query (Mike Farah's Go yq, not the
+                             # Python one — Go yq is the de-facto modern one).
+                             # Arch package is `go-yq`; the binary on PATH is `yq`.
         # Diff + git
         git-delta            # Syntax-highlighting pager for git diff/show.
                              # Wired into /etc/skel/.gitconfig.

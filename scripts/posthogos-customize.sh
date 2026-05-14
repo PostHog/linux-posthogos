@@ -592,9 +592,31 @@ else
     rm -f "$op_zip"
 fi
 
+# --- asdf-vm: direct binary download ------------------------------------
+# asdf is not in any Arch repo (AUR-only). The project ships a static Go
+# binary on every GitHub release; same shape as the 1Password CLI install
+# above. Bump ASDF_VERSION when you want a newer release.
+#
+# Companion: /etc/profile.d/asdf.sh (overlay) prepends $ASDF_DATA_DIR/shims
+# to PATH for every interactive shell, so once asdf installs are in
+# ~/.asdf, the version-managed binaries take precedence.
+ASDF_VERSION=0.16.7
+log "Installing asdf-vm v${ASDF_VERSION}"
+asdf_tgz=/tmp/asdf-${ASDF_VERSION}.tar.gz
+if curl -fsSL -o "$asdf_tgz" \
+        "https://github.com/asdf-vm/asdf/releases/download/v${ASDF_VERSION}/asdf-v${ASDF_VERSION}-linux-amd64.tar.gz" \
+    && tar -xzf "$asdf_tgz" -C /usr/local/bin/ asdf 2>&1 | sed 's/^/  /'; then
+    chmod 0755 /usr/local/bin/asdf
+    rm -f "$asdf_tgz"
+    log "  installed /usr/local/bin/asdf"
+else
+    log "  WARN: asdf install failed (manual: download from https://github.com/asdf-vm/asdf/releases)"
+    rm -f "$asdf_tgz"
+fi
+
 # --- Verify which tools landed on PATH ----------------------------------
 log "Agentic tooling on PATH after install:"
-for bin in ollama claude codex gemini pi op mitmproxy; do
+for bin in ollama claude codex gemini pi op mitmproxy asdf; do
     path=$(command -v "$bin" 2>/dev/null || echo "(not found — users can install manually)")
     log "  $bin → $path"
 done
