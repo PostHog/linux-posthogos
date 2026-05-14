@@ -429,6 +429,72 @@ if command -v flatpak >/dev/null; then
         || log "WARN: flathub remote-add failed (Discover will still find it on first run)"
 fi
 
+# ---- Agentic dev tooling: Ollama + Claude Code + Codex + Gemini + Pi ----
+# Preinstall each tool per its vendor's official install method. Each
+# block is independent — one failure doesn't block the others (one tool's
+# network/registry hiccup shouldn't kill the build).
+#
+# Why mixed install methods: each vendor publishes one canonical path.
+# Mixing curl|sh + npm matches what users would do anyway if they
+# followed each tool's docs by hand. AUR alternatives exist for some but
+# none of them track upstream reliably enough to be the default.
+
+# --- Ollama: local LLM inference (curl|sh installer) ---------------------
+# Official installer:
+#   curl -fsSL https://ollama.com/install.sh | sh
+# It creates a system user `ollama`, drops the binary at /usr/bin/ollama,
+# writes /etc/systemd/system/ollama.service, and tries to enable + start
+# it. The start fails in chroot (no running systemd), but enable should
+# stick. Belt-and-suspenders: manually create the wants/ symlink so the
+# service comes up on first installed boot regardless of installer state.
+log "Installing Ollama (local LLM runtime)"
+if curl -fsSL https://ollama.com/install.sh | sh 2>&1 | sed 's/^/  /'; then
+    if [ -f /etc/systemd/system/ollama.service ]; then
+        ln -sf /etc/systemd/system/ollama.service \
+            /etc/systemd/system/multi-user.target.wants/ollama.service
+        log "  ollama.service enabled for next boot"
+    fi
+else
+    log "  WARN: Ollama install failed (manual: curl -fsSL https://ollama.com/install.sh | sh)"
+fi
+
+# --- Claude Code: Anthropic's coding agent CLI (curl|sh installer) -------
+# Native install per https://code.claude.com/docs/en/quickstart — they
+# explicitly recommend curl over npm because the native installer wires
+# up auto-update in the background. Binary lands at /usr/local/bin/claude.
+log "Installing Claude Code"
+curl -fsSL https://claude.ai/install.sh | bash 2>&1 | sed 's/^/  /' \
+    || log "  WARN: Claude Code install failed"
+
+# --- Pi: terminal coding harness from Earendil Works (curl|sh) -----------
+# https://pi.dev/docs/latest — two install paths documented; curl is the
+# vendor's recommended Linux/Mac native path. Binary: /usr/local/bin/pi.
+log "Installing Pi (terminal coding harness)"
+curl -fsSL https://pi.dev/install.sh | sh 2>&1 | sed 's/^/  /' \
+    || log "  WARN: Pi install failed (npm fallback: npm install -g @earendil-works/pi-coding-agent)"
+
+# --- Gemini CLI + OpenAI Codex CLI: npm-only ----------------------------
+# Both vendors publish only via npm. Install to /usr/local/ (FHS for
+# "user-installed, not pacman-owned"). Binaries land at /usr/local/bin/
+# {gemini,codex}. --no-fund/--no-audit suppress non-TTY-friendly noise.
+if command -v npm >/dev/null; then
+    log "Installing Gemini CLI + OpenAI Codex via npm"
+    for pkg in @google/gemini-cli @openai/codex; do
+        log "  $pkg"
+        npm install --global --prefix /usr/local \
+            --no-fund --no-audit --silent \
+            "$pkg" 2>&1 | sed 's/^/    /' \
+            || log "  WARN: $pkg install failed"
+    done
+fi
+
+# --- Verify which tools landed on PATH ----------------------------------
+log "Agentic tooling on PATH after install:"
+for bin in ollama claude codex gemini pi; do
+    path=$(command -v "$bin" 2>/dev/null || echo "(not found — users can install manually)")
+    log "  $bin → $path"
+done
+
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"
 [ -d /usr/share/icons ] && find /usr/share/icons -maxdepth 1 -mindepth 1 -type d \

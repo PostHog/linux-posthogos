@@ -121,6 +121,12 @@ if [ -f "$pkglist" ]; then
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)
         docker-compose       # Compose plugin alongside docker
+        nodejs               # JS runtime — Gemini CLI + OpenAI Codex are npm-only;
+                             # customize.sh installs them via `npm install --global`.
+                             # Stays useful post-boot for arbitrary `npm install` work.
+        npm                  # Node package manager — needed for the customize-hook
+                             # AI CLI install pass + for users to install other tools
+                             # post-boot. Also a dep many JS dev workflows assume.
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.
