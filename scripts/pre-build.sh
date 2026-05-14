@@ -146,6 +146,14 @@ if [ -f "$pkglist" ]; then
 
         # ── Tier 3 — modern developer baseline (from ROADMAP) ───────────
         # Shell + prompt + history + dir-jumping
+        zsh                  # The default login shell — customize.sh chsh's
+                             # liveuser to /bin/zsh AND sets useradd's default
+                             # to /bin/zsh for Calamares-installed users.
+                             # NOT pulled in by CachyOS or plasma-meta, so we
+                             # have to add it explicitly.
+        zsh-completions      # Community-maintained completion functions for
+                             # tons of tools (gh, kubectl, docker, etc.).
+                             # Activated automatically by zsh's compinit.
         starship             # Cross-shell prompt. Theme in /etc/skel/.config/starship.toml
         atuin                # Replaces shell history with a sync'd SQLite db
                              # + fuzzy magic search. Activated via .zshrc init.
