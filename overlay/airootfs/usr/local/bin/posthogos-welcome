@@ -16,6 +16,17 @@ set -e
 # overridden. We set them via env so the location is predictable.
 export QT_APPLICATION_NAME="PosthogOS-Welcome"
 export QT_ORGANIZATION_NAME="PostHog"
+
+# Tell Qt (on Wayland) which .desktop file this app belongs to. Without
+# this, qml6's window gets app ID "qml6", the compositor can't match it
+# to /usr/share/applications/posthogos-welcome.desktop, and the titlebar +
+# taskbar entry both show a generic blank icon. With this set, the
+# compositor reads Icon= from that .desktop and uses it everywhere this
+# window appears (titlebar, taskbar, alt-tab switcher, kickoff favorite).
+#
+# X11 fallback path uses StartupWMClass=posthogos-welcome in the .desktop
+# file itself (also set there).
+export QT_QPA_APP_DESKTOP_FILE_NAME=posthogos-welcome
 prefs="${XDG_CONFIG_HOME:-$HOME/.config}/PostHog/PosthogOS-Welcome.conf"
 
 # Honor the "Show on next startup" checkbox state. Default = show.
