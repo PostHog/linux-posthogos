@@ -12,7 +12,7 @@ LookAndFeelPackage=com.posthog.posthogos
 widgetStyle=Breeze
 
 [kdeglobals][Icons]
-Theme=Papirus-Light
+Theme=PosthogOS
 
 [kwinrc][org.kde.kdecoration2]
 library=org.kde.breeze
