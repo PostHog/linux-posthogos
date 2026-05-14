@@ -45,6 +45,7 @@ Presentation {
     Slide { Image { source: "slideshow/final-destination.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
     Slide { Image { source: "slideshow/this-is-fine.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
     Slide { Image { source: "slideshow/zombi.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
+    Slide { Image { source: "slideshow/posthog-3000.png"; anchors.fill: parent; fillMode: Image.PreserveAspectFit; mipmap: true } }
 
     function onActivate() {}
     function onLeave() {}
