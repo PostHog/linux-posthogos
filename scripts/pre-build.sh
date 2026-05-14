@@ -98,6 +98,13 @@ if [ -f "$pkglist" ]; then
         pkgconf              # pkg-config implementation — chroot compile of
                              # /usr/src/posthogos-welcome-launcher.cpp uses it
                              # to discover Qt6 cflags/libs
+        flatpak              # Secondary app distribution channel for
+                             # sandboxed GUI apps (Slack, Spotify, Zoom, etc.)
+                             # System-wide Flathub registered in customize.sh.
+                             # Plasma's Discover auto-detects Flatpak and adds
+                             # the source to its catalog when the binary is
+                             # installed — no extra discover-flatpak-backend
+                             # package needed in modern Plasma.
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)

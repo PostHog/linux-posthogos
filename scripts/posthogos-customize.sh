@@ -384,6 +384,29 @@ if getent group docker >/dev/null && grep -q '^liveuser:' /etc/passwd; then
     gpasswd -a liveuser docker 2>&1 | sed 's/^/  /' || log "WARN: gpasswd failed"
 fi
 
+# ---- Flatpak: register Flathub system-wide ------------------------------
+# Flatpak is shipped via the package list (see scripts/pre-build.sh) as a
+# secondary app distribution channel for sandboxed GUI apps that don't
+# live in pacman/AUR (Slack, Spotify, Zoom, etc.). It's secondary —
+# pacman is still the primary for system packages and CLI tools.
+#
+# `flatpak remote-add --system` writes /var/lib/flatpak/repo/config so
+# Flathub is available to ALL users on the system, not just liveuser.
+# `--if-not-exists` makes this idempotent across rebuilds. We don't
+# install any specific Flatpaks here — just register the source so
+# `flatpak install <app>` or Discover's UI both find Flathub instantly.
+#
+# Plasma's Discover auto-detects Flatpak when the binary is installed
+# (libflatpak is detected at Discover's startup), so no separate
+# discover-flatpak-backend package is needed in Plasma 6.
+if command -v flatpak >/dev/null; then
+    log "Registering Flathub as a system-wide Flatpak remote"
+    flatpak remote-add --system --if-not-exists \
+        flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+        2>&1 | sed 's/^/  /' \
+        || log "WARN: flathub remote-add failed (Discover will still find it on first run)"
+fi
+
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"
 [ -d /usr/share/icons ] && find /usr/share/icons -maxdepth 1 -mindepth 1 -type d \
