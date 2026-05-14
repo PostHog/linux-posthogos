@@ -275,6 +275,28 @@ else
     log "Calamares branding '$BRAND' not present at any known settings.conf path — leaving CachyOS default"
 fi
 
+# ---- Calamares: default to btrfs ---------------------------------------
+# Patch the partition module so the "automatic" install path lays the disk
+# down as btrfs with snapper-compatible subvolumes (@, @home, @cache, @log,
+# @snapshots) instead of ext4. Users can still pick ext4 / xfs / f2fs from
+# the manual partitioning panel — we only flip the DEFAULT.
+#
+# Why btrfs default: it unlocks the snapper snapshot/rollback story
+# (snap-pac auto-snapshots on every pacman op, grub-btrfs renders snapshots
+# as bootable GRUB entries). Agentic OS premise — agents touching files
+# should be one snapper-undo away from "never happened."
+#
+# partition.conf lives at /usr/share/calamares/modules/partition.conf in
+# the CachyOS package layout. defaultFileSystemType is a top-level key.
+for part_conf in /usr/share/calamares/modules/partition.conf /etc/calamares/modules/partition.conf; do
+    if [ -f "$part_conf" ]; then
+        log "Patching $part_conf → defaultFileSystemType: btrfs"
+        sed -i 's|^defaultFileSystemType:.*|defaultFileSystemType: btrfs|' "$part_conf"
+        log "  result: $(grep '^defaultFileSystemType:' "$part_conf")"
+        break
+    fi
+done
+
 # ---- Display manager: plasma-login-manager (plasmalogin) ----------------
 # plasma-login-manager is upstream KDE's SDDM fork with a new Plasma-native
 # greeter that integrates the standard Plasma wallpaper plugin. CachyOS ships

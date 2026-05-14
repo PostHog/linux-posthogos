@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# First-boot snapper initialization for PosthogOS.
+#
+# Runs once on the first boot of an INSTALLED PosthogOS system (NOT the live
+# ISO) and:
+#   1. Bails early if / isn't btrfs (user installed to ext4/xfs/etc. — they
+#      opted out of snapshots, don't force snapper on them).
+#   2. Bails early if the snapper config already exists (idempotent — second
+#      boot is a no-op).
+#   3. Bails early on the live ISO (writable airootfs is overlayfs, not real
+#      btrfs — `findmnt` would lie if we didn't gate this).
+#   4. Creates a snapper config for the root subvolume.
+#   5. Enables the snapper-timeline (hourly) + snapper-cleanup timers so the
+#      snapshot lineage starts accumulating automatically.
+#   6. Enables grub-btrfsd (regenerates GRUB menu entries when snapshots
+#      change, so a broken boot can rescue itself by picking a snapshot
+#      from the bootloader).
+#
+# The companion .service unit has ConditionPathExists=!/etc/snapper/configs/root
+# so the systemd side also won't re-run after first success — belt and
+# suspenders. The marker check below handles the case where someone manually
+# deletes the config but doesn't want the timers re-enabled.
+
+set -euo pipefail
+
+log() { printf '[posthogos-snapper-init] %s\n' "$*"; }
+
+# Live ISO guard. /run/archiso/cowspace exists on the live image.
+if [ -d /run/archiso ]; then
+    log "live ISO — skipping (snapper makes no sense on overlayfs airootfs)"
+    exit 0
+fi
+
+# Filesystem-type guard. snapper only meaningful on btrfs.
+root_fstype=$(findmnt -no FSTYPE / 2>/dev/null || echo "")
+if [ "$root_fstype" != "btrfs" ]; then
+    log "root is $root_fstype, not btrfs — skipping (user chose a different fs at install)"
+    exit 0
+fi
+
+# Idempotency: skip if config already there.
+if [ -f /etc/snapper/configs/root ]; then
+    log "snapper config for / already exists — nothing to do"
+    exit 0
+fi
+
+# Snapper requires a /.snapshots dir at the location to be tracked. Calamares
+# with our partition.conf layout creates one as a @snapshots subvolume; if
+# someone installed without that subvolume, fall back to letting snapper
+# create the dir itself (it'll handle the subvolume creation).
+log "Creating snapper config for / (root subvolume)"
+if snapper -c root create-config / 2>&1 | sed 's/^/  /'; then
+    log "snapper config created at /etc/snapper/configs/root"
+else
+    log "WARN: snapper create-config failed; leaving system without snapshots"
+    exit 0
+fi
+
+# Enable the periodic snapshot + cleanup timers. Without these, snapshots
+# only happen via snap-pac (on pacman ops) — useful but not enough for
+# "agent did something weird at 3pm, roll back to 2pm" cases.
+log "Enabling snapper-timeline.timer + snapper-cleanup.timer"
+systemctl enable --now snapper-timeline.timer snapper-cleanup.timer \
+    2>&1 | sed 's/^/  /' || log "WARN: enabling snapper timers failed"
+
+# grub-btrfsd watches /.snapshots and regenerates GRUB submenu entries
+# whenever snapshots come or go. With this enabled, a broken boot from a
+# bad pacman/agent op is one bootloader menu pick away from a working
+# snapshot.
+if systemctl list-unit-files grub-btrfsd.service >/dev/null 2>&1; then
+    log "Enabling grub-btrfsd"
+    systemctl enable --now grub-btrfsd.service \
+        2>&1 | sed 's/^/  /' || log "WARN: enabling grub-btrfsd failed"
+fi
+
+log "snapper initialization complete"

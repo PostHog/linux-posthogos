@@ -105,6 +105,18 @@ if [ -f "$pkglist" ]; then
                              # the source to its catalog when the binary is
                              # installed — no extra discover-flatpak-backend
                              # package needed in modern Plasma.
+        snapper              # Btrfs snapshot manager. With Calamares now
+                             # defaulting installs to btrfs (see partition.conf
+                             # patch in customize.sh), snapper handles
+                             # automatic snapshots + rollback. Initialized on
+                             # first installed boot by posthogos-snapper-init.
+        snap-pac             # Pacman hooks that snapshot before/after every
+                             # `pacman -S/U/R` op — automatic rollback target
+                             # for any package change that breaks the system.
+        grub-btrfs           # Generates GRUB submenu entries for every
+                             # snapper snapshot so you can boot into a
+                             # snapshot from the bootloader if the running
+                             # system can't reach a desktop.
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)
