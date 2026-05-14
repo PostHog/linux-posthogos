@@ -305,6 +305,34 @@ EOF
 # the active DM here; that's now plasma-login-manager's job and the user
 # chose not to fight upstream.
 
+# ---- Curate the wallpaper picker -----------------------------------------
+# cachyos-kde-settings ships a handful of CachyOS-flavored wallpapers
+# (Sub-Arctic and friends) into /usr/share/wallpapers/. They show up in
+# System Settings → Wallpaper next to ours, which dilutes the brand. We
+# don't want our users picking "Sub-Arctic" thinking it's a PosthogOS
+# wallpaper, so prune everything that isn't ours OR a stock Breeze wallpaper
+# (Breeze is the safe fallback shipped by plasma-workspace).
+#
+# Detection: anything under /usr/share/wallpapers/ that doesn't start
+# with "Posthogos" and doesn't start with one of the stock Breeze names
+# (Breeze, Next, Path, Volna, Lake, Mountain, Pollen, Patak, ...) gets
+# rm'd. The kept-names list is intentionally short — Breeze ships ~10
+# wallpapers, we keep all of them as system defaults.
+log "Pruning non-PosthogOS / non-Breeze wallpapers"
+if [ -d /usr/share/wallpapers ]; then
+    for wp in /usr/share/wallpapers/*/; do
+        name=$(basename "$wp")
+        case "$name" in
+            Posthogos*) ;;                              # ours
+            Breeze|Next|Path|Volna|Lake|Mountain|Pollen|Patak|Cluster|Kay|Cascade|Flow) ;;  # Breeze stock
+            *)
+                log "  removing /usr/share/wallpapers/$name"
+                rm -rf "$wp"
+                ;;
+        esac
+    done
+fi
+
 # ---- Papirus folder color ------------------------------------------------
 # Recolor Papirus's folder icons (default blue → warm orange) using the
 # upstream papirus-folders helper vendored at /usr/local/bin/papirus-folders
