@@ -553,49 +553,9 @@ if command -v npm >/dev/null; then
     done
 fi
 
-# --- 1Password CLI (`op`): direct binary download -----------------------
-# 1Password publishes a static binary for Linux but no Arch package. They
-# host versioned ZIPs at cache.agilebits.com with a stable URL pattern:
-#   https://cache.agilebits.com/dist/1P/op2/pkg/v<VERSION>/op_linux_amd64_v<VERSION>.zip
-# Each release is a ZIP containing a single `op` binary. Install path
-# per their docs: /usr/local/bin/op.
-#
-# Bump OP_VERSION below when you want a newer release. There's no
-# "latest" URL — 1Password explicitly version-pins to make supply-chain
-# verification possible (you can pin a SHA256 here later if we want that).
-OP_VERSION=2.33.1
-log "Installing 1Password CLI v${OP_VERSION}"
-op_zip=/tmp/op-${OP_VERSION}.zip
-if curl -fsSL -o "$op_zip" \
-        "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_amd64_v${OP_VERSION}.zip" \
-    && unzip -j -o "$op_zip" op -d /usr/local/bin/ 2>&1 | sed 's/^/  /'; then
-    chmod 0755 /usr/local/bin/op
-    rm -f "$op_zip"
-    # Setup per 1Password's docs: `onepassword-cli` group + setgid bit on
-    # the binary. This is what enables "Connect with 1Password" mode where
-    # the CLI talks to the desktop app for biometric/auto-unlock auth.
-    # Users not in the group can still use service-account tokens or
-    # interactive `op signin`; the group setup just adds the convenience
-    # path. liveuser is added to the group so the live ISO demo works
-    # without extra steps; Calamares-installed users need to add
-    # themselves manually post-install (or we could ship a first-boot
-    # hook later — flagging for follow-up).
-    groupadd --system onepassword-cli 2>/dev/null || true
-    chgrp onepassword-cli /usr/local/bin/op
-    chmod g+s /usr/local/bin/op
-    if grep -q '^liveuser:' /etc/passwd; then
-        gpasswd -a liveuser onepassword-cli 2>&1 | sed 's/^/  /' || true
-    fi
-    log "  installed /usr/local/bin/op + onepassword-cli group setup"
-else
-    log "  WARN: 1Password CLI install failed (manual install: https://www.1password.dev/cli/get-started/)"
-    rm -f "$op_zip"
-fi
-
 # --- asdf-vm: direct binary download ------------------------------------
 # asdf is not in any Arch repo (AUR-only). The project ships a static Go
-# binary on every GitHub release; same shape as the 1Password CLI install
-# above. Bump ASDF_VERSION when you want a newer release.
+# binary on every GitHub release. Bump ASDF_VERSION when you want a newer release.
 #
 # Companion: /etc/profile.d/asdf.sh (overlay) prepends $ASDF_DATA_DIR/shims
 # to PATH for every interactive shell, so once asdf installs are in

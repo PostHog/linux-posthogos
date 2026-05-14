@@ -139,16 +139,10 @@ if [ -f "$pkglist" ]; then
         npm                  # Node package manager — needed for the customize-hook
                              # AI CLI install pass + for users to install other tools
                              # post-boot. Also a dep many JS dev workflows assume.
-        # asdf-vm: NOT in Arch repos (AUR-only as `asdf-vm` / `asdf-vm-bin`).
-        # customize.sh downloads the static binary from the official
-        # GitHub release directly — same model as the 1Password CLI install.
         mitmproxy            # HTTPS-intercepting proxy. Agent-safe dev surface
                              # from ROADMAP Tier 2: route agent HTTP calls
                              # through `mitmproxy` to audit what they're doing.
                              # CLI: `mitmproxy` (TUI) or `mitmweb` (browser UI).
-        unzip                # Needed in the chroot to extract the 1Password CLI
-                             # zip archive. Not always pulled by base; adding
-                             # explicitly so customize.sh can rely on it.
 
         # ── Tier 3 — modern developer baseline (from ROADMAP) ───────────
         # Shell + prompt + history + dir-jumping
