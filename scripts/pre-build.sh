@@ -92,6 +92,9 @@ if [ -f "$pkglist" ]; then
         qt6-declarative      # qml6 + ALL Qt6 QML modules including QtQuick.Controls
                              # (unlike Qt5 where qt5-quickcontrols2 was separate, the
                              #  Qt6 modules are consolidated into this one package on Arch)
+        qqc2-breeze-style    # Breeze QML style for QtQuick.Controls — without this,
+                             # QtQuick.Controls picks Breeze as the default style on Plasma
+                             # and fails to load org.kde.breeze, killing welcome.qml (exit 2)
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)

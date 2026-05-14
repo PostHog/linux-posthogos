@@ -38,11 +38,20 @@ set +e
 # Capture stderr to a log so silent QML failures (missing import modules,
 # syntax errors, runtime crashes) leave a trace. The autostart path has no
 # attached terminal, so otherwise the user sees "cursor flashes, no window"
-# with zero diagnostic surface. tee so stderr still goes to journal if we
-# were launched via systemd-style logging.
+# with zero diagnostic surface.
+#
+# Plain `2>>` direct-append rather than `tee` via process substitution —
+# `2> >(tee -a "$log" >&2)` is racy: the tee subshell may not flush before
+# the parent exits, and stderr from qml6 silently disappeared in practice.
+# Also enable QML's verbose logging so we get import/module diagnostics.
 log=/tmp/posthogos-welcome.log
-{ echo "===== $(date -Iseconds) [pid=$$] $qml_bin $qml (--autostart=${1:-})"; } >>"$log"
-"$qml_bin" "$qml" 2> >(tee -a "$log" >&2)
+{
+    echo "===== $(date -Iseconds) [pid=$$] $qml_bin $qml (--autostart=${1:-})"
+    echo "env: HOME=$HOME XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-?} DISPLAY=${DISPLAY:-?} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-?}"
+    echo "qml6 version:"
+    "$qml_bin" --version 2>&1 | sed 's/^/  /'
+} >>"$log" 2>&1
+QT_LOGGING_RULES='qt.qml.import.debug=true' "$qml_bin" "$qml" >>"$log" 2>&1
 ec=$?
 echo "  exit=$ec" >>"$log"
 set -e
