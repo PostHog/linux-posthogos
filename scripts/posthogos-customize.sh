@@ -108,10 +108,14 @@ install -d -m 0755 /var/cache/fontconfig
 # can end up with 0644 → Plasma's launcher fails with "missing executable
 # permissions". chmod in the chroot guarantees real Linux perms.
 if [ -d /usr/local/bin ]; then
-    # Everything we ship under /usr/local/bin/posthogos-* is intended to
-    # be executable (helpers + launchers), so chmod the whole namespace.
-    chmod +x /usr/local/bin/posthogos-* 2>/dev/null || true
-    chmod +x /usr/local/bin/papirus-folders 2>/dev/null || true
+    # /usr/local/bin/ is OUR namespace — pacman doesn't put anything there,
+    # so we can safely chmod +x everything we've dropped in. Was previously
+    # scoped to `posthogos-*` + explicit `papirus-folders`, but each new
+    # tool we ship (papirus-folders, posthogos-welcome, posthogos-welcome-
+    # launcher, posthogos-firstrun*, neohog, ...) required a new pattern
+    # or got missed entirely. Globbing everything in the dir fixes this
+    # category of bug for good.
+    chmod +x /usr/local/bin/* 2>/dev/null || true
 fi
 if [ -d /opt/posthog-code ]; then
     chmod +x /opt/posthog-code/*.AppImage 2>/dev/null || true
