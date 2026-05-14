@@ -406,6 +406,25 @@ if getent group docker >/dev/null && grep -q '^liveuser:' /etc/passwd; then
     gpasswd -a liveuser docker 2>&1 | sed 's/^/  /' || log "WARN: gpasswd failed"
 fi
 
+# ---- Rootless podman + distrobox: subuid/subgid for liveuser ------------
+# Rootless container runtimes (podman, distrobox-on-podman) need a
+# pre-allocated range of subordinate UIDs/GIDs in /etc/subuid and
+# /etc/subgid so unprivileged user namespaces can map container UIDs to
+# host UIDs. Without these entries, `podman run` fails with
+# "newuidmap: write to uid_map failed: Invalid argument".
+#
+# Arch's `useradd` defaults DO allocate these automatically for users
+# created post-pacstrap (Calamares-created users get them for free), but
+# liveuser was created by some earlier pacstrap-time hook that may not
+# have. Belt-and-suspenders: append the entries explicitly if they
+# aren't already there. 100000-165535 is the conventional range size
+# (65536 ids) per the systemd / Arch wiki / Podman docs.
+if grep -q '^liveuser:' /etc/passwd && ! grep -q '^liveuser:' /etc/subuid; then
+    log "Allocating subuid/subgid range for liveuser (rootless podman/distrobox)"
+    echo 'liveuser:100000:65536' >> /etc/subuid
+    echo 'liveuser:100000:65536' >> /etc/subgid
+fi
+
 # ---- Flatpak: register Flathub system-wide ------------------------------
 # Flatpak is shipped via the package list (see scripts/pre-build.sh) as a
 # secondary app distribution channel for sandboxed GUI apps that don't

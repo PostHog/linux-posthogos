@@ -121,6 +121,18 @@ if [ -f "$pkglist" ]; then
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)
         docker-compose       # Compose plugin alongside docker
+        podman               # Rootless container runtime, Docker-compatible CLI.
+                             # Sibling to docker (not replacement) — agents often
+                             # want rootless ephemeral containers, podman is the
+                             # standard answer. customize.sh seeds subuid/subgid
+                             # for liveuser so rootless works on the live ISO.
+        distrobox            # "Run an Ubuntu/Fedora/whatever shell inside a
+                             # container" — for the "I need a specific toolchain
+                             # without polluting the host" pattern. Uses podman or
+                             # docker under the hood (both bundled).
+        lazydocker           # TUI for Docker + Podman. Browse running containers,
+                             # tail logs, exec in, see resource usage without
+                             # remembering docker subcommand syntax.
         nodejs               # JS runtime — Gemini CLI + OpenAI Codex are npm-only;
                              # customize.sh installs them via `npm install --global`.
                              # Stays useful post-boot for arbitrary `npm install` work.
