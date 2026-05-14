@@ -1,9 +1,5 @@
 # PosthogOS default zshrc.
 #
-# Wires the Tier 3 shell stack from ROADMAP — starship prompt, atuin
-# magic history, zoxide dir-jumping, fzf keybindings + completions, and
-# alias substitutions for the modern CLI tools shipped via pacman.
-#
 # Every integration is gated on `command -v <tool>` so this file stays
 # valid even if a user removes one of the tools post-install. The
 # fallback for a missing tool is just "the standard zsh behaviour" for
