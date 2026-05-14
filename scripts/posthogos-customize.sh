@@ -101,11 +101,20 @@ install -d -m 0755 /var/cache/fontconfig
 # and rsync -a faithfully preserves the bad mode into the squashfs — at
 # which point autostart entries pointing at non-executable scripts fail
 # silently with "Permission denied".
+#
+# Same story for the PostHog Code AppImage at /opt/posthog-code/ — even
+# though build-assets.sh chmod 755's it on the host, Docker Desktop's
+# bind-mount perm propagation on macOS is unreliable, so the squashfs
+# can end up with 0644 → Plasma's launcher fails with "missing executable
+# permissions". chmod in the chroot guarantees real Linux perms.
 if [ -d /usr/local/bin ]; then
     # Everything we ship under /usr/local/bin/posthogos-* is intended to
     # be executable (helpers + launchers), so chmod the whole namespace.
     chmod +x /usr/local/bin/posthogos-* 2>/dev/null || true
     chmod +x /usr/local/bin/papirus-folders 2>/dev/null || true
+fi
+if [ -d /opt/posthog-code ]; then
+    chmod +x /opt/posthog-code/*.AppImage 2>/dev/null || true
 fi
 
 # ---- Compile the welcome launcher ---------------------------------------
