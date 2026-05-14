@@ -2,13 +2,12 @@
   ┌─────────────────────────────────────────────────────────────────────┐
   │                                                                     │
   │                            PosthogOS                                │
-  │                 The Agentic Dev OS for 2026                         │
   │                                                                     │
   │   docs    https://posthog.com/docs                                  │
   │   source  https://github.com/posthog/linux-posthogos                │
   │   issues  https://github.com/posthog/linux-posthogos/issues         │
   │                                                                     │
-  │   Built on CachyOS · Plasma 6 · btrfs + snapper                     │
+  │   Built on CachyOS                                                  │
   │                                                                     │
   └─────────────────────────────────────────────────────────────────────┘
 
