@@ -145,6 +145,13 @@ if [ -f "$pkglist" ]; then
                              # versions via .tool-versions files. Shell init in
                              # overlay/airootfs/etc/profile.d/asdf.sh wires shims
                              # onto PATH for every interactive shell.
+        mitmproxy            # HTTPS-intercepting proxy. Agent-safe dev surface
+                             # from ROADMAP Tier 2: route agent HTTP calls
+                             # through `mitmproxy` to audit what they're doing.
+                             # CLI: `mitmproxy` (TUI) or `mitmweb` (browser UI).
+        unzip                # Needed in the chroot to extract the 1Password CLI
+                             # zip archive. Not always pulled by base; adding
+                             # explicitly so customize.sh can rely on it.
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.
