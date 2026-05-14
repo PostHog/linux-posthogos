@@ -55,7 +55,14 @@ apply() {
 }
 
 ok=true
-wallpaper=/usr/share/wallpapers/PosthogosKeyboardGarden/contents/images/3840x2160.png
+# Point at the wallpaper PACKAGE DIRECTORY, not a specific PNG inside it.
+# plasma-apply-wallpaperimage and Plasma's appletsrc both accept either,
+# but with a specific PNG, Plasma renders the entry in System Settings →
+# Wallpaper as "3840x2160" (just the filename) rather than "Keyboard
+# Garden" — looks like an unbranded mystery wallpaper. With the package
+# directory, Plasma picks the right size per-display AND shows the
+# package's metadata.json Name in the UI.
+wallpaper=/usr/share/wallpapers/PosthogosKeyboardGarden/
 
 apply plasma-apply-lookandfeel  -a com.posthog.posthogos || ok=false
 apply plasma-apply-colorscheme  PosthogosLight           || ok=false
@@ -68,9 +75,9 @@ apply plasma-apply-wallpaperimage "$wallpaper"           || ok=false
 # the wallpaper stays at default). evaluateScript drives plasmashell
 # directly via its public PlasmaShell scripting interface — same path
 # System Settings → Wallpaper uses internally.
-if [ -f "$wallpaper" ] && command -v qdbus6 >/dev/null; then
+if [ -d "$wallpaper" ] && command -v qdbus6 >/dev/null; then
     plasma_script=$(cat <<EOF
-        var img = "file://${wallpaper}";
+        var img = "${wallpaper}";
         for (const d of desktops()) {
             d.wallpaperPlugin = "org.kde.image";
             d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];

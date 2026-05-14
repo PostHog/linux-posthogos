@@ -89,11 +89,106 @@ if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
-        qt6-declarative      # Provides qml6 for the PosthogOS welcome app
+        qt6-declarative      # qml6 + ALL Qt6 QML modules including QtQuick.Controls
+                             # (unlike Qt5 where qt5-quickcontrols2 was separate, the
+                             #  Qt6 modules are consolidated into this one package on Arch)
+        qqc2-breeze-style    # Breeze QML style for QtQuick.Controls — without this,
+                             # QtQuick.Controls picks Breeze as the default style on Plasma
+                             # and fails to load org.kde.breeze, killing welcome.qml (exit 2)
+        pkgconf              # pkg-config implementation — chroot compile of
+                             # /usr/src/posthogos-welcome-launcher.cpp uses it
+                             # to discover Qt6 cflags/libs
+        flatpak              # Secondary app distribution channel for
+                             # sandboxed GUI apps (Slack, Spotify, Zoom, etc.)
+                             # System-wide Flathub registered in customize.sh.
+                             # Plasma's Discover auto-detects Flatpak and adds
+                             # the source to its catalog when the binary is
+                             # installed — no extra discover-flatpak-backend
+                             # package needed in modern Plasma.
+        snapper              # Btrfs snapshot manager. With Calamares now
+                             # defaulting installs to btrfs (see partition.conf
+                             # patch in customize.sh), snapper handles
+                             # automatic snapshots + rollback. Initialized on
+                             # first installed boot by posthogos-snapper-init.
+        snap-pac             # Pacman hooks that snapshot before/after every
+                             # `pacman -S/U/R` op — automatic rollback target
+                             # for any package change that breaks the system.
+        grub-btrfs           # Generates GRUB submenu entries for every
+                             # snapper snapshot so you can boot into a
+                             # snapshot from the bootloader if the running
+                             # system can't reach a desktop.
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
         docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)
         docker-compose       # Compose plugin alongside docker
+        podman               # Rootless container runtime, Docker-compatible CLI.
+                             # Sibling to docker (not replacement) — agents often
+                             # want rootless ephemeral containers, podman is the
+                             # standard answer. customize.sh seeds subuid/subgid
+                             # for liveuser so rootless works on the live ISO.
+        distrobox            # "Run an Ubuntu/Fedora/whatever shell inside a
+                             # container" — for the "I need a specific toolchain
+                             # without polluting the host" pattern. Uses podman or
+                             # docker under the hood (both bundled).
+        lazydocker           # TUI for Docker + Podman. Browse running containers,
+                             # tail logs, exec in, see resource usage without
+                             # remembering docker subcommand syntax.
+        nodejs               # JS runtime — Gemini CLI + OpenAI Codex are npm-only;
+                             # customize.sh installs them via `npm install --global`.
+                             # Stays useful post-boot for arbitrary `npm install` work.
+        npm                  # Node package manager — needed for the customize-hook
+                             # AI CLI install pass + for users to install other tools
+                             # post-boot. Also a dep many JS dev workflows assume.
+        asdf-vm              # Per-user runtime version manager — sits ABOVE pacman
+                             # nodejs/python/etc. Users `asdf plugin add nodejs &&
+                             # asdf install nodejs 20.x` to pin per-project tool
+                             # versions via .tool-versions files. Shell init in
+                             # overlay/airootfs/etc/profile.d/asdf.sh wires shims
+                             # onto PATH for every interactive shell.
+        mitmproxy            # HTTPS-intercepting proxy. Agent-safe dev surface
+                             # from ROADMAP Tier 2: route agent HTTP calls
+                             # through `mitmproxy` to audit what they're doing.
+                             # CLI: `mitmproxy` (TUI) or `mitmweb` (browser UI).
+        unzip                # Needed in the chroot to extract the 1Password CLI
+                             # zip archive. Not always pulled by base; adding
+                             # explicitly so customize.sh can rely on it.
+
+        # ── Tier 3 — modern developer baseline (from ROADMAP) ───────────
+        # Shell + prompt + history + dir-jumping
+        starship             # Cross-shell prompt. Theme in /etc/skel/.config/starship.toml
+        atuin                # Replaces shell history with a sync'd SQLite db
+                             # + fuzzy magic search. Activated via .zshrc init.
+        zoxide               # `cd` replacement with frecency ranking. `z foo`
+                             # jumps to the most-used dir matching "foo".
+        # File / text inspection
+        bat                  # `cat` with syntax highlighting + paging
+        eza                  # `ls` replacement with git-status + tree mode
+        ripgrep              # `grep -r` replacement, way faster
+        fd                   # `find` replacement, sensible defaults
+        fzf                  # Fuzzy finder. Powers shell ctrl-R / kill -9 pid
+        jq                   # JSON query/manipulation
+        yq-go                # YAML/TOML/XML query (Mike Farah's Go yq, not the
+                             # Python one — Go yq is the de-facto modern one)
+        # Diff + git
+        git-delta            # Syntax-highlighting pager for git diff/show.
+                             # Wired into /etc/skel/.gitconfig.
+        github-cli           # `gh` — GitHub CLI for PRs / issues / releases
+        lazygit              # TUI for git
+        tig                  # Older but battle-tested ncurses git browser
+        # System inspection
+        btop                 # `top` replacement, prettier
+        dust                 # `du` with a visual tree of what's eating disk
+        tokei                # Lines-of-code stats per language
+        hyperfine            # Benchmark CLI (auto-warmup, statistics)
+        # Task runner
+        just                 # `make` replacement for command runners. justfiles
+                             # are .makefile-like but without tab requirements.
+        # Terminal multiplexer
+        zellij               # Modern tmux alternative. Layouts in
+                             # /etc/skel/.config/zellij/layouts/.
+        # Cloud / networking
+        tailscale            # Mesh VPN. systemctl-enabled in customize.sh so
+                             # `tailscale up` works out of the box on first boot.
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.

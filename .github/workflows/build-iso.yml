@@ -5,15 +5,12 @@
 # inside it. No CI-specific build path → no drift between what CI tests
 # and what devs run locally.
 #
-# Caches the two big consumers from in-container-build.sh:
-#   .pacman-cache/    ~2.4 GB of pacstrap'd packages
-#   .airootfs-cache/  ~1.5 GB compressed snapshot of post-customize airootfs
-# Cache key is hashed off the files that drive pacstrap output (packages
-# list, bootstrap_packages, pacman.conf, profiledef.sh) plus our pre-build
-# patcher — same inputs in-container-build.sh's airfs_hash uses, so cache
-# hits in CI mirror cache hits locally.
+# Caches .pacman-cache/ (~2.4 GB of pacstrap'd packages) so we don't
+# re-download all of CachyOS + Arch extras on every build. Cache key is
+# hashed off the package list + Dockerfile (changes there potentially
+# require different pkg files).
 #
-# Cold build: ~25-30 min. Cached: ~5-8 min (skips pacstrap entirely).
+# Cold build: ~25-30 min. Warm cache: ~20 min (saves ~5 min of downloads).
 name: Build ISO
 
 on:
@@ -77,19 +74,6 @@ jobs:
           restore-keys: |
             pacman-
 
-      # Airootfs cache: the big one. Skip-on-hit avoids the ~10 min pacstrap
-      # phase entirely (in-container-build.sh restores the tarball, touches
-      # build.make_pacstrap, lets mkarchiso run only customize + squashfs +
-      # iso phases). Key includes pre-build.sh because it sed-patches
-      # packages list / profiledef.sh — those edits change pacstrap output.
-      - name: Restore airootfs cache
-        uses: actions/cache@v4
-        with:
-          path: .airootfs-cache
-          key: airootfs-${{ hashFiles('upstream/archiso/packages_desktop.x86_64', 'upstream/archiso/bootstrap_packages.x86_64', 'upstream/archiso/pacman.conf', 'upstream/archiso/profiledef.sh', 'scripts/pre-build.sh', 'Dockerfile') }}
-          restore-keys: |
-            airootfs-
-
       # FAST_BUILD=1 swaps squashfs compression from xz → zstd. ~3-5× faster
       # mksquashfs, ~10% bigger ISO. Acceptable trade for CI; we ship the
       # xz-compressed ISO from releases anyway (not yet automated).
@@ -108,8 +92,8 @@ jobs:
           echo "=== out/ ==="
           ls -lh out/ 2>/dev/null || echo "(no out/)"
           echo ""
-          echo "=== caches ==="
-          du -sh .pacman-cache .airootfs-cache 2>/dev/null || true
+          echo "=== pacman cache ==="
+          du -sh .pacman-cache 2>/dev/null || true
           echo ""
           echo "=== disk after build ==="
           df -h /

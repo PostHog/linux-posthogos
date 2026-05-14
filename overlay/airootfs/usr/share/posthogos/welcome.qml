@@ -27,15 +27,18 @@ ApplicationWindow {
     visible: true
     title: "Welcome to PosthogOS"
     color: "#EEEFE9"
-    // Title bar + taskbar icon: Professor Hog (distinct from the system
-    // logomark which appears inside the window body). The icon name resolves
-    // through hicolor → /usr/share/icons/hicolor/<size>/apps/posthogos-welcome.png
-    icon: "posthogos-welcome"
+    // Taskbar / launcher / titlebar icon comes from the .desktop file's
+    // Icon= field (posthogos-welcome → /usr/share/icons/hicolor/<size>/apps/
+    // posthogos-welcome.png, generated in scripts/build-assets.sh from the
+    // Professor Hog asset). ApplicationWindow has no `icon` property in
+    // Qt6 QML — assigning one made qml6 exit 2 silently before any window
+    // could draw.
 
     // Brand palette
     readonly property color brandText:      "#151515"
     readonly property color brandTextMuted: "#666666"
-    readonly property color brandOrange:    "#F54E00"
+    readonly property color brandOrange:    "#F9BD2B"
+    readonly property color brandRed:       "#F54E00"
     readonly property color brandBlue:      "#1D4AFF"
     readonly property color cardBg:         "#FFFFFF"
     readonly property color cardBorder:     "#E5E7E0"
@@ -184,7 +187,7 @@ ApplicationWindow {
                 text: "Close"
                 onClicked: Qt.quit()
                 background: Rectangle {
-                    color: parent.down ? Qt.darker(root.brandOrange, 1.2) : root.brandOrange
+                    color: parent.down ? Qt.darker(root.brandRed, 1.2) : root.brandRed
                     radius: 6
                 }
                 contentItem: Text {

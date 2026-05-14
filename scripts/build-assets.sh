@@ -57,13 +57,15 @@ build_wallpaper_pkg() {
             "$pkg/contents/images_dark/${res}.png"
     done
 
-    # Preview thumbnail. Plasma 6's wallpaper KCM uses contents/screenshot.jpg
+    # Preview thumbnail. Plasma 6's wallpaper KCM uses contents/screenshot.png
     # at ~400×250; without it every wallpaper shows a broken-image
-    # placeholder in System Settings → Wallpaper. We use the light variant
-    # since the chrome around the thumbnail is also light.
+    # placeholder in System Settings → Wallpaper. Previous .jpg form rendered
+    # only on some entries (others showed blank tiles) — Plasma 6's KPackage
+    # loader is .png-preferring per the KDE wallpaper-package docs. PNG also
+    # gives sharper text on the brand wallpapers' typography.
     "$MAGICK" "$light_src" -filter Lanczos -resize 400x250^ \
-        -gravity center -extent 400x250 -quality 85 \
-        "$pkg/contents/screenshot.jpg"
+        -gravity center -extent 400x250 \
+        "$pkg/contents/screenshot.png"
 }
 
 log "Building wallpaper packages"
@@ -350,16 +352,19 @@ mkdir -p "$ply_dst"
 log "Installing Calamares brand images"
 cal_dst="$out/airootfs/usr/share/calamares/branding/posthogos"
 mkdir -p "$cal_dst"
-# Header logo: native-aspect logomark, scaled to ~200px wide.
-"$MAGICK" "$src/logos/posthog-logomark.svg" -background none -resize 200x \
+# Header/sidebar logo: SQUARE. calamares-sidebar.qml renders it at 30x30
+# in the bottom step bar. Was previously native-aspect 200x — squashed
+# horribly when Calamares fell back to the default vertical sidebar, and
+# would also look off in the new qml,bottom layout. 96x96 = 30×3 for
+# clean HiDPI scaling. Source is the pre-padded square logomark master.
+"$MAGICK" "$square_logo" -filter Lanczos -resize 96x96 \
     "$cal_dst/logo.png"
 # Window/title bar icon: must be square (WMs draw it as a square tile).
 # 256×256 from the square master.
 "$MAGICK" "$square_logo" -filter Lanczos -resize 256x256 \
     "$cal_dst/logo-icon.png"
-# Welcome screen banner image — use Vibecoding (hedgehog in a tractor),
-# friendly first-screen vibe.
-"$MAGICK" "$src/hoglife/Vibecoding.png" -resize 1280x \
+# Welcome screen banner image — use Posthog 3000 for extra fun.
+"$MAGICK" "$src/hoglife/Posthog 3000.png" \
     "$cal_dst/welcome.png"
 
 # --- PostHog Code AppImage (optional) -------------------------------------

@@ -1,0 +1,23 @@
+[kdeglobals][General]
+ColorScheme=PosthogosDark
+font=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+smallestReadableFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+toolBarFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+activeFont=Squeak,11,-1,5,500,0,0,0,0,0,0,0,0,0,0,1,Medium
+
+[kdeglobals][KDE]
+LookAndFeelPackage=com.posthog.posthogos.dark
+widgetStyle=Breeze
+
+[kdeglobals][Icons]
+Theme=PosthogOS
+
+[kwinrc][org.kde.kdecoration2]
+library=org.kde.breeze
+theme=Breeze
+NoPlugin=false
+
+[plasma-org.kde.plasma.desktop-appletsrc][Containments][1][Wallpaper][org.kde.image][General]
+Image=/usr/share/wallpapers/PosthogosKeyboardGarden/

@@ -10,12 +10,6 @@
 
 set -e
 
-# QtCore.Settings persists to ~/.config/<orgname>/<appname>.conf. The QML
-# file doesn't set Application.organization/name explicitly, so Qt uses
-# defaults — the conf path resolves to ~/.config/QtProject.conf if not
-# overridden. We set them via env so the location is predictable.
-export QT_APPLICATION_NAME="PosthogOS-Welcome"
-export QT_ORGANIZATION_NAME="PostHog"
 prefs="${XDG_CONFIG_HOME:-$HOME/.config}/PostHog/PosthogOS-Welcome.conf"
 
 # Honor the "Show on next startup" checkbox state. Default = show.
@@ -27,16 +21,41 @@ if [ "${1:-}" = "--autostart" ] && [ -f "$prefs" ]; then
     fi
 fi
 
+# Prefer the compiled launcher binary — it calls QGuiApplication::
+# setDesktopFileName("posthogos-welcome") + setApplicationName() before
+# loading welcome.qml, which is the ONLY way to make Plasma match the
+# running window to /usr/share/applications/posthogos-welcome.desktop and
+# render Professor Hog in the titlebar/taskbar.
+#
+# (Previous iterations tried QT_QPA_APP_DESKTOP_FILE_NAME — that env var
+#  doesn't exist in Qt; Qt docs explicitly say setDesktopFileName must be
+#  set programmatically. Hence the C++ shim.)
+#
+# Fall back to plain qml6 if the chroot compile failed during build — the
+# window still works, just with a generic Qt icon.
+launcher=/usr/local/bin/posthogos-welcome-launcher
 qml=/usr/share/posthogos/welcome.qml
-[ -f "$qml" ] || { echo "Missing $qml" >&2; exit 1; }
-
-# Prefer qml6 (Qt6) when available; fall back to plain qml.
 qml_bin=$(command -v qml6 || command -v qml || true)
-[ -n "$qml_bin" ] || { echo "Neither qml6 nor qml is installed (need qt6-declarative)" >&2; exit 1; }
+
+log=/tmp/posthogos-welcome.log
+{
+    echo "===== $(date -Iseconds) [pid=$$] autostart=${1:-}"
+    echo "env: HOME=$HOME XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-?} DISPLAY=${DISPLAY:-?} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-?}"
+} >>"$log" 2>&1
 
 set +e
-"$qml_bin" "$qml"
+if [ -x "$launcher" ]; then
+    echo "  using launcher: $launcher" >>"$log"
+    "$launcher" >>"$log" 2>&1
+elif [ -n "$qml_bin" ] && [ -f "$qml" ]; then
+    echo "  fallback: $qml_bin $qml (launcher missing → icon will be generic)" >>"$log"
+    QT_LOGGING_RULES='qt.qml.import.debug=true' "$qml_bin" "$qml" >>"$log" 2>&1
+else
+    echo "ERROR: no launcher binary and no qml6 fallback available" >>"$log"
+    exit 1
+fi
 ec=$?
+echo "  exit=$ec" >>"$log"
 set -e
 
 case "$ec" in

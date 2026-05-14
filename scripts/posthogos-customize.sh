@@ -101,11 +101,44 @@ install -d -m 0755 /var/cache/fontconfig
 # and rsync -a faithfully preserves the bad mode into the squashfs — at
 # which point autostart entries pointing at non-executable scripts fail
 # silently with "Permission denied".
+#
+# Same story for the PostHog Code AppImage at /opt/posthog-code/ — even
+# though build-assets.sh chmod 755's it on the host, Docker Desktop's
+# bind-mount perm propagation on macOS is unreliable, so the squashfs
+# can end up with 0644 → Plasma's launcher fails with "missing executable
+# permissions". chmod in the chroot guarantees real Linux perms.
 if [ -d /usr/local/bin ]; then
     # Everything we ship under /usr/local/bin/posthogos-* is intended to
     # be executable (helpers + launchers), so chmod the whole namespace.
     chmod +x /usr/local/bin/posthogos-* 2>/dev/null || true
     chmod +x /usr/local/bin/papirus-folders 2>/dev/null || true
+fi
+if [ -d /opt/posthog-code ]; then
+    chmod +x /opt/posthog-code/*.AppImage 2>/dev/null || true
+fi
+
+# ---- Compile the welcome launcher ---------------------------------------
+# Tiny C++ shim that calls QGuiApplication::setDesktopFileName("posthogos-
+# welcome") + setWindowIcon() before loading welcome.qml. Without this, the
+# qml6 binary that previously ran the QML sets app_id to "qml" and Plasma
+# can't match the running window to /usr/share/applications/posthogos-
+# welcome.desktop → generic Qt icon in titlebar + taskbar.
+#
+# Compiled here (rather than pre-built on the host) so the binary is
+# linked against the SAME Qt6 ABI it'll run against — no minor-version-
+# mismatch risk between host container and final airootfs.
+launcher_src=/usr/src/posthogos-welcome-launcher.cpp
+if [ -f "$launcher_src" ] && command -v g++ >/dev/null && command -v pkg-config >/dev/null; then
+    log "Compiling welcome launcher"
+    if g++ -O2 -fPIC -o /usr/local/bin/posthogos-welcome-launcher \
+            "$launcher_src" \
+            $(pkg-config --cflags --libs Qt6Core Qt6Gui Qt6Qml) 2>&1 | sed 's/^/  /'; then
+        chmod +x /usr/local/bin/posthogos-welcome-launcher
+        rm -f "$launcher_src"
+        log "  built /usr/local/bin/posthogos-welcome-launcher ($(stat -c%s /usr/local/bin/posthogos-welcome-launcher) bytes)"
+    else
+        log "  WARN: launcher compile failed — bash wrapper will fall back to qml6 (icon will be generic)"
+    fi
 fi
 
 # ---- Suppress CachyOS Hello popup ---------------------------------------
@@ -162,6 +195,15 @@ SingleClick=false
 Theme=PosthogOS
 EOF
 
+# Tell System Settings → Global Theme that PosthogOS is the active LAF.
+# Without this file, the KCM shows no theme selected (or Breeze as a
+# fallback) until firstrun.sh's plasma-apply-lookandfeel writes it,
+# which races against the user opening System Settings. Seeding it
+# explicitly means the UI's "currently selected" state is correct from
+# the moment the user logs in.
+mkdir -p /etc/skel/.config/kdedefaults
+echo 'com.posthog.posthogos' > /etc/skel/.config/kdedefaults/package
+
 for v in gtk-3.0 gtk-4.0; do
     cat >"/etc/skel/.config/$v/settings.ini" <<'EOF'
 [Settings]
@@ -192,6 +234,25 @@ if [ -d /home/liveuser ]; then
     chown 1000:1000 /home/liveuser/.config/konsolerc
 fi
 
+# ---- Seed liveuser's home with /etc/skel additions ----------------------
+# liveuser was created BEFORE the overlay rsync, so files we just dropped
+# into /etc/skel don't auto-propagate (skel is only consulted at user-
+# creation time). For Calamares-installed users this is fine — they're
+# created post-overlay so skel works as designed. For liveuser we mirror
+# the relevant skel files in place.
+#
+# Using `cp -an` (archive + no-clobber): preserves modes/timestamps and
+# refuses to overwrite anything the user already touched, so re-runs of
+# customize don't trample user state. Then chown the entire home to
+# liveuser:liveuser to fix up ownership in one shot.
+if [ -d /home/liveuser ] && [ -d /etc/skel ]; then
+    log "Seeding /home/liveuser with /etc/skel contents (dotfiles, configs)"
+    # Copy hidden + visible top-level entries. `cp -an /etc/skel/. /home/liveuser/`
+    # handles dotfiles correctly (the trailing /. is the trick).
+    cp -an /etc/skel/. /home/liveuser/ 2>&1 | sed 's/^/  /' || true
+    chown -R 1000:1000 /home/liveuser
+fi
+
 # ---- Plymouth ------------------------------------------------------------
 # Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
 # from the overlay. We point plymouthd at it, then regenerate the initramfs.
@@ -216,13 +277,44 @@ fi
 # ---- Calamares branding --------------------------------------------------
 # Only flip the branding pointer if our branding dir actually has a
 # branding.desc. Otherwise Calamares would fail to start.
-if [ -f /etc/calamares/settings.conf ] && \
-   [ -f "/usr/share/calamares/branding/$BRAND/branding.desc" ]; then
-    log "Patching /etc/calamares/settings.conf branding: $BRAND"
-    sed -i "s/^branding:.*/branding: $BRAND/" /etc/calamares/settings.conf
+#
+# Important: cachyos-calamares-next ships settings.conf at
+# /usr/share/calamares/settings.conf (NOT /etc/calamares/settings.conf like
+# vanilla Calamares). Both candidate paths checked so a future upstream
+# refactor doesn't silently break us again — we patch whichever exists.
+cal_settings=""
+for candidate in /usr/share/calamares/settings.conf /etc/calamares/settings.conf; do
+    [ -f "$candidate" ] && cal_settings="$candidate" && break
+done
+if [ -n "$cal_settings" ] && [ -f "/usr/share/calamares/branding/$BRAND/branding.desc" ]; then
+    log "Patching $cal_settings branding: $BRAND"
+    sed -i "s/^branding:.*/branding: $BRAND/" "$cal_settings"
+    log "  result: $(grep '^branding:' "$cal_settings")"
 else
-    log "Calamares branding '$BRAND' not present — leaving CachyOS default"
+    log "Calamares branding '$BRAND' not present at any known settings.conf path — leaving CachyOS default"
 fi
+
+# ---- Calamares: default to btrfs ---------------------------------------
+# Patch the partition module so the "automatic" install path lays the disk
+# down as btrfs with snapper-compatible subvolumes (@, @home, @cache, @log,
+# @snapshots) instead of ext4. Users can still pick ext4 / xfs / f2fs from
+# the manual partitioning panel — we only flip the DEFAULT.
+#
+# Why btrfs default: it unlocks the snapper snapshot/rollback story
+# (snap-pac auto-snapshots on every pacman op, grub-btrfs renders snapshots
+# as bootable GRUB entries). Agentic OS premise — agents touching files
+# should be one snapper-undo away from "never happened."
+#
+# partition.conf lives at /usr/share/calamares/modules/partition.conf in
+# the CachyOS package layout. defaultFileSystemType is a top-level key.
+for part_conf in /usr/share/calamares/modules/partition.conf /etc/calamares/modules/partition.conf; do
+    if [ -f "$part_conf" ]; then
+        log "Patching $part_conf → defaultFileSystemType: btrfs"
+        sed -i 's|^defaultFileSystemType:.*|defaultFileSystemType: btrfs|' "$part_conf"
+        log "  result: $(grep '^defaultFileSystemType:' "$part_conf")"
+        break
+    fi
+done
 
 # ---- Display manager: plasma-login-manager (plasmalogin) ----------------
 # plasma-login-manager is upstream KDE's SDDM fork with a new Plasma-native
@@ -262,6 +354,34 @@ EOF
 # `pacman -S sddm && systemctl enable sddm`. The chroot hook used to flip
 # the active DM here; that's now plasma-login-manager's job and the user
 # chose not to fight upstream.
+
+# ---- Curate the wallpaper picker -----------------------------------------
+# cachyos-kde-settings ships a handful of CachyOS-flavored wallpapers
+# (Sub-Arctic and friends) into /usr/share/wallpapers/. They show up in
+# System Settings → Wallpaper next to ours, which dilutes the brand. We
+# don't want our users picking "Sub-Arctic" thinking it's a PosthogOS
+# wallpaper, so prune everything that isn't ours OR a stock Breeze wallpaper
+# (Breeze is the safe fallback shipped by plasma-workspace).
+#
+# Detection: anything under /usr/share/wallpapers/ that doesn't start
+# with "Posthogos" and doesn't start with one of the stock Breeze names
+# (Breeze, Next, Path, Volna, Lake, Mountain, Pollen, Patak, ...) gets
+# rm'd. The kept-names list is intentionally short — Breeze ships ~10
+# wallpapers, we keep all of them as system defaults.
+log "Pruning non-PosthogOS / non-Breeze wallpapers"
+if [ -d /usr/share/wallpapers ]; then
+    for wp in /usr/share/wallpapers/*/; do
+        name=$(basename "$wp")
+        case "$name" in
+            Posthogos*) ;;                              # ours
+            Breeze|Next|Path|Volna|Lake|Mountain|Pollen|Patak|Cluster|Kay|Cascade|Flow) ;;  # Breeze stock
+            *)
+                log "  removing /usr/share/wallpapers/$name"
+                rm -rf "$wp"
+                ;;
+        esac
+    done
+fi
 
 # ---- Papirus folder color ------------------------------------------------
 # Recolor Papirus's folder icons (default blue → warm orange) using the
@@ -304,6 +424,180 @@ if getent group docker >/dev/null && grep -q '^liveuser:' /etc/passwd; then
     log "Adding liveuser to docker group"
     gpasswd -a liveuser docker 2>&1 | sed 's/^/  /' || log "WARN: gpasswd failed"
 fi
+
+# ---- Rootless podman + distrobox: subuid/subgid for liveuser ------------
+# Rootless container runtimes (podman, distrobox-on-podman) need a
+# pre-allocated range of subordinate UIDs/GIDs in /etc/subuid and
+# /etc/subgid so unprivileged user namespaces can map container UIDs to
+# host UIDs. Without these entries, `podman run` fails with
+# "newuidmap: write to uid_map failed: Invalid argument".
+#
+# Arch's `useradd` defaults DO allocate these automatically for users
+# created post-pacstrap (Calamares-created users get them for free), but
+# liveuser was created by some earlier pacstrap-time hook that may not
+# have. Belt-and-suspenders: append the entries explicitly if they
+# aren't already there. 100000-165535 is the conventional range size
+# (65536 ids) per the systemd / Arch wiki / Podman docs.
+if grep -q '^liveuser:' /etc/passwd && ! grep -q '^liveuser:' /etc/subuid; then
+    log "Allocating subuid/subgid range for liveuser (rootless podman/distrobox)"
+    echo 'liveuser:100000:65536' >> /etc/subuid
+    echo 'liveuser:100000:65536' >> /etc/subgid
+fi
+
+# ---- Default shell: zsh -------------------------------------------------
+# PosthogOS's modern shell stack lives in /etc/skel/.zshrc (starship +
+# atuin + zoxide + fzf + tool aliases). Set zsh as the login shell so
+# new users get the integrated experience automatically.
+#
+# Two pieces:
+#   1. useradd's `-D` default applies to future user creation (the path
+#      Calamares will follow on install)
+#   2. liveuser already exists, so we chsh them directly for the live ISO
+if [ -x /usr/bin/zsh ]; then
+    log "Setting zsh as the default login shell (system-wide)"
+    useradd -D -s /bin/zsh 2>&1 | sed 's/^/  /' || log "  WARN: useradd -D -s failed"
+    if grep -q '^liveuser:' /etc/passwd; then
+        chsh -s /bin/zsh liveuser 2>&1 | sed 's/^/  /' \
+            || sed -i '/^liveuser:/s|:[^:]*$|:/bin/zsh|' /etc/passwd
+    fi
+fi
+
+# ---- Tailscale: enable the daemon for next boot --------------------------
+# tailscaled needs to be running for `tailscale up` to work. The package
+# ships the unit but doesn't enable it by default — flipping it on now
+# means users can `tailscale up` immediately without prep.
+if [ -f /usr/lib/systemd/system/tailscaled.service ]; then
+    log "Enabling tailscaled.service"
+    systemctl enable tailscaled.service 2>&1 | sed 's/^/  /' || log "  WARN: tailscaled.service enable failed"
+fi
+
+# ---- Flatpak: register Flathub system-wide ------------------------------
+# Flatpak is shipped via the package list (see scripts/pre-build.sh) as a
+# secondary app distribution channel for sandboxed GUI apps that don't
+# live in pacman/AUR (Slack, Spotify, Zoom, etc.). It's secondary —
+# pacman is still the primary for system packages and CLI tools.
+#
+# `flatpak remote-add --system` writes /var/lib/flatpak/repo/config so
+# Flathub is available to ALL users on the system, not just liveuser.
+# `--if-not-exists` makes this idempotent across rebuilds. We don't
+# install any specific Flatpaks here — just register the source so
+# `flatpak install <app>` or Discover's UI both find Flathub instantly.
+#
+# Plasma's Discover auto-detects Flatpak when the binary is installed
+# (libflatpak is detected at Discover's startup), so no separate
+# discover-flatpak-backend package is needed in Plasma 6.
+if command -v flatpak >/dev/null; then
+    log "Registering Flathub as a system-wide Flatpak remote"
+    flatpak remote-add --system --if-not-exists \
+        flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+        2>&1 | sed 's/^/  /' \
+        || log "WARN: flathub remote-add failed (Discover will still find it on first run)"
+fi
+
+# ---- Agentic dev tooling: Ollama + Claude Code + Codex + Gemini + Pi ----
+# Preinstall each tool per its vendor's official install method. Each
+# block is independent — one failure doesn't block the others (one tool's
+# network/registry hiccup shouldn't kill the build).
+#
+# Why mixed install methods: each vendor publishes one canonical path.
+# Mixing curl|sh + npm matches what users would do anyway if they
+# followed each tool's docs by hand. AUR alternatives exist for some but
+# none of them track upstream reliably enough to be the default.
+
+# --- Ollama: local LLM inference (curl|sh installer) ---------------------
+# Official installer:
+#   curl -fsSL https://ollama.com/install.sh | sh
+# It creates a system user `ollama`, drops the binary at /usr/bin/ollama,
+# writes /etc/systemd/system/ollama.service, and tries to enable + start
+# it. The start fails in chroot (no running systemd), but enable should
+# stick. Belt-and-suspenders: manually create the wants/ symlink so the
+# service comes up on first installed boot regardless of installer state.
+log "Installing Ollama (local LLM runtime)"
+if curl -fsSL https://ollama.com/install.sh | sh 2>&1 | sed 's/^/  /'; then
+    if [ -f /etc/systemd/system/ollama.service ]; then
+        ln -sf /etc/systemd/system/ollama.service \
+            /etc/systemd/system/multi-user.target.wants/ollama.service
+        log "  ollama.service enabled for next boot"
+    fi
+else
+    log "  WARN: Ollama install failed (manual: curl -fsSL https://ollama.com/install.sh | sh)"
+fi
+
+# --- Claude Code: Anthropic's coding agent CLI (curl|sh installer) -------
+# Native install per https://code.claude.com/docs/en/quickstart — they
+# explicitly recommend curl over npm because the native installer wires
+# up auto-update in the background. Binary lands at /usr/local/bin/claude.
+log "Installing Claude Code"
+curl -fsSL https://claude.ai/install.sh | bash 2>&1 | sed 's/^/  /' \
+    || log "  WARN: Claude Code install failed"
+
+# --- Pi: terminal coding harness from Earendil Works (curl|sh) -----------
+# https://pi.dev/docs/latest — two install paths documented; curl is the
+# vendor's recommended Linux/Mac native path. Binary: /usr/local/bin/pi.
+log "Installing Pi (terminal coding harness)"
+curl -fsSL https://pi.dev/install.sh | sh 2>&1 | sed 's/^/  /' \
+    || log "  WARN: Pi install failed (npm fallback: npm install -g @earendil-works/pi-coding-agent)"
+
+# --- Gemini CLI + OpenAI Codex CLI: npm-only ----------------------------
+# Both vendors publish only via npm. Install to /usr/local/ (FHS for
+# "user-installed, not pacman-owned"). Binaries land at /usr/local/bin/
+# {gemini,codex}. --no-fund/--no-audit suppress non-TTY-friendly noise.
+if command -v npm >/dev/null; then
+    log "Installing Gemini CLI + OpenAI Codex via npm"
+    for pkg in @google/gemini-cli @openai/codex; do
+        log "  $pkg"
+        npm install --global --prefix /usr/local \
+            --no-fund --no-audit --silent \
+            "$pkg" 2>&1 | sed 's/^/    /' \
+            || log "  WARN: $pkg install failed"
+    done
+fi
+
+# --- 1Password CLI (`op`): direct binary download -----------------------
+# 1Password publishes a static binary for Linux but no Arch package. They
+# host versioned ZIPs at cache.agilebits.com with a stable URL pattern:
+#   https://cache.agilebits.com/dist/1P/op2/pkg/v<VERSION>/op_linux_amd64_v<VERSION>.zip
+# Each release is a ZIP containing a single `op` binary. Install path
+# per their docs: /usr/local/bin/op.
+#
+# Bump OP_VERSION below when you want a newer release. There's no
+# "latest" URL — 1Password explicitly version-pins to make supply-chain
+# verification possible (you can pin a SHA256 here later if we want that).
+OP_VERSION=2.33.1
+log "Installing 1Password CLI v${OP_VERSION}"
+op_zip=/tmp/op-${OP_VERSION}.zip
+if curl -fsSL -o "$op_zip" \
+        "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_amd64_v${OP_VERSION}.zip" \
+    && unzip -j -o "$op_zip" op -d /usr/local/bin/ 2>&1 | sed 's/^/  /'; then
+    chmod 0755 /usr/local/bin/op
+    rm -f "$op_zip"
+    # Setup per 1Password's docs: `onepassword-cli` group + setgid bit on
+    # the binary. This is what enables "Connect with 1Password" mode where
+    # the CLI talks to the desktop app for biometric/auto-unlock auth.
+    # Users not in the group can still use service-account tokens or
+    # interactive `op signin`; the group setup just adds the convenience
+    # path. liveuser is added to the group so the live ISO demo works
+    # without extra steps; Calamares-installed users need to add
+    # themselves manually post-install (or we could ship a first-boot
+    # hook later — flagging for follow-up).
+    groupadd --system onepassword-cli 2>/dev/null || true
+    chgrp onepassword-cli /usr/local/bin/op
+    chmod g+s /usr/local/bin/op
+    if grep -q '^liveuser:' /etc/passwd; then
+        gpasswd -a liveuser onepassword-cli 2>&1 | sed 's/^/  /' || true
+    fi
+    log "  installed /usr/local/bin/op + onepassword-cli group setup"
+else
+    log "  WARN: 1Password CLI install failed (manual install: https://www.1password.dev/cli/get-started/)"
+    rm -f "$op_zip"
+fi
+
+# --- Verify which tools landed on PATH ----------------------------------
+log "Agentic tooling on PATH after install:"
+for bin in ollama claude codex gemini pi op mitmproxy; do
+    path=$(command -v "$bin" 2>/dev/null || echo "(not found — users can install manually)")
+    log "  $bin → $path"
+done
 
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"

@@ -2,8 +2,7 @@
 #/ Usage: bin/clean [--deep] [--cache]
 #/ Description: Remove build artifacts.
 #/   default: rm -rf build/ out/
-#/   --cache: also remove .pacman-cache/ and .airootfs-cache/. Next build
-#/            re-downloads (~2.4 GB) and full-pacstraps (~10 min).
+#/   --cache: also remove .pacman-cache/. Next build re-downloads (~2.4 GB).
 #/   --deep:  --cache + remove the posthogos-builder Docker image.
 
 source bin/helpers/_utils.sh
@@ -35,7 +34,7 @@ for d in build out; do
 done
 
 if [ "$clean_cache" = true ]; then
-    for d in .pacman-cache .airootfs-cache; do
+    for d in .pacman-cache; do
         [ -d "$d" ] || continue
         print_color blue "Removing $d..."
         if [ -w "$d" ]; then
