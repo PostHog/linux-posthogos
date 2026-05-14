@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# posthogos-info — neofetch-style system overview with the PostHog brand
+# mark. No external deps beyond coreutils + uname + procfs + pacman; runs
+# in any shell, in any terminal, including dumb / SSH / TTY.
+#
+# Brand mark on the left is the four-triangle PostHog logomark
+# approximated in unicode block chars, each triangle in its brand color.
+# System facts on the right, neofetch-style.
+
+# `set -u` only — info-gathering uses `cmd 2>/dev/null || echo "?"`
+# patterns that pipefail would short-circuit. We always want output even
+# if some facts can't be gathered (unusual host, container, missing pkg).
+set -u
+
+# ---- Brand palette (24-bit truecolor ANSI) -----------------------------
+ORANGE=$'\033[38;2;245;78;0m'    # #F54E00
+HONEY=$'\033[38;2;235;157;42m'   # #EB9D2A
+BLUE=$'\033[38;2;29;74;255m'     # #1D4AFF
+GREEN=$'\033[38;2;46;160;67m'    # #2EA043
+CREAM=$'\033[38;2;238;239;233m'  # #EEEFE9
+DARK=$'\033[38;2;35;37;29m'      # #23251D
+BOLD=$'\033[1m'
+DIM=$'\033[2m'
+RESET=$'\033[0m'
+
+# ---- Gather facts -------------------------------------------------------
+host=$(hostnamectl --static 2>/dev/null || cat /etc/hostname 2>/dev/null || hostname || echo "?")
+user="${USER:-$(id -un 2>/dev/null || echo "?")}"
+if [ -r /etc/os-release ]; then
+    os_pretty=$(. /etc/os-release; echo "${PRETTY_NAME:-${NAME:-Linux}}")
+else
+    os_pretty="Linux"
+fi
+kernel=$(uname -r)
+arch=$(uname -m)
+uptime_str=$(uptime -p 2>/dev/null | sed 's/^up //' || echo "?")
+shell_name="${SHELL##*/}"
+shell_ver=""
+case "$shell_name" in
+    zsh)  shell_ver=$(zsh --version 2>/dev/null | awk '{print $2}') ;;
+    bash) shell_ver="${BASH_VERSION%%(*}" ;;
+    fish) shell_ver=$(fish --version 2>/dev/null | awk '{print $NF}') ;;
+esac
+terminal="${TERM:-?}"
+[ -n "${TERM_PROGRAM:-}" ] && terminal="$TERM_PROGRAM"   # ghostty / kitty / etc. expose this
+de_session="${XDG_CURRENT_DESKTOP:-tty}"
+[ -n "${XDG_SESSION_TYPE:-}" ] && de_session="$de_session ${DIM}($XDG_SESSION_TYPE)${RESET}"
+
+cpu_model=$(awk -F: '/^model name/{gsub(/^[ \t]*/,"",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null || echo "?")
+cpu_cores=$(nproc 2>/dev/null || echo "?")
+gpu_line=$(lspci 2>/dev/null | awk -F: '/VGA|3D/{ gsub(/^[ \t]+/, "", $3); print $3; exit }' | head -c 60)
+mem_total=$(free -h --si 2>/dev/null | awk '/^Mem:/{print $2}')
+mem_used=$(free -h --si 2>/dev/null | awk '/^Mem:/{print $3}')
+disk=$(df -h / 2>/dev/null | awk 'NR==2{printf "%s / %s (%s used)", $3, $2, $5}')
+pkg_pacman=$(pacman -Q 2>/dev/null | wc -l)
+pkg_flatpak=$(flatpak list --columns=ref 2>/dev/null | wc -l || echo 0)
+
+# Agentic tooling — only show the line if any are installed
+ai_present=()
+for bin in claude codex gemini pi ollama op mitmproxy; do
+    command -v "$bin" >/dev/null 2>&1 && ai_present+=("$bin")
+done
+
+# ---- Logo (10 lines, padded to 22 visible cols on each line) -----------
+# Diagonal stairsteps of the four PostHog brand colors, evoking the
+# 4-triangle logomark on posthog.com. Trailing spaces inside each
+# string keep the visible width constant so the info column to the
+# right stays aligned without us computing strlen-after-ANSI.
+LOGO=(
+"${BLUE}${BOLD}        ▟▙            ${RESET}"
+"${BLUE}${BOLD}       ▟██▙           ${RESET}"
+"${BLUE}${BOLD}      ▟████▙          ${RESET}"
+"${ORANGE}${BOLD}     ▟██████▙         ${RESET}"
+"${ORANGE}${BOLD}    ▟████████▙        ${RESET}"
+"${HONEY}${BOLD}   ▟██████████▙       ${RESET}"
+"${HONEY}${BOLD}  ▟████████████▙      ${RESET}"
+"${DARK}${BOLD} ▟██████████████▙     ${RESET}"
+"${DARK}${BOLD}▟████████████████▙    ${RESET}"
+"${DARK}${BOLD} ▝▀▀▀▀▀▀▀▀▀▀▀▀▀▀▘     ${RESET}"
+)
+
+# ---- Info field formatter ----------------------------------------------
+# Label in brand honey-bold, value plain. Fixed-width label column so
+# values line up vertically regardless of label length.
+field() { printf "%s%-8s%s %s" "${HONEY}${BOLD}" "$1" "$RESET" "$2"; }
+
+# Build INFO lines as an array (parallel to LOGO so we can zip them)
+INFO=()
+INFO+=("${BOLD}${BLUE}$user${RESET}${DIM}@${RESET}${BOLD}${HONEY}$host${RESET}")
+INFO+=("${DIM}────────────────────────────────────${RESET}")
+INFO+=("$(field 'OS'      "$os_pretty ${DIM}$arch${RESET}")")
+INFO+=("$(field 'Kernel'  "$kernel")")
+INFO+=("$(field 'Uptime'  "$uptime_str")")
+pkg_str="$pkg_pacman ${DIM}(pacman)${RESET}"
+[ "$pkg_flatpak" -gt 0 ] && pkg_str="$pkg_str · $pkg_flatpak ${DIM}(flatpak)${RESET}"
+INFO+=("$(field 'Pkgs'    "$pkg_str")")
+INFO+=("$(field 'Shell'   "$shell_name${shell_ver:+ ${DIM}$shell_ver${RESET}}")")
+INFO+=("$(field 'DE'      "$de_session")")
+INFO+=("$(field 'Term'    "$terminal")")
+INFO+=("$(field 'CPU'     "${cpu_model:0:50} ${DIM}($cpu_cores cores)${RESET}")")
+[ -n "$gpu_line" ] && INFO+=("$(field 'GPU' "${gpu_line:0:50}")")
+INFO+=("$(field 'Mem'     "$mem_used / $mem_total")")
+INFO+=("$(field 'Disk'    "$disk")")
+[ "${#ai_present[@]}" -gt 0 ] && INFO+=("$(field 'AI'  "${ai_present[*]}")")
+
+# ---- Zip + print -------------------------------------------------------
+echo
+max=${#LOGO[@]}
+[ ${#INFO[@]} -gt $max ] && max=${#INFO[@]}
+for ((i=0; i<max; i++)); do
+    printf "  %s  %s\n" "${LOGO[i]:-                      }" "${INFO[i]:-}"
+done
+echo
