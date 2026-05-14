@@ -425,6 +425,33 @@ if grep -q '^liveuser:' /etc/passwd && ! grep -q '^liveuser:' /etc/subuid; then
     echo 'liveuser:100000:65536' >> /etc/subgid
 fi
 
+# ---- Default shell: zsh -------------------------------------------------
+# PosthogOS's modern shell stack lives in /etc/skel/.zshrc (starship +
+# atuin + zoxide + fzf + tool aliases). Set zsh as the login shell so
+# new users get the integrated experience automatically.
+#
+# Two pieces:
+#   1. useradd's `-D` default applies to future user creation (the path
+#      Calamares will follow on install)
+#   2. liveuser already exists, so we chsh them directly for the live ISO
+if [ -x /usr/bin/zsh ]; then
+    log "Setting zsh as the default login shell (system-wide)"
+    useradd -D -s /bin/zsh 2>&1 | sed 's/^/  /' || log "  WARN: useradd -D -s failed"
+    if grep -q '^liveuser:' /etc/passwd; then
+        chsh -s /bin/zsh liveuser 2>&1 | sed 's/^/  /' \
+            || sed -i '/^liveuser:/s|:[^:]*$|:/bin/zsh|' /etc/passwd
+    fi
+fi
+
+# ---- Tailscale: enable the daemon for next boot --------------------------
+# tailscaled needs to be running for `tailscale up` to work. The package
+# ships the unit but doesn't enable it by default — flipping it on now
+# means users can `tailscale up` immediately without prep.
+if [ -f /usr/lib/systemd/system/tailscaled.service ]; then
+    log "Enabling tailscaled.service"
+    systemctl enable tailscaled.service 2>&1 | sed 's/^/  /' || log "  WARN: tailscaled.service enable failed"
+fi
+
 # ---- Flatpak: register Flathub system-wide ------------------------------
 # Flatpak is shipped via the package list (see scripts/pre-build.sh) as a
 # secondary app distribution channel for sandboxed GUI apps that don't

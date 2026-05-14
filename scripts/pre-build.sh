@@ -152,6 +152,43 @@ if [ -f "$pkglist" ]; then
         unzip                # Needed in the chroot to extract the 1Password CLI
                              # zip archive. Not always pulled by base; adding
                              # explicitly so customize.sh can rely on it.
+
+        # ── Tier 3 — modern developer baseline (from ROADMAP) ───────────
+        # Shell + prompt + history + dir-jumping
+        starship             # Cross-shell prompt. Theme in /etc/skel/.config/starship.toml
+        atuin                # Replaces shell history with a sync'd SQLite db
+                             # + fuzzy magic search. Activated via .zshrc init.
+        zoxide               # `cd` replacement with frecency ranking. `z foo`
+                             # jumps to the most-used dir matching "foo".
+        # File / text inspection
+        bat                  # `cat` with syntax highlighting + paging
+        eza                  # `ls` replacement with git-status + tree mode
+        ripgrep              # `grep -r` replacement, way faster
+        fd                   # `find` replacement, sensible defaults
+        fzf                  # Fuzzy finder. Powers shell ctrl-R / kill -9 pid
+        jq                   # JSON query/manipulation
+        yq-go                # YAML/TOML/XML query (Mike Farah's Go yq, not the
+                             # Python one — Go yq is the de-facto modern one)
+        # Diff + git
+        git-delta            # Syntax-highlighting pager for git diff/show.
+                             # Wired into /etc/skel/.gitconfig.
+        github-cli           # `gh` — GitHub CLI for PRs / issues / releases
+        lazygit              # TUI for git
+        tig                  # Older but battle-tested ncurses git browser
+        # System inspection
+        btop                 # `top` replacement, prettier
+        dust                 # `du` with a visual tree of what's eating disk
+        tokei                # Lines-of-code stats per language
+        hyperfine            # Benchmark CLI (auto-warmup, statistics)
+        # Task runner
+        just                 # `make` replacement for command runners. justfiles
+                             # are .makefile-like but without tab requirements.
+        # Terminal multiplexer
+        zellij               # Modern tmux alternative. Layouts in
+                             # /etc/skel/.config/zellij/layouts/.
+        # Cloud / networking
+        tailscale            # Mesh VPN. systemctl-enabled in customize.sh so
+                             # `tailscale up` works out of the box on first boot.
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.
