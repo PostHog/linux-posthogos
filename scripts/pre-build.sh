@@ -190,6 +190,35 @@ if [ -f "$pkglist" ]; then
         log "  writing /etc/posthogos-fast-build marker for customize hook"
         mkdir -p archiso/airootfs/etc
         echo 1 > archiso/airootfs/etc/posthogos-fast-build
+
+        # Repoint all linux-cachyos-lts references in the bootloader
+        # configs to the main linux-cachyos kernel. Upstream's GRUB,
+        # systemd-boot, and loopback configs include menu entries (and
+        # in systemd-boot's case the DEFAULT entry) that load
+        # vmlinuz-linux-cachyos-lts + initramfs-linux-cachyos-lts.img.
+        # With FAST_BUILD dropping the LTS kernel package, those files
+        # don't exist on the ISO and any user who picks the default
+        # entry (or any LTS-titled fallback entry) gets a silent bootloader
+        # failure that bounces them back to the boot menu in an endless
+        # loop. Repoint instead of delete-menus so the menu shapes
+        # match the full-build ISOs.
+        log "  repointing LTS bootloader entries to linux-cachyos"
+        boot_targets=(
+            archiso/grub/grub.cfg
+            archiso/grub/loopback.cfg
+        )
+        # systemd-boot entries split into one file per entry; glob them.
+        for ef in archiso/efiboot/loader/entries/*.conf; do
+            [ -f "$ef" ] && boot_targets+=("$ef")
+        done
+        for f in "${boot_targets[@]}"; do
+            [ -f "$f" ] || continue
+            sed -i.bak \
+                -e 's|vmlinuz-linux-cachyos-lts|vmlinuz-linux-cachyos|g' \
+                -e 's|initramfs-linux-cachyos-lts|initramfs-linux-cachyos|g' \
+                "$f"
+            rm -f "${f}.bak"
+        done
     fi
 fi
 
