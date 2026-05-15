@@ -261,19 +261,29 @@ fi
 # Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
 # from the overlay. We point plymouthd at it, then regenerate the initramfs.
 if [ -f "/usr/share/plymouth/themes/$BRAND/$BRAND.plymouth" ]; then
-    log "Configuring Plymouth theme: $BRAND"
+    log "Configuring Plymouth theme: $BRAND (config-only, no initramfs regen)"
     mkdir -p /etc/plymouth
     cat >/etc/plymouth/plymouthd.conf <<EOF
 [Daemon]
 Theme=$BRAND
 ShowDelay=0
 EOF
-    if command -v plymouth-set-default-theme >/dev/null; then
-        plymouth-set-default-theme -R "$BRAND" || log "WARN: plymouth-set-default-theme failed"
-    else
-        log "Running mkinitcpio -P to embed plymouth theme"
-        mkinitcpio -P
-    fi
+    # NOTE: deliberately NOT running `plymouth-set-default-theme -R` or
+    # `mkinitcpio -P` here. The regen iterates over every installed
+    # kernel's preset (up to 6 in a full CachyOS build, each ~30s of
+    # firmware-warning + hook-listing spam) and is the single largest
+    # build-time bloat in this hook.
+    #
+    # Trade-off: the theme files exist at /usr/share/plymouth/themes/
+    # posthogos/ but are NOT embedded into the initramfs, so the boot
+    # splash plymouth shows BEFORE the rootfs is mounted falls back to
+    # the upstream CachyOS theme. Plymouth on the live boot still works,
+    # it just isn't PostHog-branded for the few seconds before SDDM
+    # appears. Plasma splash + everything post-login stays fully branded.
+    #
+    # If we ever decide we want plymouth itself branded, the cheap path
+    # is `mkinitcpio -p linux-cachyos` (targets only the primary kernel
+    # archiso actually boots, ~2 min vs ~10 min for -P).
 else
     log "Plymouth theme '$BRAND' not present (no .plymouth descriptor); leaving CachyOS default"
 fi

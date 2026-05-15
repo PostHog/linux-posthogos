@@ -169,6 +169,34 @@ if [ -f "$pkglist" ]; then
             log "  removed: $pkg"
         fi
     done
+
+    # --- FAST_BUILD: drop alternate kernels -------------------------------
+    # CachyOS's desktop preset installs SIX kernels: linux-cachyos plus its
+    # -lts twin, plus -nvidia-open and -zfs variants of each. Every kernel
+    # triggers its own `mkinitcpio -P` during pacstrap and another full
+    # regen later when our customize hook runs plymouth-set-default-theme,
+    # so a vanilla build prints the "Running build hook: [archiso_pxe_*] →
+    # [block] → [filesystems]" sequence 6-12 times. For local iteration
+    # where one bootable kernel is all you need to verify a change, drop
+    # the alternates. CI builds (FAST_BUILD unset) keep the full set so
+    # shipped ISOs still cover ZFS-root + proprietary-NVIDIA install paths.
+    if [ "${FAST_BUILD:-0}" = "1" ]; then
+        fast_drop_kernels=(
+            linux-cachyos-lts
+            linux-cachyos-lts-zfs
+            linux-cachyos-lts-nvidia-open
+            linux-cachyos-nvidia-open
+            linux-cachyos-zfs
+        )
+        log "FAST_BUILD=1 → dropping ${#fast_drop_kernels[@]} alternate kernels (keeping linux-cachyos only)"
+        for k in "${fast_drop_kernels[@]}"; do
+            if grep -qxF "$k" "$pkglist"; then
+                sed -i.bak "/^${k}$/d" "$pkglist"
+                log "  dropped: $k"
+            fi
+        done
+        rm -f "${pkglist}.bak"
+    fi
 fi
 
 # --- util-iso.sh post-build fixups ----------------------------------------
