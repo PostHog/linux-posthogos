@@ -231,7 +231,7 @@ ApplicationWindow {
                 }
                 CheckBox {
                     id: cbDev
-                    text: "Modern Unix tools"
+                    text: "zsh + pure prompt + modern Unix tools"
                     checked: true
                 }
                 CheckBox {

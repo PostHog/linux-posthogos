@@ -124,28 +124,20 @@ if [ -f "$pkglist" ]; then
                              # Also a dep many JS dev workflows assume regardless.
         npm                  # Node package manager. Same rationale as nodejs.
 
-        # ── Shell + curl|sh bootstrap surface ──────────────────────────
+        # ── Notes on what's NOT here ────────────────────────────────────
         # The dev tooling (AI CLIs, modern Unix tools, containers, asdf,
-        # Tailscale, mitmproxy, 1Password CLI) is NOT pre-baked anymore.
-        # users opt in via the Welcome window's "Install dev toolkit"
-        # button, which runs /usr/local/bin/posthogos-toolkit-install.
-        # Rationale: AI CLIs go stale fast (curl|sh installers move under
-        # us between ISO builds), the ISO stays lean, and users get to
-        # choose. The handful of system-level pieces below are the
-        # minimum substrate the installer + branded shell need.
-        zsh                  # Default login shell. customize.sh chsh's
-                             # liveuser to /bin/zsh AND sets useradd's
-                             # default to /bin/zsh so Calamares-created
-                             # users get it too. NOT pulled in by CachyOS
-                             # or plasma-meta, so we add it explicitly.
-        zsh-completions      # Community-maintained completion functions
-                             # for tons of tools. Activated automatically
-                             # by zsh's compinit.
-        # `pure` (the prompt) is NOT a pacman package; it's a small zsh
-        # plugin shipped at /usr/share/zsh/pure. customize.sh downloads
-        # the upstream release tarball + extracts there. .zshrc adds it
-        # to fpath and `prompt pure`s.
-
+        # Tailscale, mitmproxy, 1Password CLI, ALSO zsh + the pure prompt)
+        # is NOT pre-baked. Users opt in via the Welcome window's "Install
+        # dev toolkit" button, which runs the chrooted installer at
+        # /usr/local/bin/posthogos-toolkit-install. The dev category in
+        # that script handles `pacman -S zsh zsh-completions`, clones
+        # sindresorhus/pure into /usr/share/zsh/pure, and chsh's the
+        # invoking user to /bin/zsh. Rationale: keep the base ISO lean +
+        # let users choose. Default shell on the live ISO is plain bash;
+        # the branded /etc/skel/.zshrc + /etc/skel/.gitconfig + ghostty
+        # config + zellij layouts all sit on disk and "light up" once the
+        # toolkit installer runs.
+        #
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.

@@ -429,25 +429,12 @@ fi
 # installing them at toolkit-run time also seeds /etc/subuid + /etc/subgid
 # for rootless and adds the invoking user to the docker group.
 
-# ---- Default shell: zsh -------------------------------------------------
-# PosthogOS's modern shell stack lives in /etc/skel/.zshrc (pure prompt +
-# fzf + tool aliases, all gated on `command -v`). The dev tooling that
-# fills in those aliases (eza, bat, fd, lazygit, atuin, zoxide, ...) is
-# installed via the Welcome window's toolkit flow; the .zshrc stays
-# valid either way because every integration block is conditional.
-#
-# Two pieces:
-#   1. useradd's `-D` default applies to future user creation (the path
-#      Calamares will follow on install)
-#   2. liveuser already exists, so we chsh them directly for the live ISO
-if [ -x /usr/bin/zsh ]; then
-    log "Setting zsh as the default login shell (system-wide)"
-    useradd -D -s /bin/zsh 2>&1 | sed 's/^/  /' || log "  WARN: useradd -D -s failed"
-    if grep -q '^liveuser:' /etc/passwd; then
-        chsh -s /bin/zsh liveuser 2>&1 | sed 's/^/  /' \
-            || sed -i '/^liveuser:/s|:[^:]*$|:/bin/zsh|' /etc/passwd
-    fi
-fi
+# ---- Default shell ------------------------------------------------------
+# Base ISO leaves the shell at bash; zsh + pure prompt + chsh are now
+# the dev toolkit installer's job. /etc/skel still ships our branded
+# .zshrc, but it sits dormant until the toolkit lands zsh + chsh's the
+# user. Rationale: keep the live ISO lean, don't pretend to provide a
+# shell experience that's only half-wired before the toolkit runs.
 
 # ---- Tailscale -----------------------------------------------------------
 # Moved to /usr/local/bin/posthogos-toolkit-install (the "extras"
@@ -486,28 +473,10 @@ fi
 # ship 6-month-old Claude Code / Codex / Gemini binaries), and users
 # should get to choose what lands on their system.
 
-# ---- pure: minimal zsh prompt -------------------------------------------
-# Bake pure (sindresorhus/pure) at /usr/share/zsh/pure so /etc/skel/.zshrc
-# can `fpath+=(/usr/share/zsh/pure)` + `prompt pure` out of the box. The
-# release tarball is two files (pure.zsh + async.zsh), small enough that
-# baking it in beats making the toolkit installer carry it.
-PURE_VERSION=1.23.0
-log "Installing pure prompt v${PURE_VERSION} into /usr/share/zsh/pure"
-pure_tgz=/tmp/pure-${PURE_VERSION}.tar.gz
-if curl -fsSL -o "$pure_tgz" \
-        "https://github.com/sindresorhus/pure/archive/refs/tags/v${PURE_VERSION}.tar.gz"; then
-    mkdir -p /usr/share/zsh/pure
-    tar -xzf "$pure_tgz" -C /usr/share/zsh/pure --strip-components=1 2>&1 | sed 's/^/  /'
-    rm -f "$pure_tgz"
-    if [ -f /usr/share/zsh/pure/pure.zsh ]; then
-        log "  installed (pure.zsh + async.zsh in /usr/share/zsh/pure)"
-    else
-        log "  WARN: pure tarball extracted but pure.zsh missing; prompt will fall back to default"
-    fi
-else
-    log "  WARN: pure download failed (manual: tarball from https://github.com/sindresorhus/pure/releases)"
-    rm -f "$pure_tgz"
-fi
+# ---- pure prompt --------------------------------------------------------
+# Moved to /usr/local/bin/posthogos-toolkit-install (clones into
+# /usr/share/zsh/pure at install time, in the same step that installs
+# zsh + chsh's the user). Base ISO doesn't ship it.
 
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"

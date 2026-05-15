@@ -7,9 +7,10 @@
 #
 # Categories
 #   ai          AI CLIs: Claude Code, OpenAI Codex, Gemini, Pi, Ollama
-#   dev         modern Unix replacements: bat eza fd fzf ripgrep
-#               git-delta jq go-yq gh lazygit tig btop dust tokei
-#               hyperfine just zellij atuin zoxide
+#   dev         shell: zsh + zsh-completions + pure prompt (chsh the
+#               invoking user) PLUS modern Unix replacements: bat eza
+#               fd fzf ripgrep git-delta jq go-yq gh lazygit tig btop
+#               dust tokei hyperfine just zellij atuin zoxide
 #   containers  docker, docker-compose, podman, distrobox, lazydocker
 #               + add invoking user to docker group + subuid/subgid for
 #               rootless podman/distrobox
@@ -185,10 +186,15 @@ install_ai() {
 }
 
 # ── Category: dev ─────────────────────────────────────────────────────────
+# zsh + pure live here rather than in their own category because the
+# /etc/skel/.zshrc shipped on the base ISO is wired around the modern Unix
+# tools (alias ls=eza, lg=lazygit, etc.). Installing them together means
+# the shell experience lights up coherently rather than half-on.
 install_dev() {
-    banner "Modern Unix tooling"
-    step "pacman -S (bat eza fd fzf ripgrep git-delta jq go-yq gh lazygit tig btop dust tokei hyperfine just zellij atuin zoxide)"
+    banner "zsh + pure prompt + modern Unix tooling"
+    step "pacman -S (zsh + bat eza fd fzf ripgrep git-delta jq go-yq gh lazygit tig btop dust tokei hyperfine just zellij atuin zoxide)"
     pacman_install \
+        zsh zsh-completions \
         bat eza fd fzf ripgrep \
         git-delta jq go-yq \
         github-cli lazygit tig \
@@ -196,7 +202,59 @@ install_dev() {
         just zellij \
         atuin zoxide \
         2>&1 | sed 's/^/    /'
-    ok "Dev CLIs installed (try \`eza -lhaF --git\` or \`lg\` for lazygit)"
+
+    # pure: sindresorhus's minimal async zsh prompt. Tiny tarball
+    # (pure.zsh + async.zsh + a few helpers); shipped at /usr/share/zsh/
+    # pure where /etc/skel/.zshrc picks it up via fpath. Skip if already
+    # extracted (re-running the installer shouldn't re-download).
+    PURE_VERSION=1.23.0
+    if [ ! -f /usr/share/zsh/pure/pure.zsh ]; then
+        step "Installing pure prompt v${PURE_VERSION}"
+        pure_tgz=/tmp/pure-${PURE_VERSION}.tar.gz
+        if curl -fsSL -o "$pure_tgz" \
+                "https://github.com/sindresorhus/pure/archive/refs/tags/v${PURE_VERSION}.tar.gz" \
+            && mkdir -p /usr/share/zsh/pure \
+            && tar -xzf "$pure_tgz" -C /usr/share/zsh/pure --strip-components=1; then
+            rm -f "$pure_tgz"
+            ok "pure prompt installed at /usr/share/zsh/pure"
+        else
+            warn "pure prompt download failed (manual: tarball from https://github.com/sindresorhus/pure/releases)"
+            rm -f "$pure_tgz"
+        fi
+    else
+        ok "pure prompt already installed"
+    fi
+
+    # chsh: switch the invoking user's login shell to zsh. /etc/skel files
+    # (.zshrc, .gitconfig, ghostty config, zellij layouts) are already in
+    # their home from initial provisioning; flipping the shell makes them
+    # active. Idempotent: if the user is already on zsh, chsh -s to the
+    # same value is a no-op.
+    if [ -x /bin/zsh ] || [ -x /usr/bin/zsh ]; then
+        zsh_path=$(command -v zsh)
+        current_shell=$(getent passwd "$TARGET_USER" | cut -d: -f7)
+        case "$current_shell" in
+            */zsh)
+                ok "$TARGET_USER's login shell is already $current_shell"
+                ;;
+            *)
+                step "Switching $TARGET_USER's login shell to $zsh_path"
+                if chsh -s "$zsh_path" "$TARGET_USER" 2>&1 | sed 's/^/    /'; then
+                    ok "Shell set to $zsh_path; log out and back in to start using it"
+                else
+                    # Fallback: edit /etc/passwd directly. chsh on some
+                    # systems refuses if /etc/shells doesn't list zsh.
+                    sed -i "/^${TARGET_USER}:/s|:[^:]*$|:${zsh_path}|" /etc/passwd \
+                        && ok "Shell set via /etc/passwd; log out + back in" \
+                        || warn "chsh + /etc/passwd edit both failed"
+                fi
+                ;;
+        esac
+    else
+        warn "zsh not on PATH after install (pacman -S failed?); skipping chsh"
+    fi
+
+    ok "Dev tooling installed (try \`eza -lhaF --git\` or \`lg\` for lazygit; log out + in for the zsh prompt)"
 }
 
 # ── Category: containers ──────────────────────────────────────────────────
@@ -303,7 +361,7 @@ step "Refreshing pacman databases (sudo pacman -Sy)"
 pacman -Sy 2>&1 | sed 's/^/    /'
 
 confirm_or_skip ai         "Claude Code, Codex, Gemini, Pi, Ollama" && install_ai
-confirm_or_skip dev        "bat, eza, fd, fzf, ripgrep, delta, jq, yq, gh, lazygit, btop, atuin, zoxide, zellij, just, …" && install_dev
+confirm_or_skip dev        "zsh + pure prompt + bat, eza, fd, fzf, ripgrep, delta, jq, yq, gh, lazygit, btop, atuin, zoxide, zellij, just, …" && install_dev
 confirm_or_skip containers "docker, podman, distrobox, lazydocker (+group + subuid/subgid)" && install_containers
 confirm_or_skip extras     "Tailscale, mitmproxy, 1Password CLI, asdf-vm" && install_extras
 
