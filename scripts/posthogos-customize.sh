@@ -261,29 +261,42 @@ fi
 # Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
 # from the overlay. We point plymouthd at it, then regenerate the initramfs.
 if [ -f "/usr/share/plymouth/themes/$BRAND/$BRAND.plymouth" ]; then
-    log "Configuring Plymouth theme: $BRAND (config-only, no initramfs regen)"
     mkdir -p /etc/plymouth
     cat >/etc/plymouth/plymouthd.conf <<EOF
 [Daemon]
 Theme=$BRAND
 ShowDelay=0
 EOF
-    # NOTE: deliberately NOT running `plymouth-set-default-theme -R` or
-    # `mkinitcpio -P` here. The regen iterates over every installed
-    # kernel's preset (up to 6 in a full CachyOS build, each ~30s of
-    # firmware-warning + hook-listing spam) and is the single largest
-    # build-time bloat in this hook.
+
+    # Whether to bake the plymouth theme into the initramfs hinges on
+    # FAST_BUILD. The regen iterates over every installed kernel's preset
+    # (up to 6 in a full CachyOS build, each ~30s of firmware-warning +
+    # hook-listing spam) and is the single biggest build-time bloat in
+    # this hook.
     #
-    # Trade-off: the theme files exist at /usr/share/plymouth/themes/
-    # posthogos/ but are NOT embedded into the initramfs, so the boot
-    # splash plymouth shows BEFORE the rootfs is mounted falls back to
-    # the upstream CachyOS theme. Plymouth on the live boot still works,
-    # it just isn't PostHog-branded for the few seconds before SDDM
-    # appears. Plasma splash + everything post-login stays fully branded.
+    # FAST_BUILD=1 (local iteration): skip regen. The theme files exist
+    # at /usr/share/plymouth/themes/posthogos/ but aren't embedded into
+    # initramfs, so plymouth's pre-rootfs splash falls back to the
+    # upstream CachyOS theme for the few seconds before SDDM appears.
+    # Plasma splash + everything post-login stays branded.
     #
-    # If we ever decide we want plymouth itself branded, the cheap path
-    # is `mkinitcpio -p linux-cachyos` (targets only the primary kernel
-    # archiso actually boots, ~2 min vs ~10 min for -P).
+    # FAST_BUILD unset (CI / release): run plymouth-set-default-theme -R
+    # so the shipped ISO has a properly-branded boot splash all the way
+    # through. pre-build.sh leaves all 6 kernels in place for full builds,
+    # so this iterates 6 times. Worth it for a release; not worth it for
+    # iterating on QML files.
+    #
+    # pre-build.sh writes /etc/posthogos-fast-build when FAST_BUILD=1.
+    if [ -f /etc/posthogos-fast-build ]; then
+        log "Configuring Plymouth theme: $BRAND (FAST_BUILD: config-only, no initramfs regen)"
+        rm -f /etc/posthogos-fast-build   # don't ship the marker
+    elif command -v plymouth-set-default-theme >/dev/null; then
+        log "Configuring Plymouth theme: $BRAND (running -R to embed into initramfs)"
+        plymouth-set-default-theme -R "$BRAND" || log "WARN: plymouth-set-default-theme failed"
+    else
+        log "Configuring Plymouth theme: $BRAND (running mkinitcpio -P)"
+        mkinitcpio -P
+    fi
 else
     log "Plymouth theme '$BRAND' not present (no .plymouth descriptor); leaving CachyOS default"
 fi

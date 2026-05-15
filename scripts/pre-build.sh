@@ -196,6 +196,13 @@ if [ -f "$pkglist" ]; then
             fi
         done
         rm -f "${pkglist}.bak"
+
+        # Marker for the chroot hook to skip the slow plymouth initramfs
+        # regen. customize.sh probes for this file and deletes it after
+        # reading, so it doesn't ship in the final squashfs.
+        log "  writing /etc/posthogos-fast-build marker for customize hook"
+        mkdir -p archiso/airootfs/etc
+        echo 1 > archiso/airootfs/etc/posthogos-fast-build
     fi
 fi
 
