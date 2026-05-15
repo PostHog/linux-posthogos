@@ -170,16 +170,14 @@ if [ -f "$appletsrc" ]; then
 
     if [ "$patched_kickoff" -gt 0 ] || [ "$patched_tasks" -gt 0 ]; then
         echo "  patched $patched_kickoff kickoff + $patched_tasks taskbar applet(s)"
-        # Ask plasmashell to refresh its config. NEVER kill+relaunch as a
-        # fallback: kquitapp6 followed by `kstart plasmashell &` detaches
-        # the new process from our script's session env, and in QEMU TCG
-        # sessions the relaunched plasmashell can't reattach to the
-        # display, leaving the user staring at a black screen post-login.
-        # If the DBus call fails, we accept the appletsrc edits landing on
-        # next login instead of forcing them now.
-        echo "  asking plasmashell to refresh config"
-        qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.refreshCurrentShell 2>/dev/null \
-            || echo "  refreshCurrentShell failed; edits will apply on next login"
+        # DO NOT call refreshCurrentShell or kquitapp+kstart. In Plasma 6
+        # refreshCurrentShell tears down and rebuilds the shell, and on
+        # QEMU TCG sessions the rebuild fails silently, leaving the user
+        # with a black screen. The appletsrc edits we just made (kickoff
+        # icon + taskbar pinned launchers) will apply on the next login,
+        # which is an acceptable trade for a session that doesn't
+        # black-screen on first boot.
+        echo "  appletsrc edits will apply on next login (no live reload)"
     else
         echo "  no kickoff or taskbar applets found (appletsrc layout may differ)"
         ok=false
