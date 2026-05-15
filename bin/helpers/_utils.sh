@@ -35,6 +35,40 @@ set_source_and_root_dir() {
     cd "$root_dir"
 }
 
+# Load .env (machine-local build config) if present. Variables here
+# behave identically to env-var prefixes on the command line, e.g.
+#   POSTHOG_CODE_APPIMAGE=/path/...   (staged into .appimages/)
+#   FAST_BUILD=1
+#   KEEP_BUILD=1
+#   POSTHOGOS_ICON_VARIANT=classic
+#   POSTHOGOS_QEMU_RAM=8G             (bin/test)
+#
+# Parent-env wins: we only set values for keys NOT already set. So a
+# one-off `FAST_BUILD=0 bin/build` still overrides FAST_BUILD=1 in .env,
+# matching the "CLI overrides config-file" mental model people have
+# from kubectl / terraform / docker-compose.
+load_env_file() {
+    local env_file="$root_dir/.env"
+    [ -f "$env_file" ] || return 0
+    local line key val
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            ''|'#'*) continue ;;
+        esac
+        if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+            key="${line%%=*}"
+            val="${line#*=}"
+            # Strip surrounding quotes if both ends match.
+            if [[ "$val" =~ ^\".*\"$ ]] || [[ "$val" =~ ^\'.*\'$ ]]; then
+                val="${val:1:-1}"
+            fi
+            if [ -z "${!key+x}" ]; then
+                export "$key=$val"
+            fi
+        fi
+    done < "$env_file"
+}
+
 # Print the script header (lines starting with #/) as help text.
 # -E for extended regex: BSD sed (macOS) doesn't honor \? in basic regex.
 show_help() {

@@ -27,6 +27,7 @@
 
 source bin/helpers/_utils.sh
 set_source_and_root_dir
+load_env_file
 set -e
 
 install_mode=false

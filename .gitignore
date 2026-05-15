@@ -20,3 +20,8 @@ test-disk.qcow2
 
 # Logs
 *.log
+
+# Local build config. Committed template lives at .env.example; copy
+# (`cp .env.example .env`) and fill in machine-specific paths +
+# preferences. Auto-sourced by bin/build and bin/test.
+.env
