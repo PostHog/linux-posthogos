@@ -40,13 +40,20 @@ echo "==> Generating derived assets (resampled wallpapers, slideshow, splash)"
 "$repo_root/scripts/build-assets.sh"
 
 echo "==> Applying overlay/ → archiso/"
-if [ -d overlay ] && find overlay -mindepth 1 -not -name '.gitkeep' -not -name 'README.md' \
-        | grep -q .; then
+# Previously gated on `find overlay ... | grep -q .` to skip the rsync
+# when overlay/ was empty. Under `set -euo pipefail` that pipeline
+# returned non-zero (grep -q exits early → SIGPIPEs find → find non-zero
+# → pipefail propagates), so the guard ALWAYS evaluated false and the
+# rsync was silently skipped on every build. Symptom: nothing under
+# overlay/ ever landed on the ISO (autostart entries, /usr/local/bin/
+# scripts, /etc/skel dotfiles, LAF defaults, the welcome QML, …) while
+# overlay-generated/ files came through fine because they use a plain
+# `[ -d ]` check with no piping. Just rsync unconditionally; an empty
+# source dir is a harmless no-op.
+if [ -d overlay ]; then
     rsync -a --info=stats1 \
         --exclude='.gitkeep' --exclude='README.md' \
         overlay/ "$build_dir/archiso/"
-else
-    echo "    (overlay/ has no payload files; skipping)"
 fi
 
 echo "==> Applying overlay-generated/ → archiso/"
