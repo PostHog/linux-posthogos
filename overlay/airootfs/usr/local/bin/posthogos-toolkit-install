@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# posthogos-toolkit-install — opt-in agentic dev toolkit installer.
+# posthogos-toolkit-install: the opt-in agentic dev toolkit installer.
 #
 # Designed to be invoked from the Welcome window's "Install dev toolkit"
 # tile (the QML dialog passes --yes + --skip=... for any opted-out
 # categories) but also fully usable interactively from a shell.
 #
 # Categories
-#   ai          — AI CLIs: Claude Code, OpenAI Codex, Gemini, Pi, Ollama
-#   dev         — modern Unix replacements: bat eza fd fzf ripgrep
-#                 git-delta jq go-yq gh lazygit tig btop dust tokei
-#                 hyperfine just zellij atuin zoxide
-#   containers  — docker, docker-compose, podman, distrobox, lazydocker
-#                 + add invoking user to docker group + subuid/subgid for
-#                 rootless podman/distrobox
-#   extras      — Tailscale (mesh VPN) + mitmproxy (HTTPS interceptor)
-#                 + 1Password CLI (op) + asdf-vm (version manager)
+#   ai          AI CLIs: Claude Code, OpenAI Codex, Gemini, Pi, Ollama
+#   dev         modern Unix replacements: bat eza fd fzf ripgrep
+#               git-delta jq go-yq gh lazygit tig btop dust tokei
+#               hyperfine just zellij atuin zoxide
+#   containers  docker, docker-compose, podman, distrobox, lazydocker
+#               + add invoking user to docker group + subuid/subgid for
+#               rootless podman/distrobox
+#   extras      Tailscale (mesh VPN) + mitmproxy (HTTPS interceptor)
+#               + 1Password CLI (op) + asdf-vm (version manager)
 #
 # Usage
 #   posthogos-toolkit-install                       # interactive prompt per category
@@ -114,7 +114,7 @@ confirm_or_skip() {
         should_run "$cat" && return 0 || return 1
     fi
     should_run "$cat" || return 1
-    printf '\n%s%s%s — %s\nInstall this category? [Y/n] ' "$BOLD" "$cat" "$RESET" "$desc"
+    printf '\n%s%s%s  %s\nInstall this category? [Y/n] ' "$BOLD" "$cat" "$RESET" "$desc"
     read -r answer
     case "${answer,,}" in n|no) return 1 ;; *) return 0 ;; esac
 }
@@ -122,12 +122,12 @@ confirm_or_skip() {
 # ── Helpers ───────────────────────────────────────────────────────────────
 pacman_install() {
     # Pacman in non-interactive mode. --needed skips already-installed.
-    # We don't pass --noconfirm to all of pacman — only to install — so
+    # We don't pass --noconfirm to all of pacman, only to install, so
     # users get prompted for risky overwrite scenarios.
     pacman -S --needed --noconfirm "$@"
 }
 
-# Run a command as the target user — for npm globals + tools that write
+# Run a command as the target user. Useful for npm globals + tools that write
 # state into $HOME. `runuser -u` is the modern systemd-friendly version
 # of `su -c "$@" <user>` and preserves the env we set inline.
 as_user() {
@@ -152,7 +152,7 @@ install_ai() {
             warn "Codex install failed"
         fi
     else
-        warn "npm not on PATH — skipping Codex (nodejs is supposed to be pre-baked)"
+        warn "npm not on PATH; skipping Codex (nodejs is supposed to be pre-baked)"
     fi
 
     step "Google Gemini CLI (npm global)"
@@ -211,7 +211,7 @@ install_containers() {
     step "Adding $TARGET_USER to docker group"
     if getent group docker >/dev/null; then
         gpasswd -a "$TARGET_USER" docker 2>&1 | sed 's/^/    /' || warn "gpasswd failed"
-        ok "Group add done — $TARGET_USER must log out + back in for it to take effect"
+        ok "Group add done. $TARGET_USER must log out + back in for it to take effect"
     fi
 
     step "Seeding /etc/subuid + /etc/subgid for rootless podman/distrobox"

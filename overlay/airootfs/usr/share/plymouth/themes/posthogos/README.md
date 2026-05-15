@@ -29,5 +29,5 @@ ScriptFile=/usr/share/plymouth/themes/posthogos/posthogos.script
 ## Reference theme to copy
 
 CachyOS ships a Plymouth theme in `/usr/share/plymouth/themes/cachyos/`
-on any live image. Fork it as a starting point — rename files, swap PNGs,
+on any live image. Fork it as a starting point: rename files, swap PNGs,
 edit the .script to reference `posthogos` instead of `cachyos`.

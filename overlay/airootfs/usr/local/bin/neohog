@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# neohog — neofetch-style system overview with the PostHog logomark
+# neohog: neofetch-style system overview with the PostHog logomark
 # (sideways horizontal arrangement, matching posthog.com).
 #
 # No external deps beyond coreutils + uname + procfs + pacman; runs in any
@@ -7,7 +7,7 @@
 # any fact-gathering command that fails) so it works on minimal hosts,
 # containers, even non-Linux preview runs.
 
-# `set -u` only — info-gathering uses `cmd 2>/dev/null || echo "?"`
+# `set -u` only. Info-gathering uses `cmd 2>/dev/null || echo "?"`
 # patterns that pipefail would short-circuit. We always want output even
 # if some facts can't be gathered (unusual host, container, missing pkg).
 set -u
@@ -64,7 +64,7 @@ for bin in claude codex gemini pi ollama op mitmproxy; do
 done
 
 # ---- Logo: PostHog logomark, sideways -----------------------------------
-# Matches the canonical brand mark at posthog.com — three groups of
+# Matches the canonical brand mark at posthog.com: three groups of
 # parallel diagonal "stripes" (blue, orange, yellow, in that left-to-right
 # order per the SVG) cascading rightward, then a black right-triangle
 # block with the hog's eye on the far right.
@@ -73,7 +73,7 @@ done
 # approximates each stripe as a single character cell containing the
 # diagonal box-drawing glyph `╲` (U+2572, "Box Drawings Light Diagonal
 # Upper Left to Lower Right"). Multiple `╲`s side-by-side render as
-# parallel diagonals — close enough to the parallelogram stripes to
+# parallel diagonals, close enough to the parallelogram stripes to
 # read as the PostHog mark at a glance.
 #
 # Hog block on the right is a 5-row right-triangle (`▟▙` corner + base

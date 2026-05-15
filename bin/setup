@@ -26,10 +26,10 @@ case "$(uname -s)" in
     Linux)
         if grep -qi 'arch\|cachyos' /etc/os-release 2>/dev/null; then
             require_commands mkarchiso qemu-system-x86_64
-            success "Native Arch host detected — run bin/build --native"
+            success "Native Arch host detected: run bin/build --native"
         else
             require_commands docker qemu-system-x86_64
-            success "Non-Arch Linux host — using Docker path"
+            success "Non-Arch Linux host; using Docker path"
             docker info >/dev/null 2>&1 || fatal "Docker daemon not running."
         fi
         ;;

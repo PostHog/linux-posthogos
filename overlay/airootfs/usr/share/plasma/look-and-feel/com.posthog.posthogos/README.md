@@ -2,7 +2,7 @@
 
 A Plasma "Global Theme" bundle. It's the top-level package that ties
 together a color scheme, icon theme, GTK theme, Plasma style, cursor theme,
-and wallpaper — so setting it once configures everything below.
+and wallpaper, so setting it once configures everything below.
 
 Activated by `overlay/airootfs/etc/skel/.config/kdeglobals` pointing
 `LookAndFeelPackage=com.posthog.posthogos` (not yet written).
@@ -18,7 +18,7 @@ Activated by `overlay/airootfs/etc/skel/.config/kdeglobals` pointing
 ## Reference theme to copy
 
 `/usr/share/plasma/look-and-feel/org.kde.breeze.desktop/` on any KDE system.
-CachyOS ships its own (`org.cachyos.desktop`) — easier base since it already
+CachyOS ships its own (`org.cachyos.desktop`), an easier base since it already
 has CachyOS defaults wired up.
 
 ## Minimal `metadata.json`

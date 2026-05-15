@@ -17,7 +17,7 @@ BRAND="posthogos"
 
 # ---- OS identity ---------------------------------------------------------
 # These files are owned by upstream packages (filesystem, lsb-release), so
-# we can't pre-stage them in airootfs/etc/ — pacstrap refuses to overwrite.
+# we can't pre-stage them in airootfs/etc/ (pacstrap refuses to overwrite).
 # Write them here after pacstrap completes.
 log "Writing /etc/os-release"
 cat >/etc/os-release <<'EOF'
@@ -51,7 +51,7 @@ echo "posthogos" > /etc/hostname
 log "Writing /etc/motd"
 cat >/etc/motd <<'EOF'
 
-  Welcome to PosthogOS — a CachyOS-based spin with PostHog branding.
+  Welcome to PosthogOS, a CachyOS-based spin with PostHog branding.
 
   Live environment ready. Pick "Install PosthogOS" from the desktop to
   install to disk, or explore the live session.
@@ -65,11 +65,11 @@ EOF
 # Plasma session crashes with "Error loading Applet: package  does not
 # exist" when ksycoca (KDE's service cache) can't write ~/.cache, which
 # happens if liveuser doesn't own /home/liveuser/.cache or the dir
-# doesn't exist yet. Chmod alone on the home root isn't enough — the
+# doesn't exist yet. Chmod alone on the home root isn't enough; the
 # subdirs must exist with liveuser:liveuser ownership *before* first
 # login. Apps creating .cache lazily fails when the home tree was
 # populated by root during pacstrap post-install hooks.
-# Don't gate on `id liveuser` — nsswitch may not be fully primed inside
+# Don't gate on `id liveuser`. nsswitch may not be fully primed inside
 # the pacstrap chroot, causing id to fail even though /etc/passwd has
 # liveuser. Use the UID/GID directly. This is also belt-and-suspenders for
 # the systemd-tmpfiles entry at /etc/tmpfiles.d/posthogos-liveuser.conf
@@ -98,17 +98,17 @@ install -d -m 0755 /var/cache/fontconfig
 
 # Belt-and-suspenders: ensure every shell script we ship in /usr/local/bin/
 # is executable. The Write tool resets file mode to 0644 when overwriting,
-# and rsync -a faithfully preserves the bad mode into the squashfs — at
+# and rsync -a faithfully preserves the bad mode into the squashfs, at
 # which point autostart entries pointing at non-executable scripts fail
 # silently with "Permission denied".
 #
-# Same story for the PostHog Code AppImage at /opt/posthog-code/ — even
+# Same story for the PostHog Code AppImage at /opt/posthog-code/. Even
 # though build-assets.sh chmod 755's it on the host, Docker Desktop's
 # bind-mount perm propagation on macOS is unreliable, so the squashfs
 # can end up with 0644 → Plasma's launcher fails with "missing executable
 # permissions". chmod in the chroot guarantees real Linux perms.
 if [ -d /usr/local/bin ]; then
-    # /usr/local/bin/ is OUR namespace — pacman doesn't put anything there,
+    # /usr/local/bin/ is OUR namespace (pacman doesn't put anything there),
     # so we can safely chmod +x everything we've dropped in. Was previously
     # scoped to `posthogos-*` + explicit `papirus-folders`, but each new
     # tool we ship (papirus-folders, posthogos-welcome, posthogos-welcome-
@@ -129,7 +129,7 @@ fi
 # welcome.desktop → generic Qt icon in titlebar + taskbar.
 #
 # Compiled here (rather than pre-built on the host) so the binary is
-# linked against the SAME Qt6 ABI it'll run against — no minor-version-
+# linked against the SAME Qt6 ABI it'll run against, with no minor-version-
 # mismatch risk between host container and final airootfs.
 launcher_src=/usr/src/posthogos-welcome-launcher.cpp
 if [ -f "$launcher_src" ] && command -v g++ >/dev/null && command -v pkg-config >/dev/null; then
@@ -141,14 +141,14 @@ if [ -f "$launcher_src" ] && command -v g++ >/dev/null && command -v pkg-config 
         rm -f "$launcher_src"
         log "  built /usr/local/bin/posthogos-welcome-launcher ($(stat -c%s /usr/local/bin/posthogos-welcome-launcher) bytes)"
     else
-        log "  WARN: launcher compile failed — bash wrapper will fall back to qml6 (icon will be generic)"
+        log "  WARN: launcher compile failed; bash wrapper will fall back to qml6 (icon will be generic)"
     fi
 fi
 
 # ---- Suppress CachyOS Hello popup ---------------------------------------
 # cachyos-hello pops up a welcome window on every login (toggle is in the
 # app itself but defaults to on). Override its autostart by dropping a
-# user-level .desktop with Hidden=true — XDG autostart spec gives user-level
+# user-level .desktop with Hidden=true. The XDG autostart spec gives user-level
 # precedence over /etc/xdg.
 log "Suppressing cachyos-hello autostart"
 hello_override='[Desktop Entry]
@@ -241,7 +241,7 @@ fi
 # ---- Seed liveuser's home with /etc/skel additions ----------------------
 # liveuser was created BEFORE the overlay rsync, so files we just dropped
 # into /etc/skel don't auto-propagate (skel is only consulted at user-
-# creation time). For Calamares-installed users this is fine — they're
+# creation time). For Calamares-installed users this is fine, since they're
 # created post-overlay so skel works as designed. For liveuser we mirror
 # the relevant skel files in place.
 #
@@ -275,7 +275,7 @@ EOF
         mkinitcpio -P
     fi
 else
-    log "Plymouth theme '$BRAND' not present (no .plymouth descriptor) — leaving CachyOS default"
+    log "Plymouth theme '$BRAND' not present (no .plymouth descriptor); leaving CachyOS default"
 fi
 
 # ---- Calamares branding --------------------------------------------------
@@ -285,7 +285,7 @@ fi
 # Important: cachyos-calamares-next ships settings.conf at
 # /usr/share/calamares/settings.conf (NOT /etc/calamares/settings.conf like
 # vanilla Calamares). Both candidate paths checked so a future upstream
-# refactor doesn't silently break us again — we patch whichever exists.
+# refactor doesn't silently break us again; we patch whichever exists.
 cal_settings=""
 for candidate in /usr/share/calamares/settings.conf /etc/calamares/settings.conf; do
     [ -f "$candidate" ] && cal_settings="$candidate" && break
@@ -295,18 +295,18 @@ if [ -n "$cal_settings" ] && [ -f "/usr/share/calamares/branding/$BRAND/branding
     sed -i "s/^branding:.*/branding: $BRAND/" "$cal_settings"
     log "  result: $(grep '^branding:' "$cal_settings")"
 else
-    log "Calamares branding '$BRAND' not present at any known settings.conf path — leaving CachyOS default"
+    log "Calamares branding '$BRAND' not present at any known settings.conf path; leaving CachyOS default"
 fi
 
 # ---- Calamares: default to btrfs ---------------------------------------
 # Patch the partition module so the "automatic" install path lays the disk
 # down as btrfs with snapper-compatible subvolumes (@, @home, @cache, @log,
 # @snapshots) instead of ext4. Users can still pick ext4 / xfs / f2fs from
-# the manual partitioning panel — we only flip the DEFAULT.
+# the manual partitioning panel; we only flip the DEFAULT.
 #
 # Why btrfs default: it unlocks the snapper snapshot/rollback story
 # (snap-pac auto-snapshots on every pacman op, grub-btrfs renders snapshots
-# as bootable GRUB entries). Agentic OS premise — agents touching files
+# as bootable GRUB entries). Agentic OS premise: agents touching files
 # should be one snapper-undo away from "never happened."
 #
 # partition.conf lives at /usr/share/calamares/modules/partition.conf in
@@ -370,7 +370,7 @@ EOF
 # Detection: anything under /usr/share/wallpapers/ that doesn't start
 # with "Posthogos" and doesn't start with one of the stock Breeze names
 # (Breeze, Next, Path, Volna, Lake, Mountain, Pollen, Patak, ...) gets
-# rm'd. The kept-names list is intentionally short — Breeze ships ~10
+# rm'd. The kept-names list is intentionally short. Breeze ships ~10
 # wallpapers, we keep all of them as system defaults.
 log "Pruning non-PosthogOS / non-Breeze wallpapers"
 if [ -d /usr/share/wallpapers ]; then
@@ -434,13 +434,13 @@ fi
 # ---- Flatpak: register Flathub system-wide ------------------------------
 # Flatpak is shipped via the package list (see scripts/pre-build.sh) as a
 # secondary app distribution channel for sandboxed GUI apps that don't
-# live in pacman/AUR (Slack, Spotify, Zoom, etc.). It's secondary —
+# live in pacman/AUR (Slack, Spotify, Zoom, etc.). It's secondary;
 # pacman is still the primary for system packages and CLI tools.
 #
 # `flatpak remote-add --system` writes /var/lib/flatpak/repo/config so
 # Flathub is available to ALL users on the system, not just liveuser.
 # `--if-not-exists` makes this idempotent across rebuilds. We don't
-# install any specific Flatpaks here — just register the source so
+# install any specific Flatpaks here, just register the source so
 # `flatpak install <app>` or Discover's UI both find Flathub instantly.
 #
 # Plasma's Discover auto-detects Flatpak when the binary is installed
@@ -457,7 +457,7 @@ fi
 # ---- Agentic dev tooling -------------------------------------------------
 # Pre-baked AI CLIs / dev CLIs / containers / asdf / Tailscale / op /
 # mitmproxy were ripped out of this hook in favor of an opt-in installer.
-# See /usr/local/bin/posthogos-toolkit-install — invoked from the
+# See /usr/local/bin/posthogos-toolkit-install, invoked from the
 # Welcome window's "Install dev toolkit" tile. Rationale: curl|sh
 # installers and npm packages go stale fast (a 6-month-old ISO would
 # ship 6-month-old Claude Code / Codex / Gemini binaries), and users
@@ -466,7 +466,7 @@ fi
 # ---- pure: minimal zsh prompt -------------------------------------------
 # Bake pure (sindresorhus/pure) at /usr/share/zsh/pure so /etc/skel/.zshrc
 # can `fpath+=(/usr/share/zsh/pure)` + `prompt pure` out of the box. The
-# release tarball is two files (pure.zsh + async.zsh) — small enough that
+# release tarball is two files (pure.zsh + async.zsh), small enough that
 # baking it in beats making the toolkit installer carry it.
 PURE_VERSION=1.23.0
 log "Installing pure prompt v${PURE_VERSION} into /usr/share/zsh/pure"
@@ -479,7 +479,7 @@ if curl -fsSL -o "$pure_tgz" \
     if [ -f /usr/share/zsh/pure/pure.zsh ]; then
         log "  installed (pure.zsh + async.zsh in /usr/share/zsh/pure)"
     else
-        log "  WARN: pure tarball extracted but pure.zsh missing — prompt will fall back to default"
+        log "  WARN: pure tarball extracted but pure.zsh missing; prompt will fall back to default"
     fi
 else
     log "  WARN: pure download failed (manual: tarball from https://github.com/sindresorhus/pure/releases)"

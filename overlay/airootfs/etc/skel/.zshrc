@@ -6,7 +6,7 @@
 # that area (no prompt customization, default history, regular cd, etc).
 #
 # To add personal customization without losing future updates from the OS,
-# drop a ~/.zshrc.local — this file sources it at the end if it exists.
+# drop a ~/.zshrc.local; this file sources it at the end if it exists.
 
 # ─── History ──────────────────────────────────────────────────────────────
 # Atuin replaces history search but the underlying zsh history file is
@@ -33,7 +33,7 @@ if command -v eza >/dev/null; then
     alias tree='eza --tree --level=3'
 fi
 if command -v bat >/dev/null; then
-    # `cat` stays as POSIX cat by default — bat is for interactive viewing.
+    # `cat` stays as POSIX cat by default; bat is for interactive viewing.
     # `view` becomes the "show me this file pretty" shortcut.
     alias view='bat --paging=auto'
     export BAT_THEME="ansi"
@@ -43,7 +43,7 @@ command -v lazygit >/dev/null && alias lg='lazygit'
 command -v lazydocker >/dev/null && alias ld='lazydocker'
 
 # ─── Pure prompt ──────────────────────────────────────────────────────────
-# sindresorhus/pure — minimal, async, zsh-only. Shipped pre-baked at
+# sindresorhus/pure: minimal, async, zsh-only. Shipped pre-baked at
 # /usr/share/zsh/pure (customize.sh extracts the upstream tarball there).
 # Lightly tinted with PostHog brand colors via prompt symbol / path.
 if [[ -d /usr/share/zsh/pure ]]; then

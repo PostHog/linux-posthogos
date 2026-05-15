@@ -12,7 +12,7 @@ ExecStart=/usr/local/bin/posthogos-firstrun-rescue.sh
 # Generous: rescue polls up to 90s for kwin + 30s for env + however long
 # firstrun.sh takes (it has its own internal waits). 5 min ceiling.
 TimeoutStartSec=300
-# Don't restart — rescue is idempotent via marker, so a retry would only
+# Don't restart. Rescue is idempotent via marker, so a retry would only
 # fire if the boot loop did, and we don't want to spin on a broken session.
 Restart=no
 StandardOutput=journal

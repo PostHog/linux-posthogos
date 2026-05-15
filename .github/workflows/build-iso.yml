@@ -20,7 +20,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Cancel in-progress builds for the same branch/PR when a new commit lands —
+# Cancel in-progress builds for the same branch/PR when a new commit lands;
 # nobody cares about the old ISO once a fresher commit is on the same ref.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -55,12 +55,12 @@ jobs:
       # Need submodules: recursive so upstream/archiso is populated. Without
       # it, bin/build's "if [ ! -d upstream/archiso ]" branch fires, but
       # `git submodule update --init` in CI without the auth context can be
-      # flaky — fetching as part of checkout is cleaner.
+      # flaky, so fetching as part of checkout is cleaner.
       - name: Checkout (with upstream submodule)
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          # fetch-depth: 1 is fine — build doesn't need history.
+          # fetch-depth: 1 is fine (build doesn't need history).
 
       # Pacman package cache: invalidates only when the package list changes
       # or the Dockerfile bootstrap changes (different cachyos mirror pin →
@@ -83,7 +83,7 @@ jobs:
           FAST_BUILD: "1"
         timeout-minutes: 50
 
-      # Always print sizes — useful for spotting cache regressions or ISO
+      # Always print sizes; useful for spotting cache regressions or ISO
       # bloat in PR reviews. `if: always()` so it runs even after build failure
       # (showing what *did* land before the crash).
       - name: Show build outputs
@@ -101,7 +101,7 @@ jobs:
       # ISO is the artifact reviewers actually want. 14 days is plenty for
       # PR review cycles; we don't use this as a release distribution channel
       # (use GitHub Releases for tagged drops if/when we wire that up).
-      # compression-level: 0 — ISO is already zstd-compressed internally,
+      # compression-level: 0 because the ISO is already zstd-compressed internally,
       # GHA's tar+zstd pass on top is pointless CPU.
       - name: Upload ISO artifact
         if: success()

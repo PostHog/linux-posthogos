@@ -1,7 +1,7 @@
 # branding/posthogos/
 
 Source artwork for the PosthogOS brand. Keep editable masters here (SVG, full-
-res PNG sources, Figma exports). The build does not consume these directly —
+res PNG sources, Figma exports). The build does not consume these directly;
 processed outputs (correctly-sized PNGs, theme files) belong in `overlay/`.
 
 ## Expected files

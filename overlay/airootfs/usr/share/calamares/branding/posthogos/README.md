@@ -1,7 +1,7 @@
 # Calamares branding: posthogos
 
 Activated by [scripts/posthogos-customize.sh](../../../../../../../scripts/posthogos-customize.sh)
-once `branding.desc` exists here — the hook sed-patches
+once `branding.desc` exists here. The hook sed-patches
 `/etc/calamares/settings.conf` to flip `branding: cachyos` → `branding: posthogos`.
 
 Until `branding.desc` exists, the hook leaves the upstream CachyOS branding

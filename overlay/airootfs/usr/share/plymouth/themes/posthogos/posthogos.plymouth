@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=PosthogOS
-Description=PosthogOS boot splash — centered logo on brand dark
+Description=PosthogOS boot splash, centered logo on brand dark
 ModuleName=script
 
 [script]

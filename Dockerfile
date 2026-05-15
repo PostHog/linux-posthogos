@@ -3,7 +3,7 @@
 #
 # archlinux:latest is x86_64-only. On Apple Silicon hosts, build with
 # --platform=linux/amd64 (handled by bin/build); OrbStack/Docker Desktop
-# emulate via Rosetta. Slow but correct — the final ISO is x86_64 regardless.
+# emulate via Rosetta. Slow but correct: the final ISO is x86_64 regardless.
 FROM archlinux:latest
 
 # Pacman 7's alpm sandbox uses seccomp filters that fail under Rosetta

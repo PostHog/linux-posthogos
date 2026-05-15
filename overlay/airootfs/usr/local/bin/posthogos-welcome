@@ -30,7 +30,7 @@ fi
 # archiso's initramfs creates /run/archiso/ on the live system; the
 # directory does not exist on installations. Probe it on every launch
 # and stamp the result into the QtCore.Settings .conf file BEFORE qml6
-# reads it — that way the property binding picks up the correct value
+# reads it. That way the property binding picks up the correct value
 # on this run, regardless of whatever the previous launch persisted.
 is_live="false"
 [ -d /run/archiso ] && is_live="true"
@@ -41,7 +41,7 @@ if [ ! -f "$prefs" ]; then
 else
     # Strip any prior isLiveIso= line, then re-insert under [Startup].
     # awk approach is robust to the section line being absent (which
-    # happens if the conf was created with no Startup category yet —
+    # happens if the conf was created with no Startup category yet,
     # e.g. fresh user, never opened the app before).
     sed -i.bak '/^isLiveIso=/d' "$prefs" && rm -f "$prefs.bak"
     if grep -q '^\[Startup\]' "$prefs"; then
@@ -54,17 +54,17 @@ else
     fi
 fi
 
-# Prefer the compiled launcher binary — it calls QGuiApplication::
+# Prefer the compiled launcher binary. It calls QGuiApplication::
 # setDesktopFileName("posthogos-welcome") + setApplicationName() before
 # loading welcome.qml, which is the ONLY way to make Plasma match the
 # running window to /usr/share/applications/posthogos-welcome.desktop and
 # render Professor Hog in the titlebar/taskbar.
 #
-# (Previous iterations tried QT_QPA_APP_DESKTOP_FILE_NAME — that env var
+# (Previous iterations tried QT_QPA_APP_DESKTOP_FILE_NAME, but that env var
 #  doesn't exist in Qt; Qt docs explicitly say setDesktopFileName must be
 #  set programmatically. Hence the C++ shim.)
 #
-# Fall back to plain qml6 if the chroot compile failed during build — the
+# Fall back to plain qml6 if the chroot compile failed during build. The
 # window still works, just with a generic Qt icon.
 launcher=/usr/local/bin/posthogos-welcome-launcher
 qml=/usr/share/posthogos/welcome.qml
@@ -97,7 +97,7 @@ case "$ec" in
     12)                                  # Install dev toolkit
         # On the live ISO, pacman writes to the squashfs overlay (tmpfs)
         # and the dev tooling can balloon RAM fast. Refuse politely
-        # instead of melting the user's session — they should install
+        # instead of melting the user's session. They should install
         # PosthogOS to disk first, THEN run the installer.
         if [ -d /run/archiso ]; then
             exec ghostty -e bash -c '

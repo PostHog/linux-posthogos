@@ -5,7 +5,7 @@
 #
 # Plasma reads /etc/skel/.config/kdeglobals at session bring-up and honors
 # ColorScheme + LookAndFeelPackage there, but it doesn't *apply* the LAF
-# (wallpaper, plasma style, kwin decoration) from kdeglobals alone — that
+# (wallpaper, plasma style, kwin decoration) from kdeglobals alone. That
 # requires the plasma-apply-* triplet plus a kickoff-icon patch.
 #
 # Idempotent via marker file. Marker only gets written on full success, so
@@ -17,7 +17,7 @@ echo "===== $(date -Iseconds) [pid=$$ uid=$(id -u) user=$(id -un)] ====="
 
 marker="${XDG_CONFIG_HOME:-$HOME/.config}/posthogos-firstrun-applied"
 if [ -f "$marker" ]; then
-    echo "marker present at $marker — skipping"
+    echo "marker present at $marker, skipping"
     exit 0
 fi
 
@@ -41,7 +41,7 @@ for i in $(seq 1 10); do
     sleep 1
 done
 if [ "$ready" != "1" ]; then
-    echo "  plasmashell did not appear in 10s — applying anyway (rescue service will retry if needed)"
+    echo "  plasmashell did not appear in 10s; applying anyway (rescue service will retry if needed)"
 fi
 
 apply() {
@@ -59,7 +59,7 @@ ok=true
 # plasma-apply-wallpaperimage and Plasma's appletsrc both accept either,
 # but with a specific PNG, Plasma renders the entry in System Settings →
 # Wallpaper as "3840x2160" (just the filename) rather than "Keyboard
-# Garden" — looks like an unbranded mystery wallpaper. With the package
+# Garden", which looks like an unbranded mystery wallpaper. With the package
 # directory, Plasma picks the right size per-display AND shows the
 # package's metadata.json Name in the UI.
 wallpaper=/usr/share/wallpapers/PosthogosKeyboardGarden/
@@ -73,7 +73,7 @@ apply plasma-apply-wallpaperimage "$wallpaper"           || ok=false
 # consumed the change (the apply binary returns success as long as it can
 # emit the DBus call; if plasmashell wasn't subscribed when the call hit,
 # the wallpaper stays at default). evaluateScript drives plasmashell
-# directly via its public PlasmaShell scripting interface — same path
+# directly via its public PlasmaShell scripting interface, the same path
 # System Settings → Wallpaper uses internally.
 if [ -d "$wallpaper" ] && command -v qdbus6 >/dev/null; then
     plasma_script=$(cat <<EOF
@@ -88,12 +88,12 @@ EOF
     )
     apply qdbus6 org.kde.plasmashell /PlasmaShell \
         org.kde.PlasmaShell.evaluateScript "$plasma_script" \
-        || echo "  (evaluateScript failed — relying on plasma-apply-wallpaperimage above)"
+        || echo "  (evaluateScript failed; relying on plasma-apply-wallpaperimage above)"
 fi
 
 # Verify wallpaper actually landed in plasma's appletsrc. If our path
 # isn't there after both apply paths, plasmashell wasn't ready to consume
-# the change — fail loudly so the marker DOESN'T get written and the
+# the change. Fail loudly so the marker DOESN'T get written and the
 # rescue service picks us up on its next cycle.
 sleep 1   # let plasmashell flush its config write
 appletsrc="${XDG_CONFIG_HOME:-$HOME/.config}/plasma-org.kde.plasma.desktop-appletsrc"
@@ -112,20 +112,20 @@ fi
 # break on Plasma upgrades). We patch only specific keys on the applets
 # that match known plugin IDs.
 
-# Pinned launchers for the taskbar (icontasks). Order matters — left to
+# Pinned launchers for the taskbar (icontasks). Order matters, left to
 # right. ":" entries are placeholders for the app's .desktop file in
 # /usr/share/applications/. posthog-code.desktop only exists if the
 # AppImage was staged at build time (POSTHOG_CODE_APPIMAGE in bin/build);
 # Plasma silently drops unknown launcher entries, so listing it here is
 # a no-op when absent.
 #
-# Calamares is intentionally NOT pinned to the taskbar — the live ISO's
+# Calamares is intentionally NOT pinned to the taskbar. The live ISO's
 # Welcome app (posthogos-welcome) has a prominent "Install to disk" tile
 # that launches it, which is enough surface area without cluttering the
 # bar with an installer that's only relevant for the first few minutes.
 taskbar_launchers="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:posthogos-welcome.desktop"
 
-# Kickoff "Favorites" tab — separator-only different format.
+# Kickoff "Favorites" tab (separator-only different format).
 kickoff_favorites="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:systemsettings.desktop,applications:posthogos-welcome.desktop"
 
 appletsrc="${XDG_CONFIG_HOME:-$HOME/.config}/plasma-org.kde.plasma.desktop-appletsrc"
@@ -194,18 +194,18 @@ if [ -f "$appletsrc" ]; then
         qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.refreshCurrentShell 2>/dev/null \
             || { kquitapp6 plasmashell 2>/dev/null; kstart plasmashell >/dev/null 2>&1 & }
     else
-        echo "  no kickoff or taskbar applets found — appletsrc layout may differ"
+        echo "  no kickoff or taskbar applets found (appletsrc layout may differ)"
         ok=false
     fi
 else
-    echo "  appletsrc not present yet — plasmashell hasn't written it"
+    echo "  appletsrc not present yet (plasmashell hasn't written it)"
     ok=false
 fi
 
 if $ok; then
     mkdir -p "$(dirname "$marker")"
     date -Iseconds > "$marker"
-    echo "all applied — marker written to $marker"
+    echo "all applied; marker written to $marker"
 else
-    echo "one or more steps failed — NOT writing marker (will retry next session)"
+    echo "one or more steps failed; NOT writing marker (will retry next session)"
 fi

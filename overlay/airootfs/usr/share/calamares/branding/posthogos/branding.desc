@@ -13,7 +13,7 @@ windowPlacement:       center
 
 # Layout: ship a QML "sidebar" rendered at the BOTTOM of the window (a row
 # of step pills, matching the CachyOS look). The default `widget` sidebar
-# renders steps in a vertical left-hand column with our logo on top — which
+# renders steps in a vertical left-hand column with our logo on top, which
 # squashes our native-aspect logo and feels heavy. The qml,bottom layout
 # uses calamares-sidebar.qml in this same folder.
 sidebar:    qml,bottom

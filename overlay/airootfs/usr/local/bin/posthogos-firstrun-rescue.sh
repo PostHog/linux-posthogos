@@ -4,7 +4,7 @@
 # The autostart entry at /etc/xdg/autostart/posthogos-firstrun.desktop fires
 # at user-session start. On a live ISO that autologins straight into Plasma,
 # the autostart can fire BEFORE plasmashell has subscribed to the session
-# DBus — and plasma-apply-* commands silently no-op when that happens
+# DBus, and plasma-apply-* commands silently no-op when that happens
 # (returning success but doing nothing). Our firstrun.sh waits 10s and
 # verifies the wallpaper landed, but if the verify fails it leaves the
 # marker unwritten.
@@ -45,7 +45,7 @@ find_session_user() {
 # --- Harvest session env from kwin / plasmashell -------------------------
 # We probe each candidate process owned by $user until we find one whose
 # /proc/<pid>/environ contains both DBUS_SESSION_BUS_ADDRESS and
-# XDG_RUNTIME_DIR — those are the bare minimum to talk to plasmashell.
+# XDG_RUNTIME_DIR. Those are the bare minimum to talk to plasmashell.
 capture_env() {
     local user="$1" out="$2" pid uid
     uid=$(id -u "$user" 2>/dev/null) || return 1
@@ -76,7 +76,7 @@ for elapsed in $(seq 1 90); do
 done
 
 if [ -z "$user" ]; then
-    echo "no kwin process found after 90s — giving up (no live Plasma session?)"
+    echo "no kwin process found after 90s; giving up (no live Plasma session?)"
     exit 0
 fi
 echo "  found session user: $user (after ${elapsed}s)"
@@ -88,10 +88,10 @@ echo "  found session user: $user (after ${elapsed}s)"
 home=$(getent passwd "$user" | awk -F: '{print $6}')
 marker="$home/.config/posthogos-firstrun-applied"
 if [ -f "$marker" ]; then
-    echo "marker present at $marker — autostart won the race; nothing to do"
+    echo "marker present at $marker, autostart won the race; nothing to do"
     exit 0
 fi
-echo "marker absent — autostart hasn't completed; will run firstrun"
+echo "marker absent, autostart hasn't completed; will run firstrun"
 
 # --- Harvest env (up to 30s) ---------------------------------------------
 env_file=$(mktemp /tmp/posthogos-firstrun-rescue-env.XXXXXX)
@@ -104,7 +104,7 @@ for elapsed in $(seq 1 30); do
 done
 
 if [ ! -s "$env_file" ]; then
-    echo "  couldn't capture DBUS_SESSION_BUS_ADDRESS from kwin's env in 30s — bailing"
+    echo "  couldn't capture DBUS_SESSION_BUS_ADDRESS from kwin's env in 30s; bailing"
     exit 0
 fi
 echo "  captured env (${elapsed}s elapsed)"
@@ -122,7 +122,7 @@ for key in DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR \
     val=$(grep -m1 "^${key}=" "$env_file" | cut -d= -f2- || true)
     [ -n "${val:-}" ] && env_args+=("$key=$val")
 done
-# Always set HOME explicitly — runuser doesn't always re-resolve it.
+# Always set HOME explicitly. runuser doesn't always re-resolve it.
 env_args+=("HOME=$home")
 
 echo "invoking /usr/local/bin/posthogos-firstrun.sh as $user (${#env_args[@]} env vars)"
@@ -130,7 +130,7 @@ runuser -u "$user" -- env -i "${env_args[@]}" PATH=/usr/local/bin:/usr/bin:/bin 
     /usr/local/bin/posthogos-firstrun.sh || echo "  firstrun.sh exited non-zero (already logged to its own log)"
 
 if [ -f "$marker" ]; then
-    echo "done — marker written"
+    echo "done; marker written"
 else
-    echo "done — marker STILL MISSING (firstrun reported failure)"
+    echo "done; marker STILL MISSING (firstrun reported failure)"
 fi

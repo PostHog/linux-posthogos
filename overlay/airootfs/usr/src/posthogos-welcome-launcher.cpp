@@ -1,4 +1,4 @@
-// posthogos-welcome-launcher — replaces a plain `qml6 welcome.qml` call so
+// posthogos-welcome-launcher: replaces a plain `qml6 welcome.qml` call so
 // the welcome window gets a proper application identity in Plasma.
 //
 // Without this shim, qml6 sets QGuiApplication::applicationName() to "qml"
@@ -8,14 +8,14 @@
 // so the titlebar + taskbar entry both render a generic Qt fallback icon.
 //
 // Qt's QT_QPA_APP_DESKTOP_FILE_NAME env var is a myth I invented in a
-// previous iteration — Qt docs say setDesktopFileName() "must be set
+// previous iteration. Qt docs say setDesktopFileName() "must be set
 // programmatically". This file is that programmatic set.
 //
 // Compiled in the chroot by scripts/posthogos-customize.sh (where gcc +
 // qt6-declarative headers are both present from pacstrap). Source removed
 // after compile to keep the airootfs lean.
 //
-// QML side stays at /usr/share/posthogos/welcome.qml — we just load it
+// QML side stays at /usr/share/posthogos/welcome.qml; we just load it
 // from a properly-identified host process.
 //
 // Exit codes: pass-through from the QML side (welcome.qml uses Qt.exit(N)

@@ -7,7 +7,7 @@
                 "Name": "PostHog"
             }
         ],
-        "Description": "PosthogOS Plasma global theme — dark variant",
+        "Description": "PosthogOS Plasma global theme, dark variant",
         "Id": "com.posthog.posthogos.dark",
         "License": "Proprietary",
         "Name": "PosthogOS Dark",

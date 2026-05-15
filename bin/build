@@ -31,8 +31,8 @@ mkdir -p out
 # Optional: bundle the PostHog Code AppImage as a default app.
 # The build container only sees files under /work (= repo root), so we
 # stage the AppImage into .appimages/ (gitignored, 200+ MB so never
-# commit). build-assets.sh checks that path and skips silently if absent —
-# CI without an AppImage still builds a valid ISO; the launcher just
+# commit). build-assets.sh checks that path and skips silently if absent;
+# CI without an AppImage still builds a valid ISO, the launcher just
 # won't show up in the menu / Kickoff favorites.
 if [ -n "${POSTHOG_CODE_APPIMAGE:-}" ]; then
     [ -f "$POSTHOG_CODE_APPIMAGE" ] || fatal "POSTHOG_CODE_APPIMAGE set but file missing: $POSTHOG_CODE_APPIMAGE"
@@ -45,7 +45,7 @@ if [ -n "${POSTHOG_CODE_APPIMAGE:-}" ]; then
         print_color blue "Staging PostHog Code AppImage (${src_size} bytes) → $dst"
         cp -f "$POSTHOG_CODE_APPIMAGE" "$dst"
     else
-        print_color blue "PostHog Code AppImage already staged at $dst (same size — skipping copy)"
+        print_color blue "PostHog Code AppImage already staged at $dst (same size; skipping copy)"
     fi
 fi
 

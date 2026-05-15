@@ -4,11 +4,11 @@
 # shadow (because shadowing risks dropping new upstream entries on rebase).
 #
 # Files touched here:
-#   archiso/profiledef.sh                 — ISO identity
-#   archiso/grub/*.cfg                    — GRUB menu titles
-#   archiso/syslinux/*.cfg                — syslinux menu titles
-#   archiso/efiboot/loader/entries/*.conf — systemd-boot entry titles
-#   util-iso.sh                           — upstream wrapper bugs:
+#   archiso/profiledef.sh                   ISO identity
+#   archiso/grub/*.cfg                      GRUB menu titles
+#   archiso/syslinux/*.cfg                  syslinux menu titles
+#   archiso/efiboot/loader/entries/*.conf   systemd-boot entry titles
+#   util-iso.sh                             upstream wrapper bugs:
 #                                            - chown $USER fails when $USER unset
 #                                            - mv source pattern hardcodes cachyos-
 #                                            - gen_iso_fn hardcodes cachyos-
@@ -65,7 +65,7 @@ grep '^airootfs_image_tool_options=' "$pf"
 # --- Boot menu titles -----------------------------------------------------
 # "CachyOS" (mixed case) only appears in user-visible strings in the boot
 # configs. Internal identifiers use lowercase "cachyos" and the package name
-# "linux-cachyos" — neither matches the case-sensitive replace below.
+# "linux-cachyos", neither of which matches the case-sensitive replace below.
 log "Rebranding boot menu titles (CachyOS → PosthogOS)"
 boot_files=()
 for d in archiso/grub archiso/syslinux archiso/efiboot; do
@@ -92,10 +92,10 @@ if [ -f "$pkglist" ]; then
         qt6-declarative      # qml6 + ALL Qt6 QML modules including QtQuick.Controls
                              # (unlike Qt5 where qt5-quickcontrols2 was separate, the
                              #  Qt6 modules are consolidated into this one package on Arch)
-        qqc2-breeze-style    # Breeze QML style for QtQuick.Controls — without this,
+        qqc2-breeze-style    # Breeze QML style for QtQuick.Controls. Without this,
                              # QtQuick.Controls picks Breeze as the default style on Plasma
                              # and fails to load org.kde.breeze, killing welcome.qml (exit 2)
-        pkgconf              # pkg-config implementation — chroot compile of
+        pkgconf              # pkg-config implementation. Chroot compile of
                              # /usr/src/posthogos-welcome-launcher.cpp uses it
                              # to discover Qt6 cflags/libs
         flatpak              # Secondary app distribution channel for
@@ -103,7 +103,7 @@ if [ -f "$pkglist" ]; then
                              # System-wide Flathub registered in customize.sh.
                              # Plasma's Discover auto-detects Flatpak and adds
                              # the source to its catalog when the binary is
-                             # installed — no extra discover-flatpak-backend
+                             # installed, with no extra discover-flatpak-backend
                              # package needed in modern Plasma.
         snapper              # Btrfs snapshot manager. With Calamares now
                              # defaulting installs to btrfs (see partition.conf
@@ -111,22 +111,22 @@ if [ -f "$pkglist" ]; then
                              # automatic snapshots + rollback. Initialized on
                              # first installed boot by posthogos-snapper-init.
         snap-pac             # Pacman hooks that snapshot before/after every
-                             # `pacman -S/U/R` op — automatic rollback target
+                             # `pacman -S/U/R` op, giving us an automatic rollback target
                              # for any package change that breaks the system.
         grub-btrfs           # Generates GRUB submenu entries for every
                              # snapper snapshot so you can boot into a
                              # snapshot from the bootloader if the running
                              # system can't reach a desktop.
-        fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
+        fuse2                # libfuse2 (AppImages like posthog-code self-mount via this)
         ghostty              # Default terminal emulator (replaces Konsole in pins)
-        nodejs               # JS runtime — needed for the dev-toolkit installer
+        nodejs               # JS runtime. Needed for the dev-toolkit installer
                              # to land Gemini CLI + OpenAI Codex via `npm install -g`.
                              # Also a dep many JS dev workflows assume regardless.
         npm                  # Node package manager. Same rationale as nodejs.
 
         # ── Shell + curl|sh bootstrap surface ──────────────────────────
         # The dev tooling (AI CLIs, modern Unix tools, containers, asdf,
-        # Tailscale, mitmproxy, 1Password CLI) is NOT pre-baked anymore —
+        # Tailscale, mitmproxy, 1Password CLI) is NOT pre-baked anymore.
         # users opt in via the Welcome window's "Install dev toolkit"
         # button, which runs /usr/local/bin/posthogos-toolkit-install.
         # Rationale: AI CLIs go stale fast (curl|sh installers move under
@@ -141,7 +141,7 @@ if [ -f "$pkglist" ]; then
         zsh-completions      # Community-maintained completion functions
                              # for tons of tools. Activated automatically
                              # by zsh's compinit.
-        # `pure` (the prompt) is NOT a pacman package — it's a small zsh
+        # `pure` (the prompt) is NOT a pacman package; it's a small zsh
         # plugin shipped at /usr/share/zsh/pure. customize.sh downloads
         # the upstream release tarball + extracts there. .zshrc adds it
         # to fpath and `prompt pure`s.
@@ -173,11 +173,11 @@ fi
 
 # --- util-iso.sh post-build fixups ----------------------------------------
 # Upstream's util-iso.sh has four issues we need to patch:
-#   1. `sudo chown $USER $outFolder` — $USER unset in container → invalid syntax
-#   2. `mv "$outFolder/$_profile/cachyos-<date>-x86_64.iso" ...` — hardcoded
+#   1. `sudo chown $USER $outFolder`: $USER unset in container → invalid syntax
+#   2. `mv "$outFolder/$_profile/cachyos-<date>-x86_64.iso" ...`: hardcoded
 #      cachyos- prefix, but mkarchiso writes ${iso_name}-...iso = posthogos-...
-#   3. `gen_iso_fn` adds "cachyos" to renamed filename — should be "posthogos"
-#   4. `gen_iso_fn` appends $(date +%y%m%d) to the filename — we want a stable
+#   3. `gen_iso_fn` adds "cachyos" to renamed filename, should be "posthogos"
+#   4. `gen_iso_fn` appends $(date +%y%m%d) to the filename, but we want a stable
 #      "posthogos-desktop-linux.iso" name so each build just overwrites the
 #      previous output instead of accumulating dated copies in out/.
 if [ -f util-iso.sh ]; then

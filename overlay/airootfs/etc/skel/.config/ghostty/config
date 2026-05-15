@@ -1,4 +1,4 @@
-# PosthogOS Ghostty defaults — palette mirrors the Konsole PosthogOS
+# PosthogOS Ghostty defaults. Palette mirrors the Konsole PosthogOS
 # colorscheme (/usr/share/konsole/PosthogOS.colorscheme) for visual parity
 # between the two terminals.
 #
@@ -6,7 +6,7 @@
 # Inspect live config with: ghostty +show-config
 
 # --- Font -------------------------------------------------------------------
-# DejaVu Sans Mono ships with ttf-dejavu (CachyOS default — guaranteed
+# DejaVu Sans Mono ships with ttf-dejavu (CachyOS default, guaranteed
 # present). Fallback chain handles boxes / glyphs / emoji.
 font-family = DejaVu Sans Mono
 font-size = 11
@@ -20,7 +20,7 @@ window-padding-y = 6
 window-padding-balance = true
 
 # --- Shell behavior ---------------------------------------------------------
-# Confirm-on-close-with-running-process — sensible default for an OS
+# Confirm-on-close-with-running-process: sensible default for an OS
 # meant for software work; prevents accidental kill of long builds.
 confirm-close-surface = true
 

@@ -4,7 +4,7 @@
 #/
 #/ By default uses bare QEMU, boots live-only.
 #/ --install   attaches a 30G qcow2 disk so you can run Calamares end-to-end
-#/             (qemu mode only — UTM disk attachment is GUI-driven)
+#/             (qemu mode only; UTM disk attachment is GUI-driven)
 #/ --iso PATH  overrides the auto-detected ISO
 #/ --utm       run in UTM (macOS only). UTM has proper clipboard sharing,
 #/             audio, shared folders, etc. If a UTM VM named "PosthogOS"
@@ -20,8 +20,8 @@
 #/ Tunables (env vars, all optional):
 #/   POSTHOGOS_QEMU_RAM=8G       guest RAM (default 8G)
 #/   POSTHOGOS_QEMU_SMP=8        guest vCPUs (default: min(host-cores, 8))
-#/   POSTHOGOS_QEMU_CPU=Penryn   guest CPU model when emulating (default Penryn —
-#/                               simpler instructions translate faster under TCG;
+#/   POSTHOGOS_QEMU_CPU=Penryn   guest CPU model when emulating (default Penryn,
+#/                               since simpler instructions translate faster under TCG;
 #/                               try `qemu64`, `max`, or `Westmere` if you need
 #/                               specific features)
 
@@ -47,7 +47,7 @@ if [ -z "$iso" ]; then
 fi
 [ -n "$iso" ] && [ -f "$iso" ] || fatal "No ISO found. Run bin/build first or pass --iso PATH."
 
-# Absolute path — UTM needs it to resolve from its own working directory.
+# Absolute path: UTM needs it to resolve from its own working directory.
 iso=$(cd "$(dirname "$iso")" && printf '%s/%s' "$PWD" "$(basename "$iso")")
 
 # ---- UTM path ------------------------------------------------------------
@@ -62,7 +62,7 @@ if [ "$emulator" = "utm" ]; then
     vm_name="${POSTHOGOS_UTM_VM:-PosthogOS}"
 
     # If a VM with that name already exists in UTM, just start it. This is
-    # the common case after first-time setup — no need to drop back into
+    # the common case after first-time setup; no need to drop back into
     # the new-VM wizard every time.
     if [ -x "$utmctl" ]; then
         # `utmctl list` prints "UUID  Status  Name…" with Name possibly
@@ -76,8 +76,8 @@ if [ "$emulator" = "utm" ]; then
         fi
     fi
 
-    # No matching VM — drop into the new-VM setup flow.
-    print_color blue "No UTM VM named \"$vm_name\" — opening UTM with $iso for first-time setup..."
+    # No matching VM. Drop into the new-VM setup flow.
+    print_color blue "No UTM VM named \"$vm_name\"; opening UTM with $iso for first-time setup..."
     print_color yellow "  (override the expected VM name with: POSTHOGOS_UTM_VM=<name> bin/test --utm)"
     open -a UTM "$iso"
     cat <<EOF
@@ -118,7 +118,7 @@ done
 # back to TCG software translation. TCG's defaults are conservative; the
 # tunings below squeeze ~3-5× more performance:
 #   thread=multi   parallelizes guest CPU emulation across host cores
-#                  (default is single-threaded — emulates all guest CPUs
+#                  (default is single-threaded, emulating all guest CPUs
 #                  on one host thread)
 #   tb-size=512    bigger translation-block cache (default ~32 MiB) so
 #                  hot guest code doesn't get re-translated
@@ -154,7 +154,7 @@ case "$(uname -s)" in
 esac
 
 # Host cores → guest vCPUs (capped at 8; TCG threading scales sub-linearly
-# past that). RAM bumped to 8G — KDE Plasma 6 wants room to breathe, and
+# past that). RAM bumped to 8G because KDE Plasma 6 wants room to breathe, and
 # more RAM means less swapping to the (slow, emulated) virtio disk.
 host_cores=$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
 smp_count="${POSTHOGOS_QEMU_SMP:-$(( host_cores > 8 ? 8 : host_cores ))}"

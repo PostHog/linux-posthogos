@@ -4,8 +4,8 @@
 # buildiso.sh to produce the ISO.
 #
 # Expected env:
-#   KEEP_BUILD=1       (default 0) — keep build/ work tree after build
-#   FAST_BUILD=1       (default 0) — use zstd not xz for squashfs
+#   KEEP_BUILD=1       (default 0) keep build/ work tree after build
+#   FAST_BUILD=1       (default 0) use zstd not xz for squashfs
 
 set -euo pipefail
 
@@ -26,7 +26,7 @@ echo "==> Resetting build tree at $build_dir"
 # /etc/ca-certificates/extracted/cadir/ as mode 0555 (read-only dir), and
 # plain `rm -rf` can't unlink files inside a 0555 parent dir → "Permission
 # denied" spam, aborted reset, doomed build. The end-of-build cleanup also
-# does this, but it only fires on success + KEEP_BUILD=0 — interrupted or
+# does this, but it only fires on success + KEEP_BUILD=0. Interrupted or
 # KEEP_BUILD'd builds leave the 0555 dirs around for the NEXT run to trip on.
 if [ -d "$build_dir" ]; then
     chmod -R u+w "$build_dir" 2>/dev/null || true
@@ -46,7 +46,7 @@ if [ -d overlay ] && find overlay -mindepth 1 -not -name '.gitkeep' -not -name '
         --exclude='.gitkeep' --exclude='README.md' \
         overlay/ "$build_dir/archiso/"
 else
-    echo "    (overlay/ has no payload files — skipping)"
+    echo "    (overlay/ has no payload files; skipping)"
 fi
 
 echo "==> Applying overlay-generated/ → archiso/"

@@ -17,7 +17,7 @@ The output is a bootable `.iso` that runs as a live environment and installs to 
 └── branding/posthogos/   # source artwork (logo SVG, wallpaper, slideshow PNGs)
 ```
 
-`upstream/` is a git submodule pinned to a specific CachyOS-Live-ISO commit. The pin lives in this repo's index (see `git submodule status`). Never edit `upstream/` in place — all customisations live in `overlay/` or `scripts/posthogos-customize.sh`, which are applied on top at build time. This keeps upstream bumps tractable.
+`upstream/` is a git submodule pinned to a specific CachyOS-Live-ISO commit. The pin lives in this repo's index (see `git submodule status`). Never edit `upstream/` in place. All customisations live in `overlay/` or `scripts/posthogos-customize.sh`, applied on top at build time. This keeps upstream bumps tractable.
 
 ### Bumping upstream
 
@@ -27,7 +27,7 @@ git add upstream
 git commit -m "upstream: bump to <new-sha>"
 ```
 
-Or `git submodule update --remote upstream` to track upstream `master` directly (less controlled — prefer pinning explicit SHAs).
+Or `git submodule update --remote upstream` to track upstream `master` directly (less controlled; prefer pinning explicit SHAs).
 
 ## Cloning
 
@@ -49,14 +49,14 @@ git submodule update --init
 - QEMU for booting the output ISO: `brew install qemu`
 - ~20 GB free disk for the build tree + ISO output
 
-`mkarchiso` does not run on macOS directly — `bin/build` invokes it inside a privileged Arch container.
+`mkarchiso` does not run on macOS directly. `bin/build` invokes it inside a privileged Arch container.
 
 ### Arch / CachyOS host (production builds)
 
 - `archiso`, `mkinitcpio-archiso`, `git`, `squashfs-tools`, `grub` installed
 - `qemu-desktop`, `edk2-ovmf` for testing
 
-On a real Arch host you can skip Docker — `bin/build --native` runs `buildiso.sh` directly.
+On a real Arch host you can skip Docker. `bin/build --native` runs `buildiso.sh` directly.
 
 ## Usage
 
@@ -88,7 +88,7 @@ The chroot hook ([scripts/posthogos-customize.sh](scripts/posthogos-customize.sh
 - Installer: Calamares branding `posthogos` (logo, slideshow, support URLs)
 - ISO identity: rebranded `os-release`, `lsb-release`, boot menu titles, ISO label `POSTHOGOS_YYYYMM`
 
-CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, `cachyos-calamares-next`, `cachyos-hello`) stay installed — their files are shadowed by `overlay/` or patched by the chroot hook. This avoids forking those packages.
+CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, `cachyos-calamares-next`, `cachyos-hello`) stay installed; their files are shadowed by `overlay/` or patched by the chroot hook. This avoids forking those packages.
 
 ## Verification checklist
 
@@ -108,4 +108,4 @@ Run end-to-end before declaring a build done:
 - ISO signing / Secure Boot
 - ISO hosting / distribution
 - Custom pacman repo for shipping packaged themes
-- CI (build on push) — iterate locally first
+- CI (build on push); iterate locally first

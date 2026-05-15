@@ -1,7 +1,7 @@
 # overlay/
 
 Files here are rsync'd onto `upstream/archiso/` at build time. The directory
-structure mirrors `archiso/` exactly — i.e. a file at
+structure mirrors `archiso/` exactly. A file at
 `overlay/airootfs/usr/share/wallpapers/posthogos/foo.png` lands at
 `/usr/share/wallpapers/posthogos/foo.png` inside the live system, and a file
 at `overlay/grub/grub.cfg` overrides `archiso/grub/grub.cfg` for the build.
@@ -14,7 +14,7 @@ packages installed during pacstrap** (e.g. `/etc/os-release` → `filesystem`,
 `/etc/lsb-release` → `lsb-release`, `/etc/sudoers` → `sudo`). pacstrap
 refuses to overwrite pre-staged files and the build dies with
 `error: failed to commit transaction (conflicting files)`. Write those
-in `scripts/posthogos-customize.sh` instead — that runs in the chroot
+in `scripts/posthogos-customize.sh` instead, which runs in the chroot
 after pacstrap completes.
 
 ## Layout
@@ -25,9 +25,9 @@ overlay/
 │   └── etc/
 │       ├── os-release
 │       └── lsb-release
-├── grub/                 # → archiso/grub/   (UEFI GRUB boot menu) — not yet
-├── syslinux/             # → archiso/syslinux/ (BIOS boot menu)    — not yet
-└── efiboot/              # → archiso/efiboot/ (systemd-boot)       — not yet
+├── grub/                 # → archiso/grub/   (UEFI GRUB boot menu, not yet)
+├── syslinux/             # → archiso/syslinux/ (BIOS boot menu,    not yet)
+└── efiboot/              # → archiso/efiboot/ (systemd-boot,       not yet)
 ```
 
 ## Three layers, three purposes

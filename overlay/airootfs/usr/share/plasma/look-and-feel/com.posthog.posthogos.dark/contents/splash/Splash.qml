@@ -2,7 +2,7 @@
  * PosthogOS splash screen (DARK variant).
  *
  * See com.posthog.posthogos/contents/splash/Splash.qml for the full
- * stage-progression docstring — this is the dark twin, with the
+ * stage-progression docstring. This is the dark twin, with the
  * background swapped to the PosthogosDark body bg and the title text
  * swapped to the light cream foreground. Logo PNG is shared (it's a
  * multi-color logomark that reads on both bgs; the near-black corner

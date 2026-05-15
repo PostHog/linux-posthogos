@@ -60,7 +60,7 @@ build_wallpaper_pkg() {
     # Preview thumbnail. Plasma 6's wallpaper KCM uses contents/screenshot.png
     # at ~400×250; without it every wallpaper shows a broken-image
     # placeholder in System Settings → Wallpaper. Previous .jpg form rendered
-    # only on some entries (others showed blank tiles) — Plasma 6's KPackage
+    # only on some entries (others showed blank tiles). Plasma 6's KPackage
     # loader is .png-preferring per the KDE wallpaper-package docs. PNG also
     # gives sharper text on the brand wallpapers' typography.
     "$MAGICK" "$light_src" -filter Lanczos -resize 400x250^ \
@@ -86,8 +86,8 @@ cp "$src/fonts/"*.otf "$src/fonts/"*.ttf "$fonts_dst/"
 # Drop the logomark as a system icon under hicolor so /etc/os-release LOGO=posthogos
 # can resolve, and apps using GIcon can pick it up.
 #
-# Hicolor icons must be SQUARE — file managers / launchers / docks all draw
-# them at WxW. Source: posthog-logomark-square.png (pre-padded to 1:1 with
+# Hicolor icons must be SQUARE (file managers / launchers / docks all draw
+# them at WxW). Source: posthog-logomark-square.png (pre-padded to 1:1 with
 # transparent fill). Resampling down from a 1024×1024 master keeps edges
 # crisp at all standard sizes.
 log "Installing system logo (hicolor icon)"
@@ -99,7 +99,7 @@ for size in 64 128 256 512; do
     "$MAGICK" "$square_src" -filter Lanczos -resize "${size}x${size}" \
         "$dir/posthogos.png"
 done
-# Welcome app icon — Professor Hog. Distinct identity from the system
+# Welcome app icon: Professor Hog. Distinct identity from the system
 # logomark so the Welcome window's title bar / taskbar entry / Kickoff
 # favorite stands out. Padded to square (-extent) since the source image
 # isn't perfectly 1:1 and hicolor expects square apps icons.
@@ -116,7 +116,7 @@ if [ -f "$hog_src" ]; then
     done
 fi
 
-# Scalable fallback — left as the native-aspect logomark SVG. Real apps
+# Scalable fallback: the native-aspect logomark SVG. Real apps
 # use the rasterized PNGs above; the scalable dir is a fallback for unusual
 # sizes and is rarely queried.
 mkdir -p "$icon_dst/scalable/apps"
@@ -124,7 +124,7 @@ cp "$src/logos/posthog-logomark.svg" "$icon_dst/scalable/apps/posthogos.svg"
 
 # --- PosthogOS icon theme -------------------------------------------------
 # Derivative theme that overrides specific freedesktop icons with PostHog's
-# product illustrations (the chunky pixel-art set from posthog.com — calculator,
+# product illustrations (the chunky pixel-art set from posthog.com: calculator,
 # folder, doc, trash, etc.). Anything not overridden falls through Papirus-Light
 # (declared via Inherits=) so Plasma stays visually coherent across the long
 # tail of icons we don't have art for.
@@ -185,7 +185,7 @@ mkdir -p "$icon_theme"
 # "translation layer" between PostHog's product taxonomy and XDG names.
 #
 # After this, ALL source icons also get copied to apps/<source-name>.png
-# unconditionally — so .desktop files can reference them directly via their
+# unconditionally, so .desktop files can reference them directly via their
 # PostHog name (e.g. Icon=hedgehog-mode) regardless of mapping.
 icon_install() {
     # $1=src-png $2=context-dir-name $3=target-basename
@@ -254,7 +254,7 @@ while IFS= read -r row; do
 done <<<"$icon_map"
 
 # Pass 2: ship every source PNG as apps/<source-name>.png so .desktop files
-# can reference them directly (Icon=hedgehog-mode, Icon=posthog, etc.) — useful
+# can reference them directly (Icon=hedgehog-mode, Icon=posthog, etc.), useful
 # for branded desktop shortcuts down the line. Skip names already produced by
 # the mapping pass to avoid pointless re-encodes.
 for src_png in "$icon_src"/*.png; do
@@ -280,7 +280,7 @@ log "  $(find "$icon_theme" -name '*.png' | wc -l | tr -d ' ') icons in $(find "
 log "Generating Calamares slideshow frames"
 slideshow_dst="$out/airootfs/usr/share/calamares/branding/posthogos/slideshow"
 mkdir -p "$slideshow_dst"
-# Brand bg from handbook (#EEEFE9 light cream) — matches hoglife illustrations.
+# Brand bg from handbook (#EEEFE9 light cream) matches hoglife illustrations.
 shopt -s nullglob
 for f in "$src/hoglife/"*.png "$src/hoglife/"*.jpg "$src/hoglife/"*.jpeg; do
     base=$(basename "$f")
@@ -293,7 +293,7 @@ done
 
 # --- Boot menu splash (GRUB / syslinux) -----------------------------------
 # 640x480 8-bit indexed PNG. Crop Hogzilla to 4:3 and downscale.
-# Drop into grub/ and syslinux/ — rsync of overlay-generated/ onto archiso/
+# Drop into grub/ and syslinux/; rsync of overlay-generated/ onto archiso/
 # overwrites upstream's splash.png at both paths.
 log "Generating boot menu splash"
 mkdir -p "$out/grub" "$out/syslinux"
@@ -328,7 +328,7 @@ mkdir -p "$sddm_dst"
     -resize 1920x1080 -blur "0x${SDDM_BG_BLUR:-18}" \
     "$sddm_dst/background.png"
 # Square logo from the pre-padded 1024×1024 master, downscaled cleanly
-# via Lanczos to 240px — matches Main.qml's Layout.preferredHeight: 72
+# via Lanczos to 240px, matching Main.qml's Layout.preferredHeight: 72
 # (Plasma renders at the available width then scales; square source keeps
 # the in-card logo visually balanced).
 "$MAGICK" "$square_logo" -filter Lanczos -resize 240x240 \
@@ -353,7 +353,7 @@ log "Installing Calamares brand images"
 cal_dst="$out/airootfs/usr/share/calamares/branding/posthogos"
 mkdir -p "$cal_dst"
 # Header/sidebar logo: SQUARE. calamares-sidebar.qml renders it at 30x30
-# in the bottom step bar. Was previously native-aspect 200x — squashed
+# in the bottom step bar. Was previously native-aspect 200x, which squashed
 # horribly when Calamares fell back to the default vertical sidebar, and
 # would also look off in the new qml,bottom layout. 96x96 = 30×3 for
 # clean HiDPI scaling. Source is the pre-padded square logomark master.
@@ -363,7 +363,7 @@ mkdir -p "$cal_dst"
 # 256×256 from the square master.
 "$MAGICK" "$square_logo" -filter Lanczos -resize 256x256 \
     "$cal_dst/logo-icon.png"
-# Welcome screen banner image — use Posthog 3000 for extra fun.
+# Welcome screen banner image: use Posthog 3000 for extra fun.
 "$MAGICK" "$src/hoglife/Posthog 3000.png" \
     "$cal_dst/welcome.png"
 
@@ -423,7 +423,7 @@ DESKTOP_EOF
         done
     fi
 else
-    log "PostHog Code AppImage absent (.appimages/posthog-code.AppImage) — skipping bundle"
+    log "PostHog Code AppImage absent (.appimages/posthog-code.AppImage); skipping bundle"
 fi
 
 log "Done. overlay-generated/ ready."

@@ -8,11 +8,11 @@
  *   2  user services up (dbus, kwallet, etc.)
  *   3  kded / kwin starting
  *   4  Plasma core ready (desktop about to appear)
- *   5  Plasma fully loaded — splash fades out and dismisses
+ *   5  Plasma fully loaded; splash fades out and dismisses
  *
  * Plasma reads this file automatically because it sits at the
  * Plasma-convention path: `<LAF>/contents/splash/Splash.qml`. No metadata,
- * no extra config — picked up whenever the parent LAF is the active theme.
+ * no extra config. Picked up whenever the parent LAF is the active theme.
  *
  * Colors match PosthogosLight.colors:
  *   bg   #eeefe9 (Window/BackgroundNormal)

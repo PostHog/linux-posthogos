@@ -1,15 +1,15 @@
-// PosthogOS "dev" Zellij layout — opinionated supervision panes for the
+// PosthogOS "dev" Zellij layout: opinionated supervision panes for the
 // agent-driven workflow described in ROADMAP.md.
 //
 // Invoke with:    zellij --layout posthogos-dev
 //
 // Three tabs:
-//   1. "edit"  — single pane for an editor (vim/neovim/cursor/whatever
-//                you have aliased on $EDITOR)
-//   2. "code"  — 3-pane split: shell (large) + lazygit (right) +
-//                lazydocker (bottom-right). The "watch what's happening
-//                while an agent runs" tab.
-//   3. "logs"  — split for tailing logs (top) + running tests (bottom).
+//   1. "edit"  single pane for an editor (vim/neovim/cursor/whatever
+//              you have aliased on $EDITOR)
+//   2. "code"  3-pane split: shell (large) + lazygit (right) +
+//              lazydocker (bottom-right). The "watch what's happening
+//              while an agent runs" tab.
+//   3. "logs"  split for tailing logs (top) + running tests (bottom).
 //
 // Layouts are KDL. Pane sizes are relative units (1 == one share of the
 // available space along that axis); explicit `size=N` is absolute char
@@ -46,7 +46,7 @@ layout {
     tab name="logs" {
         pane split_direction="horizontal" {
             // Top: shell for tailing logs (`journalctl -fu service.name`
-            // is the common case — left as an interactive pane)
+            // is the common case; left as an interactive pane)
             pane
             // Bottom: shell for running tests (`watchexec --exts py
             // pytest` or whatever)

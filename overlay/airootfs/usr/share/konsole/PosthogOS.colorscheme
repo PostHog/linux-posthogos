@@ -44,7 +44,7 @@ Color=0,180,216
 [Color7]
 Color=238,239,233
 
-# Intense (bright) variants — each is a brighter / more saturated take.
+# Intense (bright) variants: each is a brighter / more saturated take.
 
 [Color0Intense]
 Color=85,85,85

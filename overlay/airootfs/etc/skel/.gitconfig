@@ -1,8 +1,8 @@
-# PosthogOS default .gitconfig — seeded into new user homes via /etc/skel.
+# PosthogOS default .gitconfig, seeded into new user homes via /etc/skel.
 #
 # Only opinion is the delta pager + a few defaults that make modern git
 # nicer. Personal identity (user.name, user.email) is intentionally NOT
-# preset — git will prompt on first commit.
+# preset; git will prompt on first commit.
 #
 # This is per-user config. To override system-wide, use /etc/gitconfig.
 
@@ -32,7 +32,7 @@
     conflictStyle = zdiff3       # newer, smarter conflict markers (git 2.35+)
 
 [pull]
-    rebase = true                # rebase by default — fewer merge commits
+    rebase = true                # rebase by default for fewer merge commits
 
 [push]
     autoSetupRemote = true       # `git push` works on new branches without -u

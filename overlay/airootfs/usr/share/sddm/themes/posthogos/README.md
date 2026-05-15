@@ -16,8 +16,8 @@ the CachyOS default in place.
 
 ## Reference themes to fork
 
-- `sddm-sugar-candy-git` (AUR) — most popular community theme, clean QML
-- `sddm-theme-where-is-my-sddm-theme-git` — minimal, easy to restyle
+- `sddm-sugar-candy-git` (AUR): most popular community theme, clean QML
+- `sddm-theme-where-is-my-sddm-theme-git`: minimal, easy to restyle
 - The default `breeze` theme at `/usr/share/sddm/themes/breeze/`
 
 ## Minimal `metadata.desktop`

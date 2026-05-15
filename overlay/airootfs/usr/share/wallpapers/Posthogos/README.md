@@ -31,4 +31,4 @@ X-KDE-PluginInfo-License=CC-BY-SA-4.0
 
 Editable masters live in `branding/posthogos/` at the repo root. Export
 sized PNGs from there and drop them in `contents/images/`. Don't commit
-giant PSDs in `overlay/` — that's `branding/posthogos/`'s job.
+giant PSDs in `overlay/`; that's `branding/posthogos/`'s job.

@@ -1,17 +1,17 @@
 /*
- * PosthogOS Welcome app — a friendly first-boot landing page with
+ * PosthogOS Welcome app: a friendly first-boot landing page with
  * quick-action buttons for the things a new user actually wants to do.
  *
  * Pure QtQuick 2 / QML. Run via `qml6` (qt6-declarative). No compilation
- * step — the wrapper script at /usr/local/bin/posthogos-welcome just
+ * step. The wrapper script at /usr/local/bin/posthogos-welcome just
  * `exec qml6 /usr/share/posthogos/welcome.qml` and inspects the exit
  * code on quit to launch any follow-up action (e.g. Calamares).
  *
  * Exit codes:
  *   0   normal close
- *   10  "Install to disk" — wrapper launches Calamares
- *   11  "Open terminal"   — wrapper launches Ghostty
- *   12  "Install dev toolkit" — wrapper launches posthogos-toolkit-install
+ *   10  "Install to disk":     wrapper launches Calamares
+ *   11  "Open terminal":       wrapper launches Ghostty
+ *   12  "Install dev toolkit": wrapper launches posthogos-toolkit-install
  *        in Ghostty. Skip-categories are persisted via Settings.toolkitSkip
  *        and read by the wrapper to assemble --skip=... before launching.
  */
@@ -34,7 +34,7 @@ ApplicationWindow {
     // Icon= field (posthogos-welcome → /usr/share/icons/hicolor/<size>/apps/
     // posthogos-welcome.png, generated in scripts/build-assets.sh from the
     // Professor Hog asset). ApplicationWindow has no `icon` property in
-    // Qt6 QML — assigning one made qml6 exit 2 silently before any window
+    // Qt6 QML, and assigning one made qml6 exit 2 silently before any window
     // could draw.
 
     // Brand palette
@@ -46,7 +46,7 @@ ApplicationWindow {
     readonly property color cardBg:         "#FFFFFF"
     readonly property color cardBorder:     "#E5E7E0"
 
-    // Persistent prefs via Qt6 QtCore.Settings — auto-writes to
+    // Persistent prefs via Qt6 QtCore.Settings, auto-writing to
     // ~/.config/PostHog/PosthogOS-Welcome.conf. The shell wrapper reads
     // this same file to decide whether to skip on next autostart.
     Settings {
