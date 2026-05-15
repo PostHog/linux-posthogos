@@ -1,8 +1,13 @@
-# Build the PosthogOS ISO on every push / PR / manual trigger.
+# Build a release-quality PosthogOS ISO and attach it to the GitHub release.
+#
+# Fires when a Release is *published* via the GitHub UI or `gh release create`.
+# The release tag becomes the version stamped onto the ISO filename and used
+# as the artifact name. No auto-builds on push/PR; iterate locally with
+# `bin/build` (and FAST_BUILD=1 for fast turns).
 #
 # Runs the exact same path as a local `bin/build` invocation: build the
 # posthogos-builder Docker image, then run scripts/in-container-build.sh
-# inside it. No CI-specific build path → no drift between what CI tests
+# inside it. No CI-specific build path → no drift between what CI ships
 # and what devs run locally.
 #
 # Caches .pacman-cache/ (~2.4 GB of pacstrap'd packages) so we don't
@@ -14,20 +19,21 @@
 name: Build ISO
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+  release:
+    types: [published]
 
-# Cancel in-progress builds for the same branch/PR when a new commit lands;
-# nobody cares about the old ISO once a fresher commit is on the same ref.
+# If someone publishes a follow-up release while one is still building,
+# the newer build is what reflects current intent. The older run is
+# cancelled. (Release-asset uploads are idempotent via `gh release
+# upload --clobber`, so a cancelled run leaves no half-uploaded state.)
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name }}
   cancel-in-progress: true
 
+# `contents: write` is needed to attach the ISO to the release as an
+# asset. Without it, `gh release upload` fails with 403.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -36,6 +42,23 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # Validate + normalize the release tag. Accept "0.1.0" or "v0.1.0"
+      # (with optional -rc.1 / -beta.2 suffixes per semver), emit the
+      # canonical v-prefixed form for downstream steps. Reject anything
+      # else so we don't ship a release tagged "main" or "latest".
+      - name: Validate tag
+        id: ver
+        run: |
+          raw="${{ github.event.release.tag_name }}"
+          stripped="${raw#v}"
+          if ! [[ "$stripped" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$ ]]; then
+              echo "::error::Release tag '$raw' isn't a valid version. Expected e.g. 0.1.0, v0.1.0, 1.2.3-rc.1"
+              exit 1
+          fi
+          version="v${stripped}"
+          echo "Version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       # ubuntu-latest ships ~25 GB free. mkarchiso wants ~10 GB for the build
       # tree + ~3 GB for the ISO + ~4 GB combined cache restore. Reclaim ~15 GB
       # by nuking preinstalled toolchains we don't use (Android SDK alone is
@@ -56,9 +79,14 @@ jobs:
       # it, bin/build's "if [ ! -d upstream/archiso ]" branch fires, but
       # `git submodule update --init` in CI without the auth context can be
       # flaky, so fetching as part of checkout is cleaner.
+      #
+      # ref: the release event payload uses the tag's commit, which is what
+      # we want (build whatever the release points at, not whatever happens
+      # to be on main when the workflow fires).
       - name: Checkout (with upstream submodule)
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           submodules: recursive
           # fetch-depth: 1 is fine (build doesn't need history).
 
@@ -74,18 +102,18 @@ jobs:
           restore-keys: |
             pacman-
 
-      # FAST_BUILD=1 swaps squashfs compression from xz → zstd. ~3-5× faster
-      # mksquashfs, ~10% bigger ISO. Acceptable trade for CI; we ship the
-      # xz-compressed ISO from releases anyway (not yet automated).
+      # Release-quality build: FAST_BUILD UNSET so we get xz squashfs
+      # compression (denser ISO), all 6 kernels in the package list, and
+      # the full plymouth-set-default-theme -R pass for a branded boot
+      # splash. Adds ~10 min over FAST_BUILD=1 but produces a shippable
+      # ISO instead of an iteration artifact.
       - name: Build ISO
         run: bin/build
-        env:
-          FAST_BUILD: "1"
         timeout-minutes: 50
 
       # Always print sizes; useful for spotting cache regressions or ISO
-      # bloat in PR reviews. `if: always()` so it runs even after build failure
-      # (showing what *did* land before the crash).
+      # bloat. `if: always()` so it runs even after build failure (showing
+      # what *did* land before the crash).
       - name: Show build outputs
         if: always()
         run: |
@@ -98,17 +126,51 @@ jobs:
           echo "=== disk after build ==="
           df -h /
 
-      # ISO is the artifact reviewers actually want. 14 days is plenty for
-      # PR review cycles; we don't use this as a release distribution channel
-      # (use GitHub Releases for tagged drops if/when we wire that up).
-      # compression-level: 0 because the ISO is already zstd-compressed internally,
-      # GHA's tar+zstd pass on top is pointless CPU.
-      - name: Upload ISO artifact
+      # Stamp the version onto the ISO filename so the downloaded asset is
+      # immediately identifiable. pre-build.sh writes a stable filename
+      # (posthogos-desktop-linux.iso, no date); rename here to include the
+      # version. Doing this in CI instead of pre-build keeps `bin/build`
+      # local runs producing unversioned filenames (which is what you want
+      # for iteration).
+      - name: Stamp version onto ISO filename
+        if: success()
+        run: |
+          version="${{ steps.ver.outputs.version }}"
+          shopt -s nullglob
+          for iso in out/*.iso; do
+              base=$(basename "$iso" .iso)
+              new="out/${base}-${version}.iso"
+              echo "renaming $iso → $new"
+              mv "$iso" "$new"
+          done
+
+      # Attach the ISO to the GitHub release page as a downloadable asset.
+      # `gh` is preinstalled on ubuntu-latest runners; --clobber overwrites
+      # any prior upload with the same name, which makes the job
+      # re-runnable if a later step needs retry.
+      - name: Attach ISO to the release
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          for iso in out/*.iso; do
+              echo "uploading $iso → release $tag"
+              gh release upload "$tag" "$iso" --clobber
+          done
+
+      # Also upload as a workflow artifact for 90 days. Useful for
+      # debugging release builds without going through the Release UI
+      # (and as a backup if the release is later deleted).
+      # compression-level: 0 because the ISO is already internally
+      # compressed (xz or zstd squashfs); GHA's tar+zstd on top is
+      # pointless CPU.
+      - name: Upload ISO as workflow artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: posthogos-desktop-linux-${{ github.sha }}
+          name: posthogos-${{ steps.ver.outputs.version }}
           path: out/*.iso
-          retention-days: 14
+          retention-days: 90
           if-no-files-found: error
           compression-level: 0
