@@ -95,6 +95,14 @@ if [ -f "$pkglist" ]; then
         qqc2-breeze-style    # Breeze QML style for QtQuick.Controls. Without this,
                              # QtQuick.Controls picks Breeze as the default style on Plasma
                              # and fails to load org.kde.breeze, killing welcome.qml (exit 2)
+        xcb-util-cursor      # Qt 6.5+ requires this for the xcb (X11) platform plugin.
+                             # Without it, the plugin refuses to load and any Qt6 app
+                             # falling back to xcb (e.g. plasmashell when WAYLAND_DISPLAY
+                             # is unset, common in QEMU TCG without GPU passthrough)
+                             # SIGABRTs at QGuiApplication init with "no Qt platform
+                             # plugin could be initialized". Crash-loops the whole
+                             # session; symptom is black screen with only autostart
+                             # apps that already inherited a good env still visible.
         pkgconf              # pkg-config implementation. Chroot compile of
                              # /usr/src/posthogos-welcome-launcher.cpp uses it
                              # to discover Qt6 cflags/libs
