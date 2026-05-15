@@ -120,3 +120,69 @@ jobs:
           retention-days: 90
           if-no-files-found: error
           compression-level: 0
+
+      # ── Pacman repository: build + publish posthogos-* packages ────────
+      # Existing PosthogOS installs pull these via `pacman -Syu` so brand
+      # iterations (icons, wallpapers, LAF) reach them without reinstall.
+      # Hosted at https://posthog.github.io/linux-posthogos/x86_64/ (the
+      # gh-pages branch of this repo, deployed via GitHub Pages).
+      #
+      # Phase 1 packages: posthogos-branding only. Adding more (scripts,
+      # welcome, config) is just dropping more PKGBUILDs into packages/
+      # and listing them in the for-loop below.
+      - name: Build pacman packages
+        if: success()
+        run: |
+          mkdir -p out/pkgs
+          for pkgdir in packages/*/; do
+              pkg=$(basename "$pkgdir")
+              echo "==> makepkg $pkg"
+              # Build inside the same posthogos-builder container so
+              # makepkg has Arch userspace. -d skips dep checks (the
+              # builder image already has what's needed). --nobuild done
+              # in two steps so PKGDEST lands in our out/pkgs/.
+              docker run --rm \
+                  -v "$PWD:/work" \
+                  -w "/work/$pkgdir" \
+                  -e PKGDEST=/work/out/pkgs \
+                  --entrypoint /bin/bash \
+                  posthogos-builder:latest \
+                  -c "useradd -m -s /bin/bash builder \
+                      && chown -R builder /work \
+                      && sudo -u builder PKGDEST=/work/out/pkgs makepkg -d --noconfirm"
+          done
+          echo "==> built packages:"
+          ls -lh out/pkgs/
+
+      - name: Build pacman repo database
+        if: success()
+        run: |
+          cd out/pkgs
+          # repo-add produces posthogos.db.tar.zst + .files.tar.zst, plus
+          # symlinks (posthogos.db, posthogos.files) that pacman fetches.
+          docker run --rm -v "$PWD:/work" -w /work posthogos-builder:latest \
+              repo-add posthogos.db.tar.zst ./*.pkg.tar.zst
+          ls -lh
+
+      - name: Deploy pacman repo to gh-pages
+        if: success()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: out/pkgs
+          destination_dir: x86_64
+          keep_files: true     # don't wipe historical packages on each release
+          commit_message: "release ${{ steps.ver.outputs.version }}: posthogos pacman repo"
+
+      - name: Attach package files to the release
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          for pkg in out/pkgs/*.pkg.tar.zst; do
+              [ -f "$pkg" ] || continue
+              echo "uploading $pkg → release $tag"
+              gh release upload "$tag" "$pkg" --clobber
+          done

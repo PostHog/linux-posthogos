@@ -15,6 +15,28 @@ log() { printf '[posthogos-customize] %s\n' "$*"; }
 
 BRAND="posthogos"
 
+# ---- PosthogOS pacman repo ----------------------------------------------
+# Register the [posthogos] repo in /etc/pacman.conf so installed systems
+# get our package updates (icons, wallpapers, LAF, scripts, ...) via the
+# normal `pacman -Syu` flow. Without this entry, every brand iteration
+# would require re-downloading the ISO.
+#
+# SigLevel=Optional TrustAll: packages aren't GPG-signed yet (Phase 1.5
+# work item). When signing lands, this drops to SigLevel=Required.
+#
+# Append (don't prepend) so CachyOS's higher-priority repos still win for
+# anything ambiguous; the only names we publish are namespaced
+# `posthogos-*` so there's no conflict in practice.
+if ! grep -q '^\[posthogos\]' /etc/pacman.conf; then
+    log "Registering [posthogos] pacman repo"
+    cat >>/etc/pacman.conf <<'EOF'
+
+[posthogos]
+SigLevel = Optional TrustAll
+Server = https://posthog.github.io/linux-posthogos/$arch
+EOF
+fi
+
 # ---- OS identity ---------------------------------------------------------
 # These files are owned by upstream packages (filesystem, lsb-release), so
 # we can't pre-stage them in airootfs/etc/ (pacstrap refuses to overwrite).

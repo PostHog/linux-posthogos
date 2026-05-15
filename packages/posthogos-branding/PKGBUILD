@@ -1,0 +1,149 @@
+# Maintainer: PostHog <hey@posthog.com>
+# shellcheck disable=SC2034,SC2154
+#
+# posthogos-branding: PosthogOS visual identity as a pacman package.
+#
+# Phase 1 of the PosthogOS pacman repo (see packages/README.md). Lets
+# installed systems pick up icon / wallpaper / LAF / color-scheme / font /
+# sound-theme iteration via `pacman -Syu` instead of being frozen at the
+# ISO they installed from.
+#
+# Sources: the same overlay/ + overlay-generated/ trees that the ISO build
+# consumes. build() invokes scripts/build-assets.sh to populate
+# overlay-generated/ if it's empty; package() lays files out in pacman's
+# target structure.
+#
+# Versioning: pkgver() pulls from the most recent git tag, stripped of any
+# leading 'v'. CI builds tagged release commits, so `pacman -Si
+# posthogos-branding` will show e.g. 0.1.0-1.
+
+pkgname=posthogos-branding
+pkgver=0.0.0
+pkgrel=1
+pkgdesc='PosthogOS visual identity: icons, wallpapers, Plasma look-and-feel, fonts, sound theme'
+arch=('any')
+url='https://github.com/posthog/linux-posthogos'
+license=('MIT')
+
+# Hard deps: nothing strict. We're a content package.
+# Optional deps: parent themes our LAF and icon theme inherit from.
+optdepends=(
+    'papirus-icon-theme: parent theme for the PosthogOS icon theme (icons we don'\''t override fall through to Papirus-Light)'
+    'breeze: parent style for the PosthogOS Plasma look-and-feel'
+    'plasma-workspace: required for the LAF to actually activate'
+)
+
+# Replace nothing, conflict with nothing.
+# (First-install collision with files airootfs'd onto disk by the ISO is
+# handled at install-time by the `--overwrite='*'` invocation our wrapper
+# uses; once the user runs that once, pacman owns the files and future
+# upgrades are clean.)
+
+# pkgver auto-derived from git tag. makepkg evaluates this before build().
+pkgver() {
+    cd "$startdir/../.."
+    # Use the latest annotated/lightweight tag; strip 'v' prefix if present.
+    git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0"
+}
+
+build() {
+    cd "$startdir/../.."
+    # build-assets.sh is idempotent: it wipes overlay-generated/ and
+    # regenerates from branding/posthogos/ on every run.
+    ./scripts/build-assets.sh
+}
+
+package() {
+    local repo_root overlay generated
+    repo_root="$startdir/../.."
+    overlay="$repo_root/overlay/airootfs"
+    generated="$repo_root/overlay-generated/airootfs"
+
+    # ── Color schemes (static, sourced from overlay/) ─────────────────────
+    install -d "$pkgdir/usr/share/color-schemes"
+    install -m 0644 "$overlay/usr/share/color-schemes/"*.colors \
+        "$pkgdir/usr/share/color-schemes/"
+
+    # ── Plasma Look-and-Feel (Light + Dark, sourced from overlay/) ───────
+    # Includes metadata.json, contents/defaults, contents/splash/Splash.qml
+    # for each LAF package.
+    install -d "$pkgdir/usr/share/plasma/look-and-feel"
+    cp -a "$overlay/usr/share/plasma/look-and-feel/com.posthog.posthogos" \
+          "$overlay/usr/share/plasma/look-and-feel/com.posthog.posthogos.dark" \
+          "$pkgdir/usr/share/plasma/look-and-feel/"
+
+    # ── Konsole profile + color scheme (static) ──────────────────────────
+    install -d "$pkgdir/usr/share/konsole"
+    install -m 0644 \
+        "$overlay/usr/share/konsole/PosthogOS.colorscheme" \
+        "$overlay/usr/share/konsole/PosthogOS.profile" \
+        "$pkgdir/usr/share/konsole/" 2>/dev/null || true
+
+    # ── SDDM theme (metadata + Main.qml from overlay, bg + logo generated) ─
+    if [ -d "$overlay/usr/share/sddm/themes/posthogos" ]; then
+        install -d "$pkgdir/usr/share/sddm/themes/posthogos"
+        cp -a "$overlay/usr/share/sddm/themes/posthogos/." \
+              "$pkgdir/usr/share/sddm/themes/posthogos/"
+    fi
+    # Layer generated background + logo on top.
+    if [ -d "$generated/usr/share/sddm/themes/posthogos" ]; then
+        cp -a "$generated/usr/share/sddm/themes/posthogos/." \
+              "$pkgdir/usr/share/sddm/themes/posthogos/"
+    fi
+
+    # ── Wallpaper packages (metadata from overlay, images from generated) ─
+    install -d "$pkgdir/usr/share/wallpapers"
+    if [ -d "$overlay/usr/share/wallpapers" ]; then
+        # The README-only PosthogOS-named template dir lives in overlay/;
+        # the actual KPackage wallpaper dirs (PosthogosKeyboardGarden etc.)
+        # come fully formed from overlay-generated/.
+        for d in "$overlay/usr/share/wallpapers/"Posthogos*; do
+            [ -d "$d" ] && cp -a "$d" "$pkgdir/usr/share/wallpapers/"
+        done
+    fi
+    if [ -d "$generated/usr/share/wallpapers" ]; then
+        # cp -a merges. For each generated wallpaper dir, overlay its
+        # contents/ subtree on top of any existing pkgdir entry of the
+        # same name.
+        for d in "$generated/usr/share/wallpapers/"*/; do
+            local name
+            name=$(basename "$d")
+            install -d "$pkgdir/usr/share/wallpapers/$name"
+            cp -a "$d." "$pkgdir/usr/share/wallpapers/$name/"
+        done
+    fi
+
+    # ── Plymouth theme (descriptor + scripts from overlay, png from generated) ─
+    if [ -d "$overlay/usr/share/plymouth/themes/posthogos" ]; then
+        install -d "$pkgdir/usr/share/plymouth/themes/posthogos"
+        cp -a "$overlay/usr/share/plymouth/themes/posthogos/." \
+              "$pkgdir/usr/share/plymouth/themes/posthogos/"
+    fi
+    if [ -d "$generated/usr/share/plymouth/themes/posthogos" ]; then
+        cp -a "$generated/usr/share/plymouth/themes/posthogos/." \
+              "$pkgdir/usr/share/plymouth/themes/posthogos/"
+    fi
+
+    # ── Icon theme (entirely generated by build-assets.sh) ───────────────
+    if [ -d "$generated/usr/share/icons" ]; then
+        install -d "$pkgdir/usr/share/icons"
+        cp -a "$generated/usr/share/icons/." "$pkgdir/usr/share/icons/"
+    fi
+
+    # ── Fonts (entirely generated: Squeak + Loud Noises copied from src) ─
+    if [ -d "$generated/usr/share/fonts/posthogos" ]; then
+        install -d "$pkgdir/usr/share/fonts/posthogos"
+        cp -a "$generated/usr/share/fonts/posthogos/." \
+              "$pkgdir/usr/share/fonts/posthogos/"
+    fi
+
+    # ── Sound theme (entirely generated from branding/posthogos/sounds/) ─
+    if [ -d "$generated/usr/share/sounds/posthogos" ]; then
+        install -d "$pkgdir/usr/share/sounds/posthogos"
+        cp -a "$generated/usr/share/sounds/posthogos/." \
+              "$pkgdir/usr/share/sounds/posthogos/"
+    fi
+
+    # ── License ──────────────────────────────────────────────────────────
+    install -Dm 0644 "$repo_root/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
+}
