@@ -63,17 +63,12 @@ EOF
 
 # ---- liveuser home + XDG base dirs --------------------------------------
 # Plasma session crashes with "Error loading Applet: package  does not
-# exist" when ksycoca (KDE's service cache) can't write ~/.cache, which
-# happens if liveuser doesn't own /home/liveuser/.cache or the dir
-# doesn't exist yet. Chmod alone on the home root isn't enough; the
-# subdirs must exist with liveuser:liveuser ownership *before* first
-# login. Apps creating .cache lazily fails when the home tree was
-# populated by root during pacstrap post-install hooks.
-# Don't gate on `id liveuser`. nsswitch may not be fully primed inside
-# the pacstrap chroot, causing id to fail even though /etc/passwd has
-# liveuser. Use the UID/GID directly. This is also belt-and-suspenders for
-# the systemd-tmpfiles entry at /etc/tmpfiles.d/posthogos-liveuser.conf
-# (which is the actual load-bearing fix; runs at boot regardless).
+# exist" if ~/.cache isn't writable by liveuser at first login (ksycoca
+# fails). The subdirs must exist with liveuser:liveuser ownership BEFORE
+# login; chmod on the home root alone isn't enough. Use UID/GID directly
+# (nsswitch may not be primed enough for `id liveuser` to work in this
+# chroot). Belt-and-suspenders for /etc/tmpfiles.d/posthogos-liveuser.conf,
+# which runs at every boot.
 log "Provisioning /home/liveuser with XDG base dirs (uid=1000)"
 install -d -o 1000 -g 1000 -m 0755 \
     /home/liveuser \
@@ -96,25 +91,11 @@ ls -ld /home/liveuser /home/liveuser/.cache  # log the resulting state
 # lines in journalctl right before the kded sycoca failure).
 install -d -m 0755 /var/cache/fontconfig
 
-# Belt-and-suspenders: ensure every shell script we ship in /usr/local/bin/
-# is executable. The Write tool resets file mode to 0644 when overwriting,
-# and rsync -a faithfully preserves the bad mode into the squashfs, at
-# which point autostart entries pointing at non-executable scripts fail
-# silently with "Permission denied".
-#
-# Same story for the PostHog Code AppImage at /opt/posthog-code/. Even
-# though build-assets.sh chmod 755's it on the host, Docker Desktop's
-# bind-mount perm propagation on macOS is unreliable, so the squashfs
-# can end up with 0644 → Plasma's launcher fails with "missing executable
-# permissions". chmod in the chroot guarantees real Linux perms.
+# Ensure scripts we ship in /usr/local/bin/ and the PostHog Code AppImage
+# are executable. Docker Desktop's bind-mount perm propagation on macOS
+# is unreliable, so we re-chmod in the chroot regardless of host perms.
 if [ -d /usr/local/bin ]; then
-    # /usr/local/bin/ is OUR namespace (pacman doesn't put anything there),
-    # so we can safely chmod +x everything we've dropped in. Was previously
-    # scoped to `posthogos-*` + explicit `papirus-folders`, but each new
-    # tool we ship (papirus-folders, posthogos-welcome, posthogos-welcome-
-    # launcher, posthogos-firstrun*, neohog, ...) required a new pattern
-    # or got missed entirely. Globbing everything in the dir fixes this
-    # category of bug for good.
+    # /usr/local/bin is our namespace; pacman doesn't touch it.
     chmod +x /usr/local/bin/* 2>/dev/null || true
 fi
 if [ -d /opt/posthog-code ]; then
@@ -122,15 +103,9 @@ if [ -d /opt/posthog-code ]; then
 fi
 
 # ---- Compile the welcome launcher ---------------------------------------
-# Tiny C++ shim that calls QGuiApplication::setDesktopFileName("posthogos-
-# welcome") + setWindowIcon() before loading welcome.qml. Without this, the
-# qml6 binary that previously ran the QML sets app_id to "qml" and Plasma
-# can't match the running window to /usr/share/applications/posthogos-
-# welcome.desktop → generic Qt icon in titlebar + taskbar.
-#
-# Compiled here (rather than pre-built on the host) so the binary is
-# linked against the SAME Qt6 ABI it'll run against, with no minor-version-
-# mismatch risk between host container and final airootfs.
+# Compiled in-chroot (not pre-built on the host) so the binary links
+# against the same Qt6 ABI it runs against. See the shim's source
+# (/usr/src/posthogos-welcome-launcher.cpp) for what it does.
 launcher_src=/usr/src/posthogos-welcome-launcher.cpp
 if [ -f "$launcher_src" ] && command -v g++ >/dev/null && command -v pkg-config >/dev/null; then
     log "Compiling welcome launcher"
@@ -146,10 +121,8 @@ if [ -f "$launcher_src" ] && command -v g++ >/dev/null && command -v pkg-config 
 fi
 
 # ---- Suppress CachyOS Hello popup ---------------------------------------
-# cachyos-hello pops up a welcome window on every login (toggle is in the
-# app itself but defaults to on). Override its autostart by dropping a
-# user-level .desktop with Hidden=true. The XDG autostart spec gives user-level
-# precedence over /etc/xdg.
+# cachyos-hello auto-pops on every login. Shadow its /etc/xdg autostart
+# entry with a user-level Hidden=true (XDG spec: user wins over /etc).
 log "Suppressing cachyos-hello autostart"
 hello_override='[Desktop Entry]
 Type=Application
@@ -199,12 +172,8 @@ SingleClick=false
 Theme=PosthogOS
 EOF
 
-# Tell System Settings → Global Theme that PosthogOS is the active LAF.
-# Without this file, the KCM shows no theme selected (or Breeze as a
-# fallback) until firstrun.sh's plasma-apply-lookandfeel writes it,
-# which races against the user opening System Settings. Seeding it
-# explicitly means the UI's "currently selected" state is correct from
-# the moment the user logs in.
+# Tell System Settings which LAF is active. Without this file the KCM
+# shows nothing selected until firstrun applies it.
 mkdir -p /etc/skel/.config/kdedefaults
 echo 'com.posthog.posthogos' > /etc/skel/.config/kdedefaults/package
 
@@ -219,10 +188,7 @@ gtk-application-prefer-dark-theme=false
 EOF
 done
 
-# Konsole: select the PosthogOS profile (shipped at /usr/share/konsole/
-# PosthogOS.profile, which references the PosthogOS color scheme also
-# shipped there). Setting DefaultProfile in konsolerc makes new windows
-# use it without users touching anything.
+# Konsole: use the branded profile by default.
 cat >/etc/skel/.config/konsolerc <<'EOF'
 [Desktop Entry]
 DefaultProfile=PosthogOS.profile
@@ -239,16 +205,10 @@ if [ -d /home/liveuser ]; then
 fi
 
 # ---- Seed liveuser's home with /etc/skel additions ----------------------
-# liveuser was created BEFORE the overlay rsync, so files we just dropped
-# into /etc/skel don't auto-propagate (skel is only consulted at user-
-# creation time). For Calamares-installed users this is fine, since they're
-# created post-overlay so skel works as designed. For liveuser we mirror
-# the relevant skel files in place.
-#
-# Using `cp -an` (archive + no-clobber): preserves modes/timestamps and
-# refuses to overwrite anything the user already touched, so re-runs of
-# customize don't trample user state. Then chown the entire home to
-# liveuser:liveuser to fix up ownership in one shot.
+# liveuser was created before the overlay rsync, so /etc/skel additions
+# don't auto-propagate (skel is consulted at user-creation time only).
+# Mirror them in with `cp -an` (no-clobber) to avoid trampling state on
+# re-runs. Calamares-installed users get skel for free post-install.
 if [ -d /home/liveuser ] && [ -d /etc/skel ]; then
     log "Seeding /home/liveuser with /etc/skel contents (dotfiles, configs)"
     # Copy hidden + visible top-level entries. `cp -an /etc/skel/. /home/liveuser/`
@@ -268,25 +228,9 @@ Theme=$BRAND
 ShowDelay=0
 EOF
 
-    # Whether to bake the plymouth theme into the initramfs hinges on
-    # FAST_BUILD. The regen iterates over every installed kernel's preset
-    # (up to 6 in a full CachyOS build, each ~30s of firmware-warning +
-    # hook-listing spam) and is the single biggest build-time bloat in
-    # this hook.
-    #
-    # FAST_BUILD=1 (local iteration): skip regen. The theme files exist
-    # at /usr/share/plymouth/themes/posthogos/ but aren't embedded into
-    # initramfs, so plymouth's pre-rootfs splash falls back to the
-    # upstream CachyOS theme for the few seconds before SDDM appears.
-    # Plasma splash + everything post-login stays branded.
-    #
-    # FAST_BUILD unset (CI / release): run plymouth-set-default-theme -R
-    # so the shipped ISO has a properly-branded boot splash all the way
-    # through. pre-build.sh leaves all 6 kernels in place for full builds,
-    # so this iterates 6 times. Worth it for a release; not worth it for
-    # iterating on QML files.
-    #
-    # pre-build.sh writes /etc/posthogos-fast-build when FAST_BUILD=1.
+    # FAST_BUILD skips the initramfs regen (saves ~10 min across 6 kernels
+    # at the cost of an unbranded plymouth splash for the few seconds
+    # before SDDM). pre-build.sh writes the marker file when FAST_BUILD=1.
     if [ -f /etc/posthogos-fast-build ]; then
         log "Configuring Plymouth theme: $BRAND (FAST_BUILD: config-only, no initramfs regen)"
         rm -f /etc/posthogos-fast-build   # don't ship the marker
@@ -302,13 +246,10 @@ else
 fi
 
 # ---- Calamares branding --------------------------------------------------
-# Only flip the branding pointer if our branding dir actually has a
-# branding.desc. Otherwise Calamares would fail to start.
-#
-# Important: cachyos-calamares-next ships settings.conf at
-# /usr/share/calamares/settings.conf (NOT /etc/calamares/settings.conf like
-# vanilla Calamares). Both candidate paths checked so a future upstream
-# refactor doesn't silently break us again; we patch whichever exists.
+# cachyos-calamares-next ships settings.conf at /usr/share/calamares/
+# (not /etc/calamares/ like vanilla). Probe both paths so an upstream
+# refactor doesn't silently break us. Only flip if our branding.desc
+# actually exists, otherwise Calamares would fail to start.
 cal_settings=""
 for candidate in /usr/share/calamares/settings.conf /etc/calamares/settings.conf; do
     [ -f "$candidate" ] && cal_settings="$candidate" && break
@@ -322,18 +263,9 @@ else
 fi
 
 # ---- Calamares: default to btrfs ---------------------------------------
-# Patch the partition module so the "automatic" install path lays the disk
-# down as btrfs with snapper-compatible subvolumes (@, @home, @cache, @log,
-# @snapshots) instead of ext4. Users can still pick ext4 / xfs / f2fs from
-# the manual partitioning panel; we only flip the DEFAULT.
-#
-# Why btrfs default: it unlocks the snapper snapshot/rollback story
-# (snap-pac auto-snapshots on every pacman op, grub-btrfs renders snapshots
-# as bootable GRUB entries). Agentic OS premise: agents touching files
-# should be one snapper-undo away from "never happened."
-#
-# partition.conf lives at /usr/share/calamares/modules/partition.conf in
-# the CachyOS package layout. defaultFileSystemType is a top-level key.
+# Flip the automatic-install default to btrfs (subvolumes for snapper/
+# snap-pac/grub-btrfs). Users can still pick ext4/xfs/f2fs from manual
+# partitioning; we only change the default.
 for part_conf in /usr/share/calamares/modules/partition.conf /etc/calamares/modules/partition.conf; do
     if [ -f "$part_conf" ]; then
         log "Patching $part_conf → defaultFileSystemType: btrfs"
@@ -376,25 +308,10 @@ PreviewImage=file:///usr/share/wallpapers/PosthogosKeyboardGarden/contents/image
 FillMode=2
 EOF
 
-# Our SDDM theme files (overlay/airootfs/usr/share/sddm/themes/posthogos/)
-# stay shipped as a fallback for anyone who later switches to SDDM via
-# `pacman -S sddm && systemctl enable sddm`. The chroot hook used to flip
-# the active DM here; that's now plasma-login-manager's job and the user
-# chose not to fight upstream.
-
 # ---- Curate the wallpaper picker -----------------------------------------
-# cachyos-kde-settings ships a handful of CachyOS-flavored wallpapers
-# (Sub-Arctic and friends) into /usr/share/wallpapers/. They show up in
-# System Settings → Wallpaper next to ours, which dilutes the brand. We
-# don't want our users picking "Sub-Arctic" thinking it's a PosthogOS
-# wallpaper, so prune everything that isn't ours OR a stock Breeze wallpaper
-# (Breeze is the safe fallback shipped by plasma-workspace).
-#
-# Detection: anything under /usr/share/wallpapers/ that doesn't start
-# with "Posthogos" and doesn't start with one of the stock Breeze names
-# (Breeze, Next, Path, Volna, Lake, Mountain, Pollen, Patak, ...) gets
-# rm'd. The kept-names list is intentionally short. Breeze ships ~10
-# wallpapers, we keep all of them as system defaults.
+# cachyos-kde-settings ships CachyOS-flavored wallpapers (Sub-Arctic etc.)
+# that dilute the brand in System Settings → Wallpaper. Prune anything
+# that isn't ours or a stock Breeze wallpaper.
 log "Pruning non-PosthogOS / non-Breeze wallpapers"
 if [ -d /usr/share/wallpapers ]; then
     for wp in /usr/share/wallpapers/*/; do
@@ -411,11 +328,8 @@ if [ -d /usr/share/wallpapers ]; then
 fi
 
 # ---- Papirus folder color ------------------------------------------------
-# Recolor Papirus's folder icons (default blue → warm orange) using the
-# upstream papirus-folders helper vendored at /usr/local/bin/papirus-folders
-# (overlay/airootfs/usr/local/bin/papirus-folders, pinned to v1.14.0). It's
-# AUR-only as a package so we can't pacstrap it; vendoring the script avoids
-# both the AUR dep and reimplementing the symlink-repoint logic ourselves.
+# Recolor Papirus's folder icons blue → warm orange. The papirus-folders
+# helper is AUR-only, so we vendor v1.14.0 at /usr/local/bin/papirus-folders.
 PAPIRUS_COLOR=orange
 if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders ]; then
     log "Recoloring Papirus-Light folders → $PAPIRUS_COLOR (papirus-folders)"

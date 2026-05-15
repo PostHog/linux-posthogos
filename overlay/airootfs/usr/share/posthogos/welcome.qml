@@ -30,12 +30,9 @@ ApplicationWindow {
     visible: true
     title: "Welcome to PosthogOS"
     color: "#EEEFE9"
-    // Taskbar / launcher / titlebar icon comes from the .desktop file's
-    // Icon= field (posthogos-welcome → /usr/share/icons/hicolor/<size>/apps/
-    // posthogos-welcome.png, generated in scripts/build-assets.sh from the
-    // Professor Hog asset). ApplicationWindow has no `icon` property in
-    // Qt6 QML, and assigning one made qml6 exit 2 silently before any window
-    // could draw.
+    // Window icon comes from the .desktop file's Icon= field, not from
+    // QML. Qt6's ApplicationWindow has no `icon` property; setting one
+    // made qml6 exit 2 silently.
 
     // Brand palette
     readonly property color brandText:      "#151515"

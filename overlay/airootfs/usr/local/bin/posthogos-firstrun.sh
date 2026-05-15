@@ -21,15 +21,10 @@ if [ -f "$marker" ]; then
     exit 0
 fi
 
-# Wait for plasmashell to be alive on the session DBus before driving
-# Plasma. apply commands return success but visibly do nothing if called
-# before plasmashell has subscribed to the relevant signals.
-#
-# Short timeout here (10s) because posthogos-firstrun-rescue.service is the
-# real safety net for the autostart-fires-too-early race: it polls for kwin
-# at the system level, harvests session env from /proc, and re-invokes us
-# with verified-good env. Spending 30s here on every login just to handle
-# the rare race isn't worth it.
+# Wait for plasmashell on the session DBus; apply commands silently no-op
+# if called before plasmashell subscribes. Short 10s timeout because the
+# rescue service handles the autostart-fires-too-early race at the system
+# level (it polls for kwin and re-invokes us with verified-good env).
 echo "waiting for plasmashell on session DBus..."
 ready=0
 for i in $(seq 1 10); do
@@ -55,26 +50,18 @@ apply() {
 }
 
 ok=true
-# Point at the wallpaper PACKAGE DIRECTORY, not a specific PNG inside it.
-# plasma-apply-wallpaperimage and Plasma's appletsrc both accept either,
-# but with a specific PNG, Plasma renders the entry in System Settings →
-# Wallpaper as "3840x2160" (just the filename) rather than "Keyboard
-# Garden", which looks like an unbranded mystery wallpaper. With the package
-# directory, Plasma picks the right size per-display AND shows the
-# package's metadata.json Name in the UI.
+# Wallpaper PACKAGE directory, not a specific PNG: lets Plasma pick the
+# right size per-display and shows the package's metadata.json Name in
+# System Settings → Wallpaper (a specific PNG shows up as "3840x2160").
 wallpaper=/usr/share/wallpapers/PosthogosKeyboardGarden/
 
 apply plasma-apply-lookandfeel  -a com.posthog.posthogos || ok=false
 apply plasma-apply-colorscheme  PosthogosLight           || ok=false
 apply plasma-apply-wallpaperimage "$wallpaper"           || ok=false
 
-# Belt-and-suspenders wallpaper push via plasmashell's JS scripting API.
-# plasma-apply-wallpaperimage exit 0 doesn't guarantee plasmashell actually
-# consumed the change (the apply binary returns success as long as it can
-# emit the DBus call; if plasmashell wasn't subscribed when the call hit,
-# the wallpaper stays at default). evaluateScript drives plasmashell
-# directly via its public PlasmaShell scripting interface, the same path
-# System Settings → Wallpaper uses internally.
+# Belt-and-suspenders push via plasmashell's evaluateScript interface.
+# plasma-apply-wallpaperimage returns 0 as long as it could emit the DBus
+# call; if plasmashell wasn't subscribed yet, the wallpaper stays default.
 if [ -d "$wallpaper" ] && command -v qdbus6 >/dev/null; then
     plasma_script=$(cat <<EOF
         var img = "${wallpaper}";
@@ -112,17 +99,10 @@ fi
 # break on Plasma upgrades). We patch only specific keys on the applets
 # that match known plugin IDs.
 
-# Pinned launchers for the taskbar (icontasks). Order matters, left to
-# right. ":" entries are placeholders for the app's .desktop file in
-# /usr/share/applications/. posthog-code.desktop only exists if the
-# AppImage was staged at build time (POSTHOG_CODE_APPIMAGE in bin/build);
-# Plasma silently drops unknown launcher entries, so listing it here is
-# a no-op when absent.
-#
-# Calamares is intentionally NOT pinned to the taskbar. The live ISO's
-# Welcome app (posthogos-welcome) has a prominent "Install to disk" tile
-# that launches it, which is enough surface area without cluttering the
-# bar with an installer that's only relevant for the first few minutes.
+# Taskbar pins, left to right. posthog-code.desktop is conditional (only
+# present if POSTHOG_CODE_APPIMAGE was staged at build time); Plasma
+# silently drops unknown entries. Calamares isn't pinned: the welcome
+# window's "Install to disk" tile already surfaces it.
 taskbar_launchers="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:posthogos-welcome.desktop"
 
 # Kickoff "Favorites" tab (separator-only different format).

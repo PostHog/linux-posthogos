@@ -1,26 +1,10 @@
-// posthogos-welcome-launcher: replaces a plain `qml6 welcome.qml` call so
-// the welcome window gets a proper application identity in Plasma.
-//
-// Without this shim, qml6 sets QGuiApplication::applicationName() to "qml"
-// and never calls setDesktopFileName(). On Wayland that means the
-// xdg_toplevel.set_app_id() call announces "qml" to the compositor; KWin
-// can't match that to /usr/share/applications/posthogos-welcome.desktop,
-// so the titlebar + taskbar entry both render a generic Qt fallback icon.
-//
-// Qt's QT_QPA_APP_DESKTOP_FILE_NAME env var is a myth I invented in a
-// previous iteration. Qt docs say setDesktopFileName() "must be set
-// programmatically". This file is that programmatic set.
-//
-// Compiled in the chroot by scripts/posthogos-customize.sh (where gcc +
-// qt6-declarative headers are both present from pacstrap). Source removed
-// after compile to keep the airootfs lean.
-//
-// QML side stays at /usr/share/posthogos/welcome.qml; we just load it
-// from a properly-identified host process.
-//
-// Exit codes: pass-through from the QML side (welcome.qml uses Qt.exit(N)
-// for "Install to disk" = 10, "Open terminal" = 11; the bash wrapper at
-// /usr/local/bin/posthogos-welcome dispatches on those).
+// posthogos-welcome-launcher: gives the welcome window a proper Plasma
+// app_id so KWin matches it to posthogos-welcome.desktop and renders the
+// branded icon in the titlebar/taskbar. Plain qml6 sets app_id to "qml".
+// Qt requires setDesktopFileName() to be called programmatically (no env
+// var works), hence this shim. Compiled in-chroot by posthogos-customize.sh;
+// source is removed after compile. QML side stays at welcome.qml;
+// exit codes pass through to the bash wrapper.
 
 #include <QGuiApplication>
 #include <QIcon>
@@ -30,13 +14,9 @@
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
-    // These three lines are the whole point of this file.
-    // applicationName: appears in window-manager listings, file paths
-    //   like ~/.config/<org>/<appname>.conf for QtCore.Settings, etc.
-    // setDesktopFileName: announces the .desktop file association to
-    //   the compositor (Wayland app_id) so the right icon resolves.
-    // setWindowIcon: belt-and-suspenders for X11 / contexts where
-    //   compositor doesn't honor the desktop file association.
+    // setDesktopFileName drives the Wayland app_id; setWindowIcon is
+    // belt-and-suspenders for X11. applicationName also seeds the
+    // QtCore.Settings path (~/.config/PostHog/posthogos-welcome.conf).
     app.setOrganizationName("PostHog");
     app.setApplicationName("posthogos-welcome");
     app.setDesktopFileName("posthogos-welcome");
@@ -45,9 +25,7 @@ int main(int argc, char *argv[]) {
     QQmlApplicationEngine engine;
     engine.load(QUrl::fromLocalFile("/usr/share/posthogos/welcome.qml"));
     if (engine.rootObjects().isEmpty()) {
-        // QML failed to load (missing module, syntax error, etc.). Exit 2
-        // matches qml6's own exit code for the same failure mode.
-        return 2;
+        return 2;  // matches qml6's own exit code for load failure
     }
     return app.exec();
 }

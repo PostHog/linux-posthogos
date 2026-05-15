@@ -123,15 +123,9 @@ mkdir -p "$icon_dst/scalable/apps"
 cp "$src/logos/posthog-logomark.svg" "$icon_dst/scalable/apps/posthogos.svg"
 
 # --- PosthogOS icon theme -------------------------------------------------
-# Derivative theme that overrides specific freedesktop icons with PostHog's
-# product illustrations (the chunky pixel-art set from posthog.com: calculator,
-# folder, doc, trash, etc.). Anything not overridden falls through Papirus-Light
-# (declared via Inherits=) so Plasma stays visually coherent across the long
-# tail of icons we don't have art for.
-#
-# Source variant is picked via POSTHOGOS_ICON_VARIANT (default: modern, the
-# Mac OS 9 chiseled look that matches posthog.com's "Product OS" desktop).
-# Override with POSTHOGOS_ICON_VARIANT=classic for the flatter style.
+# Derivative theme: PostHog product icons over a Papirus-Light fallback
+# (declared via Inherits=). POSTHOGOS_ICON_VARIANT picks the source set
+# (default `modern`, the Mac OS 9 chiseled look from posthog.com).
 icon_variant="${POSTHOGOS_ICON_VARIANT:-modern}"
 icon_src="$src/icons/$icon_variant"
 [ -d "$icon_src" ] || { echo "ERROR: icon variant '$icon_variant' not found at $icon_src" >&2; exit 1; }
@@ -179,14 +173,9 @@ mkdir -p "$icon_theme"
     done
 } > "$icon_theme/index.theme"
 
-# Mapping: source-name → freedesktop icon name(s) per context. Each row
-# whitelisted by name maps one PostHog icon to one OR MORE target names
-# (comma-separated) under a specific freedesktop context. This is the
-# "translation layer" between PostHog's product taxonomy and XDG names.
-#
-# After this, ALL source icons also get copied to apps/<source-name>.png
-# unconditionally, so .desktop files can reference them directly via their
-# PostHog name (e.g. Icon=hedgehog-mode) regardless of mapping.
+# Mapping: source-name → one or more freedesktop icon names per context.
+# After this pass, every source icon is also copied under apps/<src>.png
+# so .desktop files can reference them by their PostHog name.
 icon_install() {
     # $1=src-png $2=context-dir-name $3=target-basename
     local src_png="$1" ctx="$2" target="$3"

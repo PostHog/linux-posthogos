@@ -112,19 +112,9 @@ done
 [ -n "$ovmf" ] || fatal "OVMF firmware not found. Install qemu's edk2 firmware package."
 
 # ---- Accel + CPU + perf flags --------------------------------------------
-# Detect what acceleration is actually available and tune accordingly.
-#
-# On Apple Silicon emulating x86_64, HVF is rejected (cross-arch) → falls
-# back to TCG software translation. TCG's defaults are conservative; the
-# tunings below squeeze ~3-5× more performance:
-#   thread=multi   parallelizes guest CPU emulation across host cores
-#                  (default is single-threaded, emulating all guest CPUs
-#                  on one host thread)
-#   tb-size=512    bigger translation-block cache (default ~32 MiB) so
-#                  hot guest code doesn't get re-translated
-#
-# On Intel Macs and Linux+KVM, HVF/KVM handle x86 natively → no TCG
-# tunings needed, just -cpu host for full instruction set.
+# Apple Silicon cross-arch falls back to TCG; tune for ~3-5× speedup
+# (thread=multi parallelizes across host cores, tb-size=512 enlarges
+# translation cache). HVF/KVM hosts don't need this.
 
 is_emulating_x86=0   # 1 when we're cross-arch (Apple Silicon → x86 guest)
 case "$(uname -s)" in

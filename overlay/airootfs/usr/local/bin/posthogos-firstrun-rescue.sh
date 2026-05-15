@@ -1,26 +1,15 @@
 #!/usr/bin/env bash
 # Rescue path for posthogos-firstrun.sh.
 #
-# The autostart entry at /etc/xdg/autostart/posthogos-firstrun.desktop fires
-# at user-session start. On a live ISO that autologins straight into Plasma,
-# the autostart can fire BEFORE plasmashell has subscribed to the session
-# DBus, and plasma-apply-* commands silently no-op when that happens
-# (returning success but doing nothing). Our firstrun.sh waits 10s and
-# verifies the wallpaper landed, but if the verify fails it leaves the
-# marker unwritten.
+# firstrun's autostart can fire before plasmashell has subscribed to the
+# session DBus, in which case the plasma-apply-* calls silently no-op.
+# This service runs as root after display-manager.service, harvests
+# session env from /proc/$pid/environ for any kwin owned by uid ≥ 1000,
+# and re-invokes firstrun.sh via runuser with that env. Idempotent
+# through firstrun.sh's marker file.
 #
-# This service runs as root after display-manager.service, polls for
-# kwin_wayland / kwin_x11 to appear under a Plasma session uid (≥ 1000),
-# snoops /proc/$pid/environ to harvest the real session env (DBus address,
-# XDG_RUNTIME_DIR, wayland/X display, etc.), then re-invokes firstrun.sh
-# inside that user's session via `runuser`. Belt and suspenders.
-#
-# Idempotent through firstrun.sh's marker file. If autostart won the race
-# and wrote the marker, this is a fast no-op.
-#
-# Lifted from CachyOS contributor Will's posthogos-live-session-rescue
-# (origin/codex/posthogos-bootable-distro), trimmed for Wayland-only +
-# our marker pattern.
+# Lifted from CachyOS contributor Will's posthogos-live-session-rescue,
+# trimmed for Wayland-only + our marker pattern.
 
 set -euo pipefail
 

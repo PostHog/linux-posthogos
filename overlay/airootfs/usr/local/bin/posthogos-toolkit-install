@@ -186,10 +186,9 @@ install_ai() {
 }
 
 # ── Category: dev ─────────────────────────────────────────────────────────
-# zsh + pure live here rather than in their own category because the
-# /etc/skel/.zshrc shipped on the base ISO is wired around the modern Unix
-# tools (alias ls=eza, lg=lazygit, etc.). Installing them together means
-# the shell experience lights up coherently rather than half-on.
+# zsh + pure ship here (not their own category) because /etc/skel/.zshrc
+# is wired around the dev tools (alias ls=eza, lg=lazygit, etc.) and
+# only lights up coherently when both arrive together.
 install_dev() {
     banner "zsh + pure prompt + modern Unix tooling"
     step "pacman -S (zsh + bat eza fd fzf ripgrep git-delta jq go-yq gh lazygit tig btop dust tokei hyperfine just zellij atuin zoxide)"
@@ -203,10 +202,8 @@ install_dev() {
         atuin zoxide \
         2>&1 | sed 's/^/    /'
 
-    # pure: sindresorhus's minimal async zsh prompt. Tiny tarball
-    # (pure.zsh + async.zsh + a few helpers); shipped at /usr/share/zsh/
-    # pure where /etc/skel/.zshrc picks it up via fpath. Skip if already
-    # extracted (re-running the installer shouldn't re-download).
+    # sindresorhus/pure: small zsh prompt, extracted to /usr/share/zsh/pure
+    # where /etc/skel/.zshrc picks it up via fpath. Idempotent.
     PURE_VERSION=1.23.0
     if [ ! -f /usr/share/zsh/pure/pure.zsh ]; then
         step "Installing pure prompt v${PURE_VERSION}"
@@ -225,11 +222,9 @@ install_dev() {
         ok "pure prompt already installed"
     fi
 
-    # chsh: switch the invoking user's login shell to zsh. /etc/skel files
-    # (.zshrc, .gitconfig, ghostty config, zellij layouts) are already in
-    # their home from initial provisioning; flipping the shell makes them
-    # active. Idempotent: if the user is already on zsh, chsh -s to the
-    # same value is a no-op.
+    # Switch login shell to zsh so /etc/skel/.zshrc (already in $HOME)
+    # takes effect on next login. Fallback edits /etc/passwd directly
+    # for systems where chsh refuses (e.g. zsh missing from /etc/shells).
     if [ -x /bin/zsh ] || [ -x /usr/bin/zsh ]; then
         zsh_path=$(command -v zsh)
         current_shell=$(getent passwd "$TARGET_USER" | cut -d: -f7)
@@ -242,8 +237,6 @@ install_dev() {
                 if chsh -s "$zsh_path" "$TARGET_USER" 2>&1 | sed 's/^/    /'; then
                     ok "Shell set to $zsh_path; log out and back in to start using it"
                 else
-                    # Fallback: edit /etc/passwd directly. chsh on some
-                    # systems refuses if /etc/shells doesn't list zsh.
                     sed -i "/^${TARGET_USER}:/s|:[^:]*$|:${zsh_path}|" /etc/passwd \
                         && ok "Shell set via /etc/passwd; log out + back in" \
                         || warn "chsh + /etc/passwd edit both failed"

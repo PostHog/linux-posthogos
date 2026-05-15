@@ -23,15 +23,9 @@ if [ "${1:-}" = "--autostart" ] && [ -f "$prefs" ]; then
     fi
 fi
 
-# ── Live-ISO detection → propagate into QML's QtCore.Settings ─────────────
-# The hero tile swaps identity based on this value:
-#   live ISO   → "Install to disk" (Calamares)
-#   installed  → "Install dev toolkit" (toolkit picker)
-# archiso's initramfs creates /run/archiso/ on the live system; the
-# directory does not exist on installations. Probe it on every launch
-# and stamp the result into the QtCore.Settings .conf file BEFORE qml6
-# reads it. That way the property binding picks up the correct value
-# on this run, regardless of whatever the previous launch persisted.
+# Stamp live-vs-installed into the Settings .conf BEFORE qml6 reads it,
+# so the hero tile picks the right identity (Install to disk vs Install
+# dev toolkit). /run/archiso/ exists only on the live system.
 is_live="false"
 [ -d /run/archiso ] && is_live="true"
 
@@ -40,9 +34,6 @@ if [ ! -f "$prefs" ]; then
     printf '[Startup]\nisLiveIso=%s\n' "$is_live" > "$prefs"
 else
     # Strip any prior isLiveIso= line, then re-insert under [Startup].
-    # awk approach is robust to the section line being absent (which
-    # happens if the conf was created with no Startup category yet,
-    # e.g. fresh user, never opened the app before).
     sed -i.bak '/^isLiveIso=/d' "$prefs" && rm -f "$prefs.bak"
     if grep -q '^\[Startup\]' "$prefs"; then
         awk -v val="$is_live" '
@@ -54,18 +45,11 @@ else
     fi
 fi
 
-# Prefer the compiled launcher binary. It calls QGuiApplication::
-# setDesktopFileName("posthogos-welcome") + setApplicationName() before
-# loading welcome.qml, which is the ONLY way to make Plasma match the
-# running window to /usr/share/applications/posthogos-welcome.desktop and
-# render Professor Hog in the titlebar/taskbar.
-#
-# (Previous iterations tried QT_QPA_APP_DESKTOP_FILE_NAME, but that env var
-#  doesn't exist in Qt; Qt docs explicitly say setDesktopFileName must be
-#  set programmatically. Hence the C++ shim.)
-#
-# Fall back to plain qml6 if the chroot compile failed during build. The
-# window still works, just with a generic Qt icon.
+# Prefer the C++ launcher, which calls QGuiApplication::setDesktopFileName()
+# so Plasma matches the running window to posthogos-welcome.desktop and
+# renders Professor Hog in the titlebar/taskbar. Qt docs require the call
+# to be programmatic (no env var equivalent). Fall back to plain qml6 if
+# the chroot compile failed (window still works, generic icon).
 launcher=/usr/local/bin/posthogos-welcome-launcher
 qml=/usr/share/posthogos/welcome.qml
 qml_bin=$(command -v qml6 || command -v qml || true)
@@ -95,10 +79,8 @@ case "$ec" in
     10) exec sudo -E calamares ;;        # Install to disk
     11) exec ghostty ;;                  # Open terminal
     12)                                  # Install dev toolkit
-        # On the live ISO, pacman writes to the squashfs overlay (tmpfs)
-        # and the dev tooling can balloon RAM fast. Refuse politely
-        # instead of melting the user's session. They should install
-        # PosthogOS to disk first, THEN run the installer.
+        # On the live ISO pacman writes to tmpfs and balloons RAM, so
+        # refuse politely instead of melting the user's session.
         if [ -d /run/archiso ]; then
             exec ghostty -e bash -c '
                 printf "\n  \033[1;38;2;249;189;43mLive ISO detected\033[0m\n"
@@ -106,15 +88,13 @@ case "$ec" in
                 printf "  then click \"Install dev toolkit\" again on your installed system.\n\n"
                 printf "  Press Enter to close…"; read'
         fi
-        # Read the comma-separated skip list the QML dialog wrote.
+        # Read the skip list the QML dialog wrote, launch installer in
+        # Ghostty. Script self-elevates via sudo; terminal stays open
+        # post-exit so the user can read the summary.
         skip=""
         if [ -f "$prefs" ]; then
             skip=$(awk -F= "/^toolkitSkip=/{print \$2; exit}" "$prefs" | tr -d "\r")
         fi
-        # Launch Ghostty running the installer. The script self-elevates
-        # via sudo (will prompt for the user's password in the terminal).
-        # Keep the terminal open after exit so the user can read the
-        # summary table.
         args=(--yes)
         [ -n "$skip" ] && args+=(--skip="$skip")
         exec ghostty -e bash -c '
