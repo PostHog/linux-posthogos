@@ -423,36 +423,6 @@ if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders 
         || log "WARN: papirus-folders failed"
 fi
 
-# ---- Docker / Podman / subuid setup --------------------------------------
-# Moved to /usr/local/bin/posthogos-toolkit-install. Containers are an
-# opt-in category in the Welcome window's "Install dev toolkit" flow;
-# installing them at toolkit-run time also seeds /etc/subuid + /etc/subgid
-# for rootless and adds the invoking user to the docker group.
-
-# ---- Default shell ------------------------------------------------------
-# Base ISO leaves the shell at bash; zsh + pure prompt + chsh are now
-# the dev toolkit installer's job. /etc/skel still ships our branded
-# .zshrc, but it sits dormant until the toolkit lands zsh + chsh's the
-# user. Rationale: keep the live ISO lean, don't pretend to provide a
-# shell experience that's only half-wired before the toolkit runs.
-
-# ---- Tailscale -----------------------------------------------------------
-# Moved to /usr/local/bin/posthogos-toolkit-install (the "extras"
-# category). The toolkit script enables tailscaled.service at install
-# time so `tailscale up` works immediately after opting in.
-
-# ---- Flatpak: register Flathub system-wide ------------------------------
-# Flatpak is shipped via the package list (see scripts/pre-build.sh) as a
-# secondary app distribution channel for sandboxed GUI apps that don't
-# live in pacman/AUR (Slack, Spotify, Zoom, etc.). It's secondary;
-# pacman is still the primary for system packages and CLI tools.
-#
-# `flatpak remote-add --system` writes /var/lib/flatpak/repo/config so
-# Flathub is available to ALL users on the system, not just liveuser.
-# `--if-not-exists` makes this idempotent across rebuilds. We don't
-# install any specific Flatpaks here, just register the source so
-# `flatpak install <app>` or Discover's UI both find Flathub instantly.
-#
 # Plasma's Discover auto-detects Flatpak when the binary is installed
 # (libflatpak is detected at Discover's startup), so no separate
 # discover-flatpak-backend package is needed in Plasma 6.
@@ -463,20 +433,6 @@ if command -v flatpak >/dev/null; then
         2>&1 | sed 's/^/  /' \
         || log "WARN: flathub remote-add failed (Discover will still find it on first run)"
 fi
-
-# ---- Agentic dev tooling -------------------------------------------------
-# Pre-baked AI CLIs / dev CLIs / containers / asdf / Tailscale / op /
-# mitmproxy were ripped out of this hook in favor of an opt-in installer.
-# See /usr/local/bin/posthogos-toolkit-install, invoked from the
-# Welcome window's "Install dev toolkit" tile. Rationale: curl|sh
-# installers and npm packages go stale fast (a 6-month-old ISO would
-# ship 6-month-old Claude Code / Codex / Gemini binaries), and users
-# should get to choose what lands on their system.
-
-# ---- pure prompt --------------------------------------------------------
-# Moved to /usr/local/bin/posthogos-toolkit-install (clones into
-# /usr/share/zsh/pure at install time, in the same step that installs
-# zsh + chsh's the user). Base ISO doesn't ship it.
 
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"

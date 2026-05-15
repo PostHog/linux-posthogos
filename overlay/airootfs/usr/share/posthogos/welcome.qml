@@ -139,7 +139,6 @@ ApplicationWindow {
             }
 
             ActionTile {
-                Layout.columnSpan: 2
                 label:       prefs.isLiveIso ? "Install to disk"                       : "Install dev toolkit"
                 description: prefs.isLiveIso ? "Run the Calamares installer"           : "AI CLIs and tools"
                 accent:      prefs.isLiveIso ? root.brandOrange                        : root.brandRed
