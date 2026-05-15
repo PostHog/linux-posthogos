@@ -119,76 +119,33 @@ if [ -f "$pkglist" ]; then
                              # system can't reach a desktop.
         fuse2                # libfuse2 — AppImages (e.g. posthog-code) self-mount via this
         ghostty              # Default terminal emulator (replaces Konsole in pins)
-        docker               # Docker engine — dep of docker-desktop (.pkg.tar.zst staged via build-assets.sh)
-        docker-compose       # Compose plugin alongside docker
-        podman               # Rootless container runtime, Docker-compatible CLI.
-                             # Sibling to docker (not replacement) — agents often
-                             # want rootless ephemeral containers, podman is the
-                             # standard answer. customize.sh seeds subuid/subgid
-                             # for liveuser so rootless works on the live ISO.
-        distrobox            # "Run an Ubuntu/Fedora/whatever shell inside a
-                             # container" — for the "I need a specific toolchain
-                             # without polluting the host" pattern. Uses podman or
-                             # docker under the hood (both bundled).
-        lazydocker           # TUI for Docker + Podman. Browse running containers,
-                             # tail logs, exec in, see resource usage without
-                             # remembering docker subcommand syntax.
-        nodejs               # JS runtime — Gemini CLI + OpenAI Codex are npm-only;
-                             # customize.sh installs them via `npm install --global`.
-                             # Stays useful post-boot for arbitrary `npm install` work.
-        npm                  # Node package manager — needed for the customize-hook
-                             # AI CLI install pass + for users to install other tools
-                             # post-boot. Also a dep many JS dev workflows assume.
-        mitmproxy            # HTTPS-intercepting proxy. Agent-safe dev surface
-                             # from ROADMAP Tier 2: route agent HTTP calls
-                             # through `mitmproxy` to audit what they're doing.
-                             # CLI: `mitmproxy` (TUI) or `mitmweb` (browser UI).
+        nodejs               # JS runtime — needed for the dev-toolkit installer
+                             # to land Gemini CLI + OpenAI Codex via `npm install -g`.
+                             # Also a dep many JS dev workflows assume regardless.
+        npm                  # Node package manager. Same rationale as nodejs.
 
-        # ── Tier 3 — modern developer baseline (from ROADMAP) ───────────
-        # Shell + prompt + history + dir-jumping
-        zsh                  # The default login shell — customize.sh chsh's
-                             # liveuser to /bin/zsh AND sets useradd's default
-                             # to /bin/zsh for Calamares-installed users.
-                             # NOT pulled in by CachyOS or plasma-meta, so we
-                             # have to add it explicitly.
-        zsh-completions      # Community-maintained completion functions for
-                             # tons of tools (gh, kubectl, docker, etc.).
-                             # Activated automatically by zsh's compinit.
-        starship             # Cross-shell prompt. Theme in /etc/skel/.config/starship.toml
-        atuin                # Replaces shell history with a sync'd SQLite db
-                             # + fuzzy magic search. Activated via .zshrc init.
-        zoxide               # `cd` replacement with frecency ranking. `z foo`
-                             # jumps to the most-used dir matching "foo".
-        # File / text inspection
-        bat                  # `cat` with syntax highlighting + paging
-        eza                  # `ls` replacement with git-status + tree mode
-        ripgrep              # `grep -r` replacement, way faster
-        fd                   # `find` replacement, sensible defaults
-        fzf                  # Fuzzy finder. Powers shell ctrl-R / kill -9 pid
-        jq                   # JSON query/manipulation
-        go-yq                # YAML/TOML/XML query (Mike Farah's Go yq, not the
-                             # Python one — Go yq is the de-facto modern one).
-                             # Arch package is `go-yq`; the binary on PATH is `yq`.
-        # Diff + git
-        git-delta            # Syntax-highlighting pager for git diff/show.
-                             # Wired into /etc/skel/.gitconfig.
-        github-cli           # `gh` — GitHub CLI for PRs / issues / releases
-        lazygit              # TUI for git
-        tig                  # Older but battle-tested ncurses git browser
-        # System inspection
-        btop                 # `top` replacement, prettier
-        dust                 # `du` with a visual tree of what's eating disk
-        tokei                # Lines-of-code stats per language
-        hyperfine            # Benchmark CLI (auto-warmup, statistics)
-        # Task runner
-        just                 # `make` replacement for command runners. justfiles
-                             # are .makefile-like but without tab requirements.
-        # Terminal multiplexer
-        zellij               # Modern tmux alternative. Layouts in
-                             # /etc/skel/.config/zellij/layouts/.
-        # Cloud / networking
-        tailscale            # Mesh VPN. systemctl-enabled in customize.sh so
-                             # `tailscale up` works out of the box on first boot.
+        # ── Shell + curl|sh bootstrap surface ──────────────────────────
+        # The dev tooling (AI CLIs, modern Unix tools, containers, asdf,
+        # Tailscale, mitmproxy, 1Password CLI) is NOT pre-baked anymore —
+        # users opt in via the Welcome window's "Install dev toolkit"
+        # button, which runs /usr/local/bin/posthogos-toolkit-install.
+        # Rationale: AI CLIs go stale fast (curl|sh installers move under
+        # us between ISO builds), the ISO stays lean, and users get to
+        # choose. The handful of system-level pieces below are the
+        # minimum substrate the installer + branded shell need.
+        zsh                  # Default login shell. customize.sh chsh's
+                             # liveuser to /bin/zsh AND sets useradd's
+                             # default to /bin/zsh so Calamares-created
+                             # users get it too. NOT pulled in by CachyOS
+                             # or plasma-meta, so we add it explicitly.
+        zsh-completions      # Community-maintained completion functions
+                             # for tons of tools. Activated automatically
+                             # by zsh's compinit.
+        # `pure` (the prompt) is NOT a pacman package — it's a small zsh
+        # plugin shipped at /usr/share/zsh/pure. customize.sh downloads
+        # the upstream release tarball + extracts there. .zshrc adds it
+        # to fpath and `prompt pure`s.
+
         # papirus-folders (the recolor helper) is AUR-only; we vendor the
         # upstream script at overlay/airootfs/usr/local/bin/papirus-folders
         # and invoke it from the chroot hook.

@@ -11,6 +11,9 @@
  *   0   normal close
  *   10  "Install to disk" — wrapper launches Calamares
  *   11  "Open terminal"   — wrapper launches Ghostty
+ *   12  "Install dev toolkit" — wrapper launches posthogos-toolkit-install
+ *        in Ghostty. Skip-categories are persisted via Settings.toolkitSkip
+ *        and read by the wrapper to assemble --skip=... before launching.
  */
 import QtQuick
 import QtQuick.Controls
@@ -21,9 +24,9 @@ import QtCore
 ApplicationWindow {
     id: root
     width: 760
-    height: 580
+    height: 680
     minimumWidth: 640
-    minimumHeight: 480
+    minimumHeight: 560
     visible: true
     title: "Welcome to PosthogOS"
     color: "#EEEFE9"
@@ -50,6 +53,8 @@ ApplicationWindow {
         id: prefs
         category: "Startup"
         property bool showOnStartup: true
+        property string toolkitSkip: ""
+        property bool isLiveIso: true
     }
 
     ColumnLayout {
@@ -134,10 +139,11 @@ ApplicationWindow {
             }
 
             ActionTile {
-                label: "Install to disk"
-                description: "Run the Calamares installer"
-                accent: root.brandOrange
-                onClicked: Qt.exit(10)
+                Layout.columnSpan: 2
+                label:       prefs.isLiveIso ? "Install to disk"                       : "Install dev toolkit"
+                description: prefs.isLiveIso ? "Run the Calamares installer"           : "AI CLIs and tools"
+                accent:      prefs.isLiveIso ? root.brandOrange                        : root.brandRed
+                onClicked:   prefs.isLiveIso ? Qt.exit(10)                             : toolkitDialog.open()
             }
 
             ActionTile {
@@ -148,17 +154,106 @@ ApplicationWindow {
             }
 
             ActionTile {
-                label: "PostHog docs"
-                description: "posthog.com/docs"
+                label: "Install docs"
+                description: "wiki.cachyos.org/installation"
                 accent: root.brandBlue
-                onClicked: Qt.openUrlExternally("https://posthog.com/docs")
+                onClicked: Qt.openUrlExternally("https://wiki.cachyos.org/installation/installation/")
             }
 
             ActionTile {
-                label: "GitHub source"
+                label: "Source code"
                 description: "github.com/posthog/linux-posthogos"
                 accent: root.brandOrange
                 onClicked: Qt.openUrlExternally("https://github.com/posthog/linux-posthogos")
+            }
+        }
+
+        // ── Dev toolkit category picker ──────────────────────────────────
+        // Modal dialog opened by the "Install dev toolkit" button
+        Dialog {
+            id: toolkitDialog
+            anchors.centerIn: parent
+            modal: true
+            width: 520
+            title: "Install dev toolkit"
+
+            footer: DialogButtonBox {
+                Button {
+                    text: "Install"
+                    DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                    background: Rectangle {
+                        color: parent.down ? Qt.darker(root.brandRed, 1.2) : root.brandRed
+                        radius: 6
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#FFFFFF"
+                        font.pixelSize: 13
+                        font.weight: Font.Medium
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        leftPadding: 18
+                        rightPadding: 18
+                    }
+                }
+                Button {
+                    text: "Cancel"
+                    DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+                }
+            }
+
+            onAccepted: {
+                // Build the skip list from any unchecked categories.
+                var skip = []
+                if (!cbAi.checked)         skip.push("ai")
+                if (!cbDev.checked)        skip.push("dev")
+                if (!cbContainers.checked) skip.push("containers")
+                if (!cbExtras.checked)     skip.push("extras")
+                prefs.toolkitSkip = skip.join(",")
+                Qt.exit(12)
+            }
+
+            contentItem: ColumnLayout {
+                spacing: 10
+                Text {
+                    text: "Pick what to install. The installer runs in a terminal so you can watch the output."
+                    wrapMode: Text.WordWrap
+                    color: root.brandTextMuted
+                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: 6
+                }
+
+                CheckBox {
+                    id: cbAi
+                    text: "AI CLIs"
+                    checked: true
+                }
+                CheckBox {
+                    id: cbDev
+                    text: "Modern Unix tools"
+                    checked: true
+                }
+                CheckBox {
+                    id: cbContainers
+                    text: "Containers"
+                    checked: true
+                }
+                CheckBox {
+                    id: cbExtras
+                    text: "Extras"
+                    checked: true
+                }
+
+                Text {
+                    text: "You'll be prompted for your password."
+                    wrapMode: Text.WordWrap
+                    color: root.brandTextMuted
+                    font.pixelSize: 11
+                    font.italic: true
+                    Layout.fillWidth: true
+                    Layout.topMargin: 6
+                }
             }
         }
 

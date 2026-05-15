@@ -400,58 +400,18 @@ if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders 
         || log "WARN: papirus-folders failed"
 fi
 
-# ---- Docker engine setup -------------------------------------------------
-# `docker` + `docker-compose` are pacstrap'd via the package list (see
-# scripts/pre-build.sh). Two more steps to make Docker actually usable
-# without manual setup on first boot:
-#
-#   1. Enable docker.service so the daemon starts at boot. The package
-#      ships the unit but doesn't enable it by default — leaving it off
-#      means every fresh boot needs `sudo systemctl start docker` before
-#      `docker ps` works, which is a paper cut nobody wants.
-#
-#   2. Add liveuser to the `docker` group so they can run `docker` without
-#      sudo. (Post-install: the same will need to happen for whatever user
-#      Calamares creates — Calamares has no hook for this, so we'd need a
-#      first-login service if we want it automatic. For now, live-only.)
-if command -v systemctl >/dev/null && [ -f /usr/lib/systemd/system/docker.service ]; then
-    log "Enabling docker.service"
-    systemctl enable docker.service 2>&1 | sed 's/^/  /' || log "WARN: docker.service enable failed"
-fi
-
-# Use grep on /etc/passwd directly rather than `id liveuser` — nsswitch
-# inside the pacstrap chroot doesn't always resolve users via id (same
-# reason the home-provisioning section above uses uid 1000 numerically).
-# gpasswd reads /etc/group + /etc/passwd as files, so as long as both
-# entries exist, the add works regardless of nsswitch state.
-if getent group docker >/dev/null && grep -q '^liveuser:' /etc/passwd; then
-    log "Adding liveuser to docker group"
-    gpasswd -a liveuser docker 2>&1 | sed 's/^/  /' || log "WARN: gpasswd failed"
-fi
-
-# ---- Rootless podman + distrobox: subuid/subgid for liveuser ------------
-# Rootless container runtimes (podman, distrobox-on-podman) need a
-# pre-allocated range of subordinate UIDs/GIDs in /etc/subuid and
-# /etc/subgid so unprivileged user namespaces can map container UIDs to
-# host UIDs. Without these entries, `podman run` fails with
-# "newuidmap: write to uid_map failed: Invalid argument".
-#
-# Arch's `useradd` defaults DO allocate these automatically for users
-# created post-pacstrap (Calamares-created users get them for free), but
-# liveuser was created by some earlier pacstrap-time hook that may not
-# have. Belt-and-suspenders: append the entries explicitly if they
-# aren't already there. 100000-165535 is the conventional range size
-# (65536 ids) per the systemd / Arch wiki / Podman docs.
-if grep -q '^liveuser:' /etc/passwd && ! grep -q '^liveuser:' /etc/subuid; then
-    log "Allocating subuid/subgid range for liveuser (rootless podman/distrobox)"
-    echo 'liveuser:100000:65536' >> /etc/subuid
-    echo 'liveuser:100000:65536' >> /etc/subgid
-fi
+# ---- Docker / Podman / subuid setup --------------------------------------
+# Moved to /usr/local/bin/posthogos-toolkit-install. Containers are an
+# opt-in category in the Welcome window's "Install dev toolkit" flow;
+# installing them at toolkit-run time also seeds /etc/subuid + /etc/subgid
+# for rootless and adds the invoking user to the docker group.
 
 # ---- Default shell: zsh -------------------------------------------------
-# PosthogOS's modern shell stack lives in /etc/skel/.zshrc (starship +
-# atuin + zoxide + fzf + tool aliases). Set zsh as the login shell so
-# new users get the integrated experience automatically.
+# PosthogOS's modern shell stack lives in /etc/skel/.zshrc (pure prompt +
+# fzf + tool aliases, all gated on `command -v`). The dev tooling that
+# fills in those aliases (eza, bat, fd, lazygit, atuin, zoxide, ...) is
+# installed via the Welcome window's toolkit flow; the .zshrc stays
+# valid either way because every integration block is conditional.
 #
 # Two pieces:
 #   1. useradd's `-D` default applies to future user creation (the path
@@ -466,14 +426,10 @@ if [ -x /usr/bin/zsh ]; then
     fi
 fi
 
-# ---- Tailscale: enable the daemon for next boot --------------------------
-# tailscaled needs to be running for `tailscale up` to work. The package
-# ships the unit but doesn't enable it by default — flipping it on now
-# means users can `tailscale up` immediately without prep.
-if [ -f /usr/lib/systemd/system/tailscaled.service ]; then
-    log "Enabling tailscaled.service"
-    systemctl enable tailscaled.service 2>&1 | sed 's/^/  /' || log "  WARN: tailscaled.service enable failed"
-fi
+# ---- Tailscale -----------------------------------------------------------
+# Moved to /usr/local/bin/posthogos-toolkit-install (the "extras"
+# category). The toolkit script enables tailscaled.service at install
+# time so `tailscale up` works immediately after opting in.
 
 # ---- Flatpak: register Flathub system-wide ------------------------------
 # Flatpak is shipped via the package list (see scripts/pre-build.sh) as a
@@ -498,92 +454,37 @@ if command -v flatpak >/dev/null; then
         || log "WARN: flathub remote-add failed (Discover will still find it on first run)"
 fi
 
-# ---- Agentic dev tooling: Ollama + Claude Code + Codex + Gemini + Pi ----
-# Preinstall each tool per its vendor's official install method. Each
-# block is independent — one failure doesn't block the others (one tool's
-# network/registry hiccup shouldn't kill the build).
-#
-# Why mixed install methods: each vendor publishes one canonical path.
-# Mixing curl|sh + npm matches what users would do anyway if they
-# followed each tool's docs by hand. AUR alternatives exist for some but
-# none of them track upstream reliably enough to be the default.
+# ---- Agentic dev tooling -------------------------------------------------
+# Pre-baked AI CLIs / dev CLIs / containers / asdf / Tailscale / op /
+# mitmproxy were ripped out of this hook in favor of an opt-in installer.
+# See /usr/local/bin/posthogos-toolkit-install — invoked from the
+# Welcome window's "Install dev toolkit" tile. Rationale: curl|sh
+# installers and npm packages go stale fast (a 6-month-old ISO would
+# ship 6-month-old Claude Code / Codex / Gemini binaries), and users
+# should get to choose what lands on their system.
 
-# --- Ollama: local LLM inference (curl|sh installer) ---------------------
-# Official installer:
-#   curl -fsSL https://ollama.com/install.sh | sh
-# It creates a system user `ollama`, drops the binary at /usr/bin/ollama,
-# writes /etc/systemd/system/ollama.service, and tries to enable + start
-# it. The start fails in chroot (no running systemd), but enable should
-# stick. Belt-and-suspenders: manually create the wants/ symlink so the
-# service comes up on first installed boot regardless of installer state.
-log "Installing Ollama (local LLM runtime)"
-if curl -fsSL https://ollama.com/install.sh | sh 2>&1 | sed 's/^/  /'; then
-    if [ -f /etc/systemd/system/ollama.service ]; then
-        ln -sf /etc/systemd/system/ollama.service \
-            /etc/systemd/system/multi-user.target.wants/ollama.service
-        log "  ollama.service enabled for next boot"
+# ---- pure: minimal zsh prompt -------------------------------------------
+# Bake pure (sindresorhus/pure) at /usr/share/zsh/pure so /etc/skel/.zshrc
+# can `fpath+=(/usr/share/zsh/pure)` + `prompt pure` out of the box. The
+# release tarball is two files (pure.zsh + async.zsh) — small enough that
+# baking it in beats making the toolkit installer carry it.
+PURE_VERSION=1.23.0
+log "Installing pure prompt v${PURE_VERSION} into /usr/share/zsh/pure"
+pure_tgz=/tmp/pure-${PURE_VERSION}.tar.gz
+if curl -fsSL -o "$pure_tgz" \
+        "https://github.com/sindresorhus/pure/archive/refs/tags/v${PURE_VERSION}.tar.gz"; then
+    mkdir -p /usr/share/zsh/pure
+    tar -xzf "$pure_tgz" -C /usr/share/zsh/pure --strip-components=1 2>&1 | sed 's/^/  /'
+    rm -f "$pure_tgz"
+    if [ -f /usr/share/zsh/pure/pure.zsh ]; then
+        log "  installed (pure.zsh + async.zsh in /usr/share/zsh/pure)"
+    else
+        log "  WARN: pure tarball extracted but pure.zsh missing — prompt will fall back to default"
     fi
 else
-    log "  WARN: Ollama install failed (manual: curl -fsSL https://ollama.com/install.sh | sh)"
+    log "  WARN: pure download failed (manual: tarball from https://github.com/sindresorhus/pure/releases)"
+    rm -f "$pure_tgz"
 fi
-
-# --- Claude Code: Anthropic's coding agent CLI (curl|sh installer) -------
-# Native install per https://code.claude.com/docs/en/quickstart — they
-# explicitly recommend curl over npm because the native installer wires
-# up auto-update in the background. Binary lands at /usr/local/bin/claude.
-log "Installing Claude Code"
-curl -fsSL https://claude.ai/install.sh | bash 2>&1 | sed 's/^/  /' \
-    || log "  WARN: Claude Code install failed"
-
-# --- Pi: terminal coding harness from Earendil Works (curl|sh) -----------
-# https://pi.dev/docs/latest — two install paths documented; curl is the
-# vendor's recommended Linux/Mac native path. Binary: /usr/local/bin/pi.
-log "Installing Pi (terminal coding harness)"
-curl -fsSL https://pi.dev/install.sh | sh 2>&1 | sed 's/^/  /' \
-    || log "  WARN: Pi install failed (npm fallback: npm install -g @earendil-works/pi-coding-agent)"
-
-# --- Gemini CLI + OpenAI Codex CLI: npm-only ----------------------------
-# Both vendors publish only via npm. Install to /usr/local/ (FHS for
-# "user-installed, not pacman-owned"). Binaries land at /usr/local/bin/
-# {gemini,codex}. --no-fund/--no-audit suppress non-TTY-friendly noise.
-if command -v npm >/dev/null; then
-    log "Installing Gemini CLI + OpenAI Codex via npm"
-    for pkg in @google/gemini-cli @openai/codex; do
-        log "  $pkg"
-        npm install --global --prefix /usr/local \
-            --no-fund --no-audit --silent \
-            "$pkg" 2>&1 | sed 's/^/    /' \
-            || log "  WARN: $pkg install failed"
-    done
-fi
-
-# --- asdf-vm: direct binary download ------------------------------------
-# asdf is not in any Arch repo (AUR-only). The project ships a static Go
-# binary on every GitHub release. Bump ASDF_VERSION when you want a newer release.
-#
-# Companion: /etc/profile.d/asdf.sh (overlay) prepends $ASDF_DATA_DIR/shims
-# to PATH for every interactive shell, so once asdf installs are in
-# ~/.asdf, the version-managed binaries take precedence.
-ASDF_VERSION=0.16.7
-log "Installing asdf-vm v${ASDF_VERSION}"
-asdf_tgz=/tmp/asdf-${ASDF_VERSION}.tar.gz
-if curl -fsSL -o "$asdf_tgz" \
-        "https://github.com/asdf-vm/asdf/releases/download/v${ASDF_VERSION}/asdf-v${ASDF_VERSION}-linux-amd64.tar.gz" \
-    && tar -xzf "$asdf_tgz" -C /usr/local/bin/ asdf 2>&1 | sed 's/^/  /'; then
-    chmod 0755 /usr/local/bin/asdf
-    rm -f "$asdf_tgz"
-    log "  installed /usr/local/bin/asdf"
-else
-    log "  WARN: asdf install failed (manual: download from https://github.com/asdf-vm/asdf/releases)"
-    rm -f "$asdf_tgz"
-fi
-
-# --- Verify which tools landed on PATH ----------------------------------
-log "Agentic tooling on PATH after install:"
-for bin in ollama claude codex gemini pi op mitmproxy asdf; do
-    path=$(command -v "$bin" 2>/dev/null || echo "(not found — users can install manually)")
-    log "  $bin → $path"
-done
 
 # ---- Caches --------------------------------------------------------------
 log "Refreshing desktop / icon / gtk / font caches"

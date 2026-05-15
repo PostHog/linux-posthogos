@@ -42,9 +42,21 @@ command -v fd >/dev/null && alias fd-hidden='fd --hidden --no-ignore'
 command -v lazygit >/dev/null && alias lg='lazygit'
 command -v lazydocker >/dev/null && alias ld='lazydocker'
 
-# ─── Starship prompt ──────────────────────────────────────────────────────
-# Theme lives at ~/.config/starship.toml (shipped via /etc/skel).
-command -v starship >/dev/null && eval "$(starship init zsh)"
+# ─── Pure prompt ──────────────────────────────────────────────────────────
+# sindresorhus/pure — minimal, async, zsh-only. Shipped pre-baked at
+# /usr/share/zsh/pure (customize.sh extracts the upstream tarball there).
+# Lightly tinted with PostHog brand colors via prompt symbol / path.
+if [[ -d /usr/share/zsh/pure ]]; then
+    fpath+=(/usr/share/zsh/pure)
+    autoload -U promptinit && promptinit
+    # zstyle calls have to come BEFORE `prompt pure` for them to take.
+    zstyle :prompt:pure:prompt:success color '#F54E00'   # brand orange on ready
+    zstyle :prompt:pure:prompt:error   color '#DC2626'   # brand red on error too
+    zstyle :prompt:pure:path           color '#1D4AFF'   # brand blue
+    zstyle :prompt:pure:git:branch     color '#EB9D2A'   # brand honey
+    zstyle :prompt:pure:git:dirty      color '#F9BD2B'   # brand yellow
+    prompt pure 2>/dev/null
+fi
 
 # ─── Atuin: history sync + fuzzy search ───────────────────────────────────
 # Ctrl-R remapped to atuin's fuzzy search. ↑ key still walks plain
