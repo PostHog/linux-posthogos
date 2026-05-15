@@ -10,7 +10,6 @@
  * Exit codes:
  *   0   normal close
  *   10  "Install to disk":     wrapper launches Calamares
- *   11  "Open terminal":       wrapper launches Ghostty
  *   12  "Install dev toolkit": wrapper launches posthogos-toolkit-install
  *        in Ghostty. Skip-categories are persisted via Settings.toolkitSkip
  *        and read by the wrapper to assemble --skip=... before launching.
@@ -24,9 +23,9 @@ import QtCore
 ApplicationWindow {
     id: root
     width: 760
-    height: 680
+    height: 600
     minimumWidth: 640
-    minimumHeight: 560
+    minimumHeight: 520
     visible: true
     title: "Welcome to PosthogOS"
     color: "#EEEFE9"
@@ -85,82 +84,163 @@ ApplicationWindow {
             Layout.bottomMargin: 8
         }
 
-        // --- Action grid -------------------------------------------------
-        GridLayout {
-            columns: 2
-            rowSpacing: 12
-            columnSpacing: 12
+        // --- Hero tile (primary CTA) -------------------------------------
+        // Same component as before but standalone (not inside a 2-col grid)
+        // so it can size itself to full width without sibling pressure.
+        component ActionTile: Rectangle {
+            id: tile
+            property string label: ""
+            property string description: ""
+            property string accent: root.brandOrange
+            signal clicked()
+
             Layout.fillWidth: true
+            Layout.preferredHeight: 84
+            color: cardBg
+            radius: 10
+            border.color: ma.containsMouse ? accent : root.cardBorder
+            border.width: 1
 
-            // Each tile is a clickable card.
-            component ActionTile: Rectangle {
-                id: tile
-                property string label: ""
-                property string description: ""
-                property string accent: root.brandOrange
-                signal clicked()
+            MouseArea {
+                id: ma
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: tile.clicked()
+            }
 
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 14
+                spacing: 2
+                Text {
+                    text: tile.label
+                    font.pixelSize: 16
+                    font.weight: Font.Medium
+                    color: root.brandText
+                }
+                Text {
+                    text: tile.description
+                    font.pixelSize: 12
+                    color: root.brandTextMuted
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+        }
+
+        ActionTile {
+            label:       prefs.isLiveIso ? "Install to disk"                       : "Install dev toolkit"
+            description: prefs.isLiveIso ? "Run the Calamares installer"           : "AI CLIs, modern Unix tools, containers, version managers — opt-in"
+            accent:      prefs.isLiveIso ? root.brandOrange                        : root.brandRed
+            onClicked:   prefs.isLiveIso ? Qt.exit(10)                             : toolkitDialog.open()
+        }
+
+        // --- Section grid: PostHog + CachyOS links -----------------------
+        // Two columns, each a labelled section of compact buttons. Mirrors
+        // the layout style of CachyOS's stock Welcome window but with our
+        // own taxonomy.
+        component SectionHeader: Text {
+            Layout.fillWidth: true
+            font.pixelSize: 11
+            font.weight: Font.Bold
+            font.capitalization: Font.AllUppercase
+            font.letterSpacing: 1.2
+            color: root.brandTextMuted
+            Layout.topMargin: 6
+        }
+
+        // Compact label-only button. Smaller than ActionTile, no
+        // description, used for the link sections below.
+        component LinkButton: Rectangle {
+            id: lbtn
+            property string label: ""
+            property string url: ""
+            property string accent: root.brandBlue
+            Layout.fillWidth: true
+            Layout.preferredHeight: 36
+            color: cardBg
+            radius: 6
+            border.color: lma.containsMouse ? accent : root.cardBorder
+            border.width: 1
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                text: lbtn.label
+                font.pixelSize: 13
+                color: lma.containsMouse ? lbtn.accent : root.brandText
+            }
+            // External-link glyph on the right hints these are web links.
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                text: "↗"
+                font.pixelSize: 12
+                color: root.brandTextMuted
+                visible: lbtn.url.length > 0
+            }
+
+            MouseArea {
+                id: lma
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: if (lbtn.url) Qt.openUrlExternally(lbtn.url)
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 16
+
+            // --- PostHog column ------------------------------------------
+            ColumnLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 84
-                color: cardBg
-                radius: 10
-                border.color: ma.containsMouse ? accent : root.cardBorder
-                border.width: 1
-
-                MouseArea {
-                    id: ma
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: tile.clicked()
+                spacing: 6
+                SectionHeader { text: "PostHog" }
+                LinkButton {
+                    label: "Docs"
+                    url: "https://posthog.com/docs"
+                    accent: root.brandBlue
                 }
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 2
-                    Text {
-                        text: tile.label
-                        font.pixelSize: 16
-                        font.weight: Font.Medium
-                        color: root.brandText
-                    }
-                    Text {
-                        text: tile.description
-                        font.pixelSize: 12
-                        color: root.brandTextMuted
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
+                LinkButton {
+                    label: "Website"
+                    url: "https://posthog.com"
+                    accent: root.brandBlue
+                }
+                LinkButton {
+                    label: "Blog"
+                    url: "https://posthog.com/blog"
+                    accent: root.brandBlue
                 }
             }
 
-            ActionTile {
-                label:       prefs.isLiveIso ? "Install to disk"                       : "Install dev toolkit"
-                description: prefs.isLiveIso ? "Run the Calamares installer"           : "AI CLIs and tools"
-                accent:      prefs.isLiveIso ? root.brandOrange                        : root.brandRed
-                onClicked:   prefs.isLiveIso ? Qt.exit(10)                             : toolkitDialog.open()
-            }
-
-            ActionTile {
-                label: "Open terminal"
-                description: "Launch Ghostty"
-                accent: root.brandBlue
-                onClicked: Qt.exit(11)
-            }
-
-            ActionTile {
-                label: "Install docs"
-                description: "wiki.cachyos.org/installation"
-                accent: root.brandBlue
-                onClicked: Qt.openUrlExternally("https://wiki.cachyos.org/installation/installation/")
-            }
-
-            ActionTile {
-                label: "Source code"
-                description: "github.com/posthog/linux-posthogos"
-                accent: root.brandOrange
-                onClicked: Qt.openUrlExternally("https://github.com/posthog/linux-posthogos")
+            // --- CachyOS column ------------------------------------------
+            // PosthogOS is a CachyOS spin; users who want to understand
+            // the underlying system / get install help / ask base-OS
+            // questions need upstream's resources, not posthog.com.
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                SectionHeader { text: "CachyOS" }
+                LinkButton {
+                    label: "Wiki"
+                    url: "https://wiki.cachyos.org"
+                    accent: root.brandOrange
+                }
+                LinkButton {
+                    label: "Install guide"
+                    url: "https://wiki.cachyos.org/installation/installation/"
+                    accent: root.brandOrange
+                }
+                LinkButton {
+                    label: "Forums"
+                    url: "https://discuss.cachyos.org/"
+                    accent: root.brandOrange
+                }
             }
         }
 
@@ -256,8 +336,41 @@ ApplicationWindow {
         Item { Layout.fillHeight: true }   // pushes footer to the bottom
 
         // --- Footer ------------------------------------------------------
+        // PosthogOS-project links sit on the LEFT as quiet text chips
+        // (Source / Issues / Releases), matching CachyOS Welcome's social-
+        // icon row position but using plain-text instead of brand-bundled
+        // SVGs (we don't ship icon assets for GitHub etc., and unicode
+        // emoji look unprofessional in Plasma chrome).
+        component FooterLink: Text {
+            id: flink
+            property string url: ""
+            color: fma.containsMouse ? root.brandBlue : root.brandTextMuted
+            font.pixelSize: 12
+            font.underline: fma.containsMouse
+            HoverHandler { id: fma; cursorShape: Qt.PointingHandCursor }
+            TapHandler {
+                onTapped: if (flink.url) Qt.openUrlExternally(flink.url)
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
+            spacing: 14
+
+            FooterLink {
+                text: "Source"
+                url: "https://github.com/posthog/linux-posthogos"
+            }
+            FooterLink {
+                text: "Issues"
+                url: "https://github.com/posthog/linux-posthogos/issues"
+            }
+            FooterLink {
+                text: "Releases"
+                url: "https://github.com/posthog/linux-posthogos/releases"
+            }
+
+            Item { Layout.fillWidth: true }
 
             CheckBox {
                 text: "Show on next startup"
@@ -266,13 +379,11 @@ ApplicationWindow {
                 contentItem: Text {
                     text: parent.text
                     color: root.brandTextMuted
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     leftPadding: parent.indicator.width + 6
                     verticalAlignment: Text.AlignVCenter
                 }
             }
-
-            Item { Layout.fillWidth: true }
 
             Button {
                 text: "Close"

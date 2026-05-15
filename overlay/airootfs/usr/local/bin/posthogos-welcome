@@ -6,7 +6,6 @@
 # Exit codes from welcome.qml:
 #   0   normal close
 #   10  user clicked "Install to disk"     → launch Calamares
-#   11  user clicked "Open terminal"        → launch Ghostty
 #   12  user clicked "Install dev toolkit"  → launch posthogos-toolkit-install
 #         in Ghostty. Skip list read from QtCore.Settings file.
 
@@ -77,7 +76,6 @@ set -e
 
 case "$ec" in
     10) exec sudo -E calamares ;;        # Install to disk
-    11) exec ghostty ;;                  # Open terminal
     12)                                  # Install dev toolkit
         # On the live ISO pacman writes to tmpfs and balloons RAM, so
         # refuse politely instead of melting the user's session.
