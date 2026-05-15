@@ -78,6 +78,19 @@ docker run --rm --privileged \
 
 iso=$(ls -1t out/*.iso 2>/dev/null | head -n1 || true)
 if [ -n "$iso" ]; then
+    # Strip macOS quarantine + provenance xattrs from the ISO. Docker
+    # Desktop / OrbStack tag files written by their containers with
+    # `com.apple.quarantine`, and UTM's sandboxed QEMU refuses to open
+    # quarantined files with a bare "Operation not permitted" (the same
+    # error you'd get from a missing-read-permission or TCC block, which
+    # is why this masquerades as a permissions issue for an hour before
+    # you notice the xattr). Homebrew's plain qemu-system-x86_64 doesn't
+    # care, but UTM does. `xattr -c` is a no-op on Linux (the command
+    # doesn't exist) and on macOS hosts where the xattr wasn't applied,
+    # so it's safe to run unconditionally.
+    if command -v xattr >/dev/null 2>&1; then
+        xattr -c "$iso" 2>/dev/null || true
+    fi
     success "Built: $iso ($(du -h "$iso" | cut -f1))"
 else
     fatal "Build finished but no ISO landed in out/"
