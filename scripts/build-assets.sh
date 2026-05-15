@@ -356,6 +356,78 @@ mkdir -p "$cal_dst"
 "$MAGICK" "$src/hoglife/Posthog 3000.png" \
     "$cal_dst/welcome.png"
 
+# --- Sound theme: posthogos ----------------------------------------------
+# Freedesktop sound theme using the pre-converted OGGs in
+# branding/posthogos/sounds/*.ogg. The conversion from the MP3 sources is
+# done once on the host (ffmpeg -c:a vorbis -ac 2 -q:a 5) and the OGGs are
+# committed to the repo, so this script is a straight copy + rename:
+# no audio toolchain needed in the build container.
+#
+# Mapping (sound → freedesktop event):
+#   guitar     service-login         warm welcoming chord
+#   revi       service-logout
+#   bubbles    message               + alias to message-new-instant
+#   meep       dialog-information
+#   knock      dialog-question
+#   drop       dialog-warning
+#   wilhelm    dialog-error          (the canonical Wilhelm scream)
+#   ring       bell                  literal terminal bell
+#   shoot      trash-empty
+#   slide      window-close
+#   switch    screen-capture
+#   danilo    complete
+#
+# Inherits=freedesktop in index.theme: any event we don't override falls
+# through to the system default sound theme.
+sound_src="$src/sounds"
+sound_dst="$out/airootfs/usr/share/sounds/posthogos/stereo"
+if [ -d "$sound_src" ] && ls "$sound_src"/*.ogg >/dev/null 2>&1; then
+    log "Generating PosthogOS sound theme"
+    mkdir -p "$sound_dst"
+
+    # event-name → source basename (no extension)
+    declare -A sound_map=(
+        [service-login]=guitar
+        [service-logout]=revi
+        [message]=bubbles
+        [message-new-instant]=bubbles
+        [dialog-information]=meep
+        [dialog-question]=knock
+        [dialog-warning]=drop
+        [dialog-error]=wilhelm
+        [bell]=ring
+        [trash-empty]=shoot
+        [window-close]=slide
+        [screen-capture]=switch
+        [complete]=danilo
+    )
+
+    for event in "${!sound_map[@]}"; do
+        src_ogg="$sound_src/${sound_map[$event]}.ogg"
+        if [ ! -s "$src_ogg" ]; then
+            log "  WARN: missing or empty $src_ogg for event '$event'"
+            continue
+        fi
+        cp "$src_ogg" "$sound_dst/${event}.oga"
+    done
+
+    cat > "$out/airootfs/usr/share/sounds/posthogos/index.theme" <<'SOUND_EOF'
+[Sound Theme]
+Name=PosthogOS
+Comment=PosthogOS event sounds (login, notifications, errors)
+Inherits=freedesktop
+Directories=stereo
+Example=service-login
+
+[stereo]
+OutputProfile=stereo
+SOUND_EOF
+    log "  $(ls "$sound_dst" | wc -l | tr -d ' ') events shipped"
+elif [ -d "$sound_src" ]; then
+    log "Sound theme skipped: no *.ogg files in $sound_src"
+    log "  (run: ffmpeg -i input.mp3 -ac 2 -c:a vorbis -strict experimental -q:a 5 output.ogg)"
+fi
+
 # --- PostHog Code AppImage (optional) -------------------------------------
 # Bundled when bin/build stages it via POSTHOG_CODE_APPIMAGE env var into
 # .appimages/posthog-code.AppImage. Silent skip if absent so CI / fresh

@@ -170,6 +170,14 @@ SingleClick=false
 
 [Icons]
 Theme=PosthogOS
+
+# Sound theme: events under /usr/share/sounds/posthogos/stereo/ (login,
+# logout, message, dialog-*, etc.). Built into the ISO from
+# branding/posthogos/sounds/*.ogg by scripts/build-assets.sh. Plasma
+# resolves this via libcanberra; falls through to the freedesktop default
+# theme for events we don't override.
+[Sounds]
+Theme=posthogos
 EOF
 
 # Tell System Settings which LAF is active. Without this file the KCM
