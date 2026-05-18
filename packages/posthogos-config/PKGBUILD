@@ -1,59 +1,33 @@
 # Maintainer: PostHog <hey@posthog.com>
 # shellcheck disable=SC2034,SC2154
 #
-# posthogos-config: PosthogOS /etc/skel dotfiles as a pacman package.
-#
-# Ships the "new user starts with these defaults" content for users created
-# by Calamares (the installer copies /etc/skel/ into each new user's
-# home on first login).
-#
-# Owned paths:
-#   /etc/skel/.zshrc                                    shell setup
-#   /etc/skel/.gitconfig                                git defaults + aliases
-#   /etc/skel/.config/ghostty/config                    terminal config
-#   /etc/skel/.config/zellij/config.kdl                 tmux-alt config
-#   /etc/skel/.config/zellij/layouts/posthogos-dev.kdl  default dev layout
-#
-# NOT owned by this package:
-#   /etc/skel/.config/kdeglobals               (cachyos-kde-settings owns)
-#   /etc/skel/.config/gtk-{3,4}.0/settings.ini (cachyos-kde-settings owns)
-#   /etc/skel/.config/konsolerc                (cachyos-kde-settings owns)
-#   /etc/skel/.config/autostart/cachyos-hello.desktop (overrides system entry)
-# Those are written by scripts/posthogos-customize.sh at chroot time
-# because pacman conflicts would block us from owning them here.
-#
-# Source: overlay/airootfs/etc/skel/. in-container-build.sh excludes
-# the same paths from the airootfs rsync so pacstrap'd files aren't
-# clobbered.
-#
-# Versioning: pkgver() reads from `git describe --tags`.
+# posthogos-config: /etc/skel dotfiles (zsh, git, ghostty, zellij).
+# Source: overlay/airootfs/etc/skel/. KDE/GTK skel files
+# (kdeglobals, gtk-{3,4}.0, konsolerc) are written by customize.sh
+# instead, because cachyos-kde-settings already owns those paths.
 
 pkgname=posthogos-config
-pkgver=0.0.0.dev.b16555a
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS /etc/skel dotfiles (zsh, git, ghostty, zellij)'
 arch=('any')
 url='https://github.com/posthog/linux-posthogos'
 license=('MIT')
 
-# Optdepends: the shells / tools the dotfiles configure. Not making any
-# hard so the package stays cheap to install on minimal systems.
+# The tools the dotfiles configure. Soft so the package stays cheap.
 optdepends=(
-    'zsh: shell that reads /etc/skel/.zshrc'
-    'git: reader of /etc/skel/.gitconfig'
-    'ghostty: terminal that reads /etc/skel/.config/ghostty/config'
-    'zellij: tmux-alt that reads /etc/skel/.config/zellij/'
+    'zsh: reads /etc/skel/.zshrc'
+    'git: reads /etc/skel/.gitconfig'
+    'ghostty: reads /etc/skel/.config/ghostty/'
+    'zellij: reads /etc/skel/.config/zellij/'
 )
 
+# pkgver: latest git tag (v-stripped), or 0.0.0.dev.<sha> when no tags.
 pkgver() {
     cd "$startdir/../.."
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet. Emit a deterministic dev marker so makepkg
-        # accepts a non-empty pkgver and the resulting filename signals
-        # this isn't a tagged release. Pacman pkgver allows alnum + . +
-        # _ + + only, so we stick to dots.
         v="0.0.0.dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     fi
     echo "$v"
@@ -64,11 +38,8 @@ package() {
     repo_root="$startdir/../.."
     overlay="$repo_root/overlay/airootfs"
 
-    # Top-level skel dotfiles
     install -Dm 0644 "$overlay/etc/skel/.zshrc"     "$pkgdir/etc/skel/.zshrc"
     install -Dm 0644 "$overlay/etc/skel/.gitconfig" "$pkgdir/etc/skel/.gitconfig"
-
-    # XDG config trees. install -D creates parent dirs as needed.
     install -Dm 0644 "$overlay/etc/skel/.config/ghostty/config" \
         "$pkgdir/etc/skel/.config/ghostty/config"
     install -Dm 0644 "$overlay/etc/skel/.config/zellij/config.kdl" \

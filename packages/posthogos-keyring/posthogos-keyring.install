@@ -1,13 +1,8 @@
-# Hooks fired by pacman post-install / post-upgrade / pre-remove of
-# posthogos-keyring. Uses absolute /usr/bin paths because $PATH isn't
-# guaranteed in scriptlet contexts (e.g. pacstrap'd chroots).
+# Absolute /usr/bin paths: $PATH isn't guaranteed in scriptlet context.
 
 post_install() {
-    # If pacman-key has been initialized in this rootfs, import + sign.
-    # Otherwise this is a fresh pacstrap and `pacman-key --init` will run
-    # later (or already ran from archlinux-keyring's own hook); the
-    # populate then happens on first `pacman -Syu`. Either way we don't
-    # want to fail the install.
+    # Skip if pacman-key isn't initialized yet (fresh pacstrap); populate
+    # will run on first `pacman -Syu` instead.
     if /usr/bin/pacman-key -l >/dev/null 2>&1; then
         /usr/bin/pacman-key --populate posthogos
         /usr/bin/pacman-key --updatedb

@@ -1,15 +1,11 @@
 # Maintainer: PostHog <hey@posthog.com>
 # shellcheck disable=SC2034,SC2154
 #
-# posthogos: meta-package pulling the full PosthogOS stack.
-#
-# Lets a fresh Arch / CachyOS install opt into PosthogOS with a single `pacman -S posthogos`, and
-# lets removal of the brand cleanly cascade if a user wants to revert.
-#
-# No files of its own; just a depends list. Pacman handles the dep graph.
+# posthogos: meta-package. `pacman -S posthogos` pulls the full stack;
+# `-Rs` cascades the removal.
 
 pkgname=posthogos
-pkgver=0.0.0.dev.b16555a
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS: meta-package pulling the full PosthogOS stack'
 arch=('any')
@@ -17,31 +13,25 @@ url='https://github.com/posthog/linux-posthogos'
 license=('MIT')
 
 depends=(
-    'posthogos-keyring'    # pubring; must already be trusted for the
-                           # others to verify under SigLevel=Required
-    'posthogos-branding'   # icons, wallpapers, LAF, fonts, sounds, themes
-    'posthogos-scripts'    # firstrun, snapper-init, toolkit-install, neohog
-    'posthogos-welcome'    # welcome window + launcher
-    'posthogos-config'     # /etc/skel dotfiles (zsh, git, ghostty, zellij)
+    'posthogos-keyring'    # must come first; trust bootstrap for SigLevel=Required
+    'posthogos-branding'
+    'posthogos-scripts'
+    'posthogos-welcome'
+    'posthogos-config'
 )
 
+# pkgver: latest git tag (v-stripped), or 0.0.0.dev.<sha> when no tags.
 pkgver() {
     cd "$startdir/../.."
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet. Emit a deterministic dev marker so makepkg
-        # accepts a non-empty pkgver and the resulting filename signals
-        # this isn't a tagged release. Pacman pkgver allows alnum + . +
-        # _ + + only, so we stick to dots.
         v="0.0.0.dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     fi
     echo "$v"
 }
 
 package() {
-    # Meta-package: no files, just the depends list above. The license
-    # link is the one real artifact (every package gets one).
     install -Dm 0644 "$startdir/../../LICENSE" \
         "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
 }

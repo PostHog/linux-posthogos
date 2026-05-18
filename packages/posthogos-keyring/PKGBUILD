@@ -1,24 +1,14 @@
 # Maintainer: PostHog <hey@posthog.com>
 # shellcheck disable=SC2034,SC2154
 #
-# posthogos-keyring: the PostHog packager GPG public key as a pacman
-# keyring, so installed systems can verify signatures on every other
-# posthogos-* package before installing.
+# posthogos-keyring: PostHog packager pubring + a pacman .install hook
+# that locally signs the key. Required for SigLevel=Required on [posthogos].
 #
-# Bootstraps the trust chain. After this package is installed:
-#   - /usr/share/pacman/keyrings/posthogos.gpg holds the public key
-#   - the .install hook imports it into /etc/pacman.d/gnupg/ via
-#     `pacman-key --populate posthogos` and locally signs it via
-#     `pacman-key --updatedb`
-#   - end-user pacman.conf can use `SigLevel = Required` for [posthogos]
-#
-# Key rotation: when we rotate the packager key, the NEW posthogos-keyring
-# package must be signed with the OLD key so that systems trusting the
-# old key can verify + install the new keyring, which then trusts new
-# packages going forward.
+# Key rotation: a new keyring must be signed with the OLD key so
+# trusting-old systems can still install + adopt the new trust.
 
 pkgname=posthogos-keyring
-pkgver=0.0.0.dev.b16555a
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS pacman keyring (PostHog packager public key)'
 arch=('any')
@@ -30,19 +20,14 @@ source=(
     'posthogos-trusted'
     'posthogos-revoked'
 )
-# Local source files, no checksum mirror to verify against.
-sha256sums=('SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP')   # local files
 
-# pkgver auto-derived from git tag (same pattern as posthogos-branding).
+# pkgver: latest git tag (v-stripped), or 0.0.0.dev.<sha> when no tags.
 pkgver() {
     cd "$startdir/../.."
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet. Emit a deterministic dev marker so makepkg
-        # accepts a non-empty pkgver and the resulting filename signals
-        # this isn't a tagged release. Pacman pkgver allows alnum + . +
-        # _ + + only, so we stick to dots.
         v="0.0.0.dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     fi
     echo "$v"

@@ -1,19 +1,14 @@
-# Builder image for PosthogOS. Invoked by bin/build on non-Arch hosts.
-# Must run with --privileged: mkarchiso needs loop devices and bind mounts.
+# Builder image for PosthogOS. Run with --privileged (mkarchiso needs loop
+# devices + bind mounts). archlinux is x86_64-only; bin/build handles the
+# --platform=linux/amd64 on Apple Silicon (Rosetta-emulated, slow but correct).
 #
-# archlinux is x86_64-only. On Apple Silicon hosts, build with
-# --platform=linux/amd64 (handled by bin/build); OrbStack/Docker Desktop
-# emulate via Rosetta. Slow but correct: the final ISO is x86_64 regardless.
-#
-# Pinned to a specific snapshot tag (not :latest) so builds are reproducible.
-# Bump periodically to pick up upstream userspace fixes. The pacman -Syu
-# inside this Dockerfile pulls the latest package versions on top regardless,
-# so the pin mainly controls the starting glibc/coreutils/etc snapshot.
+# Snapshot tag pin (not :latest) for build reproducibility. Bump
+# periodically — pacman -Syu below pulls latest package versions anyway,
+# so the pin mostly controls the starting glibc/coreutils snapshot.
 FROM archlinux:base-20260510.0.525573
 
-# Pacman 7's alpm sandbox uses seccomp filters that fail under Rosetta
-# emulation ("error restricting syscalls via seccomp: 22"). Disable it.
-# This image is throwaway, no security impact.
+# Pacman 7's alpm seccomp filters fail under Rosetta emulation
+# ("seccomp: 22"). Throwaway image, no security impact to disabling.
 RUN echo 'DisableSandbox' >> /etc/pacman.conf
 
 RUN pacman -Syu --noconfirm --needed \
@@ -30,30 +25,21 @@ RUN pacman -Syu --noconfirm --needed \
     qt6-base \
     qt6-declarative \
  && pacman -Scc --noconfirm
-# qt6-base + qt6-declarative are needed by posthogos-welcome's PKGBUILD
-# build(), which compiles a small C++ launcher (~30 lines) against Qt6
-# Core/Gui/Qml. Adds ~150 MB to the image but the GH Actions pacman
-# cache absorbs the download cost on subsequent builds.
+# qt6-base + qt6-declarative: headers for posthogos-welcome's build().
+# ~150 MB extra; GH Actions cache absorbs the cost.
 
-# Mark all dirs as safe for git. Without this, git refuses to operate on
-# bind-mounted workspaces when the host file owner uid (e.g. 1001 on GitHub
-# Actions runners) doesn't match the container's runtime uid (0/root). The
-# Docker-Desktop case works by accident because OSXFS papers over the uids;
-# Linux bind mounts don't, so git's "dubious ownership" check fires and
-# `git -C upstream archive` in scripts/in-container-build.sh aborts.
+# Mark dirs as safe for git. Without this, git's "dubious ownership"
+# check fires on Linux bind mounts (host uid != container uid) and
+# `git -C upstream archive` aborts. Docker Desktop on macOS papers over
+# the uids; Linux runners don't.
 RUN git config --system --add safe.directory '*'
 
-# CachyOS-specific repos and keyring. mkarchiso runs pacstrap inside the
-# container; without these, cachyos-* packages from upstream/archiso/
-# packages_desktop.x86_64 won't resolve.
+# CachyOS repos + keyring. Replicates `cachyos-repo.sh --install` directly
+# because the upstream script's `pacman -U` is interactive and hangs in
+# non-tty containers.
 #
-# We replicate CachyOS's `cachyos-repo.sh --install` directly because the
-# upstream script's `pacman -U` call is interactive (no --noconfirm) and
-# hangs on `Y/n` in non-tty containers.
-#
-# TODO: Mirrorlist package versions are pinned. When upstream releases new
-#       versions, bump the URLs below. The cachyos-keyring version is
-#       stable across releases.
+# TODO: bump mirrorlist URLs when upstream releases new versions
+#       (cachyos-keyring version is stable across releases).
 ARG CACHYOS_MIRROR=https://mirror.cachyos.org/repo/x86_64/cachyos
 RUN pacman-key --init \
  && pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com \

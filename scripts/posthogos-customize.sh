@@ -16,19 +16,11 @@ log() { printf '[posthogos-customize] %s\n' "$*"; }
 BRAND="posthogos"
 
 # ---- PosthogOS pacman repo ----------------------------------------------
-# Register the [posthogos] repo in /etc/pacman.conf so installed systems
-# get our package updates (icons, wallpapers, LAF, scripts, ...) via the
-# normal `pacman -Syu` flow. Without this entry, every brand iteration
-# would require re-downloading the ISO.
-#
-# SigLevel=Required: every .pkg.tar.zst AND the posthogos.db.tar.zst
-# must verify against a key in pacman's trusted keyring. The PostHog
-# packager key was pacstrapped via posthogos-keyring and locally signed
-# by its .install hook, so verification works from first boot.
-#
-# Append (don't prepend) so CachyOS's higher-priority repos still win for
-# anything ambiguous; the only names we publish are namespaced
-# `posthogos-*` so there's no conflict in practice.
+# Register [posthogos] so installed systems get package updates via
+# `pacman -Syu`. SigLevel=Required works from first boot because
+# posthogos-keyring's .install hook locally signed the packager key.
+# Appended (not prepended) so CachyOS's higher-priority repos still win
+# for anything ambiguous; we only publish `posthogos-*` names anyway.
 if ! grep -q '^\[posthogos\]' /etc/pacman.conf; then
     log "Registering [posthogos] pacman repo"
     cat >>/etc/pacman.conf <<'EOF'
@@ -40,9 +32,8 @@ EOF
 fi
 
 # ---- OS identity ---------------------------------------------------------
-# These files are owned by upstream packages (filesystem, lsb-release), so
-# we can't pre-stage them in airootfs/etc/ (pacstrap refuses to overwrite).
-# Write them here after pacstrap completes.
+# Owned by upstream packages (filesystem, lsb-release), so pacstrap
+# refuses to overwrite — write them post-pacstrap.
 log "Writing /etc/os-release"
 cat >/etc/os-release <<'EOF'
 NAME="PosthogOS"
@@ -86,13 +77,10 @@ cat >/etc/motd <<'EOF'
 EOF
 
 # ---- liveuser home + XDG base dirs --------------------------------------
-# Plasma session crashes with "Error loading Applet: package  does not
-# exist" if ~/.cache isn't writable by liveuser at first login (ksycoca
-# fails). The subdirs must exist with liveuser:liveuser ownership BEFORE
-# login; chmod on the home root alone isn't enough. Use UID/GID directly
-# (nsswitch may not be primed enough for `id liveuser` to work in this
-# chroot). Belt-and-suspenders for /etc/tmpfiles.d/posthogos-liveuser.conf,
-# which runs at every boot.
+# Subdirs must exist with liveuser:liveuser ownership BEFORE first login,
+# or ksycoca fails and Plasma crashes with "Error loading Applet: package
+# does not exist". UID/GID directly (nsswitch may not resolve `liveuser`
+# in this chroot context).
 log "Provisioning /home/liveuser with XDG base dirs (uid=1000)"
 install -d -o 1000 -g 1000 -m 0755 \
     /home/liveuser \
@@ -110,18 +98,13 @@ ls -ld /home/liveuser /home/liveuser/.cache  # log the resulting state
 # /home itself must be traversable.
 [ -d /home ] && chmod 0755 /home
 
-# Fontconfig cache: writable by all users. Without this, every Plasma startup
-# spams "Fontconfig error: No writable cache directories" (we saw 100+ such
-# lines in journalctl right before the kded sycoca failure).
+# Fontconfig cache: writable by all. Otherwise every Plasma startup spams
+# "Fontconfig error: No writable cache directories".
 install -d -m 0755 /var/cache/fontconfig
 
-# Ensure scripts we ship in /usr/local/bin/ and the PostHog Code AppImage
-# are executable. Docker Desktop's bind-mount perm propagation on macOS
-# is unreliable, so we re-chmod in the chroot regardless of host perms.
+# Re-chmod in the chroot: Docker Desktop's bind-mount perm propagation on
+# macOS is unreliable, so the +x bit on overlay scripts gets lost.
 if [ -d /usr/local/bin ]; then
-    # posthogos-scripts is the pacman owner of the posthogos-* scripts +
-    # neohog + papirus-folders here. Belt + suspenders chmod covers
-    # anything else dropped into /usr/local/bin/ by the overlay rsync.
     chmod +x /usr/local/bin/* 2>/dev/null || true
 fi
 if [ -d /opt/posthog-code ]; then
@@ -148,10 +131,8 @@ if [ -d /home/liveuser ]; then
 fi
 
 # ---- Plasma + GTK defaults for new users ---------------------------------
-# /etc/skel content seeds new accounts on first login. cachyos-kde-settings
-# ships its own kdeglobals + gtk settings here, so we can't pre-stage these
-# via the overlay (pacstrap refuses conflicting files). Writing post-pacstrap
-# overwrites the CachyOS defaults cleanly.
+# cachyos-kde-settings owns these /etc/skel paths, so we can't pre-stage
+# them via the overlay. Writing post-pacstrap overwrites cleanly.
 log "Writing /etc/skel Plasma + GTK defaults"
 mkdir -p /etc/skel/.config/gtk-3.0 /etc/skel/.config/gtk-4.0
 
@@ -164,10 +145,7 @@ fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 smallestReadableFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 toolBarFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
-# Default terminal emulator. TerminalApplication is the legacy key (used
-# by older KIO actions); TerminalService is the Plasma 6 form (.desktop
-# basename). Setting both covers Dolphin's "Open Terminal Here", Konsole-
-# replacement integrations, and xdg-terminal-exec fallbacks.
+# Default terminal: set both keys (legacy + Plasma 6) for full coverage.
 TerminalApplication=ghostty
 TerminalService=com.mitchellh.ghostty.desktop
 
@@ -179,11 +157,8 @@ SingleClick=false
 [Icons]
 Theme=PosthogOS
 
-# Sound theme: events under /usr/share/sounds/posthogos/stereo/ (login,
-# logout, message, dialog-*, etc.). Built into the ISO from
-# branding/posthogos/sounds/*.ogg by scripts/build-assets.sh. Plasma
-# resolves this via libcanberra; falls through to the freedesktop default
-# theme for events we don't override.
+# Sound theme at /usr/share/sounds/posthogos/. Falls through to the
+# freedesktop default for events we don't override.
 [Sounds]
 Theme=posthogos
 EOF
@@ -221,21 +196,18 @@ if [ -d /home/liveuser ]; then
 fi
 
 # ---- Seed liveuser's home with /etc/skel additions ----------------------
-# liveuser was created before the overlay rsync, so /etc/skel additions
-# don't auto-propagate (skel is consulted at user-creation time only).
-# Mirror them in with `cp -an` (no-clobber) to avoid trampling state on
-# re-runs. Calamares-installed users get skel for free post-install.
+# liveuser predates the overlay rsync, so /etc/skel additions don't
+# auto-propagate (skel is consulted at user-creation only). `cp -an`
+# (no-clobber) avoids trampling state on re-runs. Trailing /. handles dotfiles.
 if [ -d /home/liveuser ] && [ -d /etc/skel ]; then
     log "Seeding /home/liveuser with /etc/skel contents (dotfiles, configs)"
-    # Copy hidden + visible top-level entries. `cp -an /etc/skel/. /home/liveuser/`
-    # handles dotfiles correctly (the trailing /. is the trick).
     cp -an /etc/skel/. /home/liveuser/ 2>&1 | sed 's/^/  /' || true
     chown -R 1000:1000 /home/liveuser
 fi
 
 # ---- Plymouth ------------------------------------------------------------
-# Theme descriptor must already be at /usr/share/plymouth/themes/$BRAND/$BRAND.plymouth
-# from the overlay. We point plymouthd at it, then regenerate the initramfs.
+# Theme descriptor comes from the overlay (posthogos-branding ships it).
+# Point plymouthd at it, then regenerate the initramfs.
 if [ -f "/usr/share/plymouth/themes/$BRAND/$BRAND.plymouth" ]; then
     mkdir -p /etc/plymouth
     cat >/etc/plymouth/plymouthd.conf <<EOF
@@ -244,9 +216,8 @@ Theme=$BRAND
 ShowDelay=0
 EOF
 
-    # FAST_BUILD skips the initramfs regen (saves ~10 min across 6 kernels
-    # at the cost of an unbranded plymouth splash for the few seconds
-    # before SDDM). pre-build.sh writes the marker file when FAST_BUILD=1.
+    # FAST_BUILD skips the ~10 min initramfs regen (unbranded plymouth
+    # splash for a few seconds before SDDM, in exchange).
     if [ -f /etc/posthogos-fast-build ]; then
         log "Configuring Plymouth theme: $BRAND (FAST_BUILD: config-only, no initramfs regen)"
         rm -f /etc/posthogos-fast-build   # don't ship the marker
@@ -262,10 +233,9 @@ else
 fi
 
 # ---- Calamares branding --------------------------------------------------
-# cachyos-calamares-next ships settings.conf at /usr/share/calamares/
-# (not /etc/calamares/ like vanilla). Probe both paths so an upstream
-# refactor doesn't silently break us. Only flip if our branding.desc
-# actually exists, otherwise Calamares would fail to start.
+# cachyos-calamares-next ships settings.conf under /usr/share/, vanilla
+# Calamares uses /etc/. Probe both. Only flip if our branding.desc
+# actually exists, or Calamares fails to start.
 cal_settings=""
 for candidate in /usr/share/calamares/settings.conf /etc/calamares/settings.conf; do
     [ -f "$candidate" ] && cal_settings="$candidate" && break
@@ -279,9 +249,8 @@ else
 fi
 
 # ---- Calamares: default to btrfs ---------------------------------------
-# Flip the automatic-install default to btrfs (subvolumes for snapper/
-# snap-pac/grub-btrfs). Users can still pick ext4/xfs/f2fs from manual
-# partitioning; we only change the default.
+# Auto-install default: btrfs (snapper / snap-pac / grub-btrfs need it).
+# Manual partitioning still offers ext4/xfs/f2fs.
 for part_conf in /usr/share/calamares/modules/partition.conf /etc/calamares/modules/partition.conf; do
     if [ -f "$part_conf" ]; then
         log "Patching $part_conf → defaultFileSystemType: btrfs"
@@ -292,19 +261,11 @@ for part_conf in /usr/share/calamares/modules/partition.conf /etc/calamares/modu
 done
 
 # ---- Display manager: plasma-login-manager (plasmalogin) ----------------
-# plasma-login-manager is upstream KDE's SDDM fork with a new Plasma-native
-# greeter that integrates the standard Plasma wallpaper plugin. CachyOS ships
-# it as the default DM; we keep it and just override the wallpaper.
-#
-# Important: per upstream's known bug, config under /etc/plasmalogin.conf.d/
-# is silently ignored. The only working config path is /etc/plasmalogin.conf.
+# Upstream KDE's SDDM fork with a Plasma-native greeter. Config must live
+# at /etc/plasmalogin.conf — /etc/plasmalogin.conf.d/ is silently ignored
+# (upstream bug). WallpaperPluginId is required: without it, the greeter
+# bails with "Error loading Applet: package  does not exist".
 log "Writing /etc/plasmalogin.conf (autologin + branded wallpaper)"
-# Two keys needed for the wallpaper:
-#   [Greeter] WallpaperPluginId=org.kde.image  → "which plugin shows the wallpaper"
-#   [Greeter][Wallpaper][org.kde.image][General] Image=  → "which image"
-# Missing the first one made plasmalogin try to load an applet with empty
-# plugin id → "Error loading Applet: package  does not exist" before the
-# greeter rendered.
 cat >/etc/plasmalogin.conf <<'EOF'
 [Autologin]
 User=liveuser
@@ -325,9 +286,8 @@ FillMode=2
 EOF
 
 # ---- Curate the wallpaper picker -----------------------------------------
-# cachyos-kde-settings ships CachyOS-flavored wallpapers (Sub-Arctic etc.)
-# that dilute the brand in System Settings → Wallpaper. Prune anything
-# that isn't ours or a stock Breeze wallpaper.
+# Prune CachyOS-flavored wallpapers that dilute the brand in System
+# Settings. Keep ours + stock Breeze.
 log "Pruning non-PosthogOS / non-Breeze wallpapers"
 if [ -d /usr/share/wallpapers ]; then
     for wp in /usr/share/wallpapers/*/; do
@@ -344,8 +304,7 @@ if [ -d /usr/share/wallpapers ]; then
 fi
 
 # ---- Papirus folder color ------------------------------------------------
-# Recolor Papirus's folder icons blue → warm orange. The papirus-folders
-# helper is AUR-only, so we vendor v1.14.0 at /usr/local/bin/papirus-folders.
+# Blue → orange via the vendored AUR helper at /usr/local/bin/papirus-folders.
 PAPIRUS_COLOR=orange
 if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders ]; then
     log "Recoloring Papirus-Light folders → $PAPIRUS_COLOR (papirus-folders)"
@@ -353,9 +312,8 @@ if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders 
         || log "WARN: papirus-folders failed"
 fi
 
-# Plasma's Discover auto-detects Flatpak when the binary is installed
-# (libflatpak is detected at Discover's startup), so no separate
-# discover-flatpak-backend package is needed in Plasma 6.
+# Plasma 6's Discover auto-detects Flatpak when the binary's present;
+# no separate discover-flatpak-backend package needed.
 if command -v flatpak >/dev/null; then
     log "Registering Flathub as a system-wide Flatpak remote"
     flatpak remote-add --system --if-not-exists \
@@ -370,8 +328,6 @@ log "Refreshing desktop / icon / gtk / font caches"
     -exec gtk-update-icon-cache -q -t -f {} \; 2>/dev/null || true
 update-desktop-database -q 2>/dev/null || true
 glib-compile-schemas /usr/share/glib-2.0/schemas/ 2>/dev/null || true
-# Register Squeak + Loud Noises (installed via overlay-generated/ to
-# /usr/share/fonts/posthogos/) so apps can use them by family name.
-fc-cache -f /usr/share/fonts 2>/dev/null || true
+fc-cache -f /usr/share/fonts 2>/dev/null || true   # register branded fonts
 
 log "Done."

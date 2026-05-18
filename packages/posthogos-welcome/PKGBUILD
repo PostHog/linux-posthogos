@@ -1,76 +1,49 @@
 # Maintainer: PostHog <hey@posthog.com>
 # shellcheck disable=SC2034,SC2154
 #
-# posthogos-welcome: PosthogOS first-boot welcome window + Qt6 launcher.
-#
-# Replaces he prior chroot-time compile (posthogos-customize.sh had a g++ block
-# that built the launcher from /usr/src/posthogos-welcome-launcher.cpp at
-# squashfs assembly time and deleted the source). Now the .cpp is a
-# package source, build() compiles in the builder container, and the
-# package ships the binary pre-built (same Qt6 ABI as the runtime
-# because the build container and the chroot pacstrap the same Qt6
-# version from the same upstream repos).
-#
-# Source layout: the .cpp lives in this PKGBUILD dir; the wrapper script,
-# QML window, and .desktop entries are still under overlay/airootfs/
-# (PKGBUILD reads from there, in-container-build.sh's overlay rsync
-# excludes those paths so the pacstrap'd files aren't clobbered).
-#
-# Versioning: pkgver() reads from `git describe --tags`.
+# posthogos-welcome: welcome window. build() compiles the Qt6 launcher
+# from this PKGBUILD's .cpp; wrapper, .qml, and .desktop entries come
+# from overlay/airootfs/. ABI safety: build container and runtime
+# pacstrap the same Qt6 from the same upstream repos.
 
 pkgname=posthogos-welcome
-pkgver=0.0.0.dev.b16555a
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS welcome window (Qt6 QML) + launcher'
-arch=('x86_64')   # ships a compiled binary, so not 'any'
+arch=('x86_64')   # ships a compiled binary
 url='https://github.com/posthog/linux-posthogos'
 license=('MIT')
 
-# Runtime deps. Qt6 core + QML + Quick.Controls + Breeze style for the
-# QtQuick.Controls look-and-feel referenced in welcome.qml.
 depends=(
-    'qt6-base'           # QGuiApplication, QIcon, QUrl
-    'qt6-declarative'    # QtQml, QtQuick, QtQuick.Controls, QtQuick.Layouts
-    'qqc2-breeze-style'  # Breeze style for QtQuick.Controls (welcome.qml uses it)
-    'hicolor-icon-theme' # for /usr/share/icons/hicolor/* lookup (the
-                         # branded posthogos-welcome icon ships in
-                         # posthogos-branding)
+    'qt6-base'
+    'qt6-declarative'    # QtQml + QtQuick.Controls + QtQuick.Layouts
+    'qqc2-breeze-style'  # without it welcome.qml exits 2
+    'hicolor-icon-theme' # for /usr/share/icons/hicolor/* lookup
 )
 
 optdepends=(
-    'calamares: launched when user clicks the Install-to-disk hero tile'
-    'ghostty: terminal that hosts posthogos-toolkit-install on the dev-toolkit tile'
-    'posthogos-scripts: provides posthogos-toolkit-install (dev-toolkit tile target)'
+    'calamares: target of the Install-to-disk hero tile'
+    'ghostty: terminal hosting posthogos-toolkit-install'
+    'posthogos-scripts: provides posthogos-toolkit-install'
 )
 
-# Build-time deps. base-devel (in the builder image) covers gcc + pkgconf;
-# we still need the Qt6 dev packages for headers and .pc files.
-makedepends=(
-    'qt6-base'
-    'qt6-declarative'
-)
+makedepends=('qt6-base' 'qt6-declarative')
 
 source=('posthogos-welcome-launcher.cpp')
 sha256sums=('SKIP')
 
+# pkgver: latest git tag (v-stripped), or 0.0.0.dev.<sha> when no tags.
 pkgver() {
     cd "$startdir/../.."
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet. Emit a deterministic dev marker so makepkg
-        # accepts a non-empty pkgver and the resulting filename signals
-        # this isn't a tagged release. Pacman pkgver allows alnum + . +
-        # _ + + only, so we stick to dots.
         v="0.0.0.dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     fi
     echo "$v"
 }
 
 build() {
-    # Same flags posthogos-customize.sh used for the chroot compile:
-    # -O2 -fPIC, link against Qt6 Core/Gui/Qml via pkg-config. Output
-    # goes into $srcdir so package() can pick it up.
     cd "$srcdir"
     g++ -O2 -fPIC \
         -o posthogos-welcome-launcher \
@@ -83,25 +56,17 @@ package() {
     repo_root="$startdir/../.."
     overlay="$repo_root/overlay/airootfs"
 
-    # ── Compiled launcher (from build() above) ─────────────────────────
     install -Dm 0755 "$srcdir/posthogos-welcome-launcher" \
         "$pkgdir/usr/local/bin/posthogos-welcome-launcher"
-
-    # ── Bash wrapper: --autostart skip + dispatch on QML exit codes ────
     install -Dm 0755 "$overlay/usr/local/bin/posthogos-welcome" \
         "$pkgdir/usr/local/bin/posthogos-welcome"
-
-    # ── QML window definition ──────────────────────────────────────────
     install -Dm 0644 "$overlay/usr/share/posthogos/welcome.qml" \
         "$pkgdir/usr/share/posthogos/welcome.qml"
-
-    # ── .desktop entries: app menu + XDG autostart ─────────────────────
     install -Dm 0644 "$overlay/usr/share/applications/posthogos-welcome.desktop" \
         "$pkgdir/usr/share/applications/posthogos-welcome.desktop"
     install -Dm 0644 "$overlay/etc/xdg/autostart/posthogos-welcome.desktop" \
         "$pkgdir/etc/xdg/autostart/posthogos-welcome.desktop"
 
-    # ── License ────────────────────────────────────────────────────────
     install -Dm 0644 "$repo_root/LICENSE" \
         "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
 }

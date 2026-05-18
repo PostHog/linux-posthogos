@@ -22,30 +22,21 @@ out_dir="$repo_root/out"
 mkdir -p "$out_dir"
 
 echo "==> Resetting build tree at $build_dir"
-# Belt-and-suspenders chmod before the rm: pacstrap leaves
-# /etc/ca-certificates/extracted/cadir/ as mode 0555 (read-only dir), and
-# plain `rm -rf` can't unlink files inside a 0555 parent dir → "Permission
-# denied" spam, aborted reset, doomed build. The end-of-build cleanup also
-# does this, but it only fires on success + KEEP_BUILD=0. Interrupted or
-# KEEP_BUILD'd builds leave the 0555 dirs around for the NEXT run to trip on.
-if [ -d "$build_dir" ]; then
-    chmod -R u+w "$build_dir" 2>/dev/null || true
-fi
+# chmod before rm: pacstrap leaves some dirs (e.g. ca-certificates/extracted/cadir)
+# at 0555, which blocks `rm -rf`. End-of-build cleanup handles this too but only
+# fires on success + KEEP_BUILD=0.
+[ -d "$build_dir" ] && chmod -R u+w "$build_dir" 2>/dev/null || true
 rm -rf "$build_dir"
 mkdir -p "$build_dir"
-# git archive gives the checked-in tree without the submodule .git pointer.
 git -C upstream archive --format=tar HEAD | tar -x -C "$build_dir"
 
 echo "==> Generating derived assets (resampled wallpapers, slideshow, splash)"
 "$repo_root/scripts/build-assets.sh"
 
-# Paths that posthogos-* pacman packages own. We pacstrap those packages
-# below, so these paths land on the ISO with proper pacman ownership,
-# and we MUST skip them in the overlay rsync, otherwise the unowned
-# overlay files would clobber the pacstrap'd ones and reintroduce the
-# first-install file collision dance (`pacman -S --overwrite='*'`).
-# Excludes are applied to both overlay/ and overlay-generated/; rsync
-# silently ignores excludes that don't match.
+# Paths the posthogos-* packages own. Skip them in the overlay rsync so
+# the unowned overlay copies don't clobber the pacstrap'd files (the
+# whole point of Phase 1.5). Same list applied to overlay/ and
+# overlay-generated/; mismatched excludes are no-ops.
 pkg_owned_excludes=(
     # posthogos-branding
     --exclude='/airootfs/usr/share/color-schemes/'
@@ -82,16 +73,9 @@ pkg_owned_excludes=(
 )
 
 echo "==> Applying overlay/ → archiso/ (pkg-owned paths excluded; pacstrapped instead)"
-# Previously gated on `find overlay ... | grep -q .` to skip the rsync
-# when overlay/ was empty. Under `set -euo pipefail` that pipeline
-# returned non-zero (grep -q exits early → SIGPIPEs find → find non-zero
-# → pipefail propagates), so the guard ALWAYS evaluated false and the
-# rsync was silently skipped on every build. Symptom: nothing under
-# overlay/ ever landed on the ISO (autostart entries, /usr/local/bin/
-# scripts, /etc/skel dotfiles, LAF defaults, the welcome QML, …) while
-# overlay-generated/ files came through fine because they use a plain
-# `[ -d ]` check with no piping. Just rsync unconditionally; an empty
-# source dir is a harmless no-op.
+# Don't gate on `find overlay | grep -q .` under set -o pipefail — grep
+# exits early, SIGPIPEs find, the guard always evaluates false and the
+# whole rsync silently skips. Empty source dir is a harmless no-op anyway.
 if [ -d overlay ]; then
     rsync -a --info=stats1 \
         --exclude='.gitkeep' --exclude='README.md' \
@@ -110,49 +94,30 @@ echo "==> Running pre-build patches"
 "$repo_root/scripts/pre-build.sh" "$build_dir"
 
 # ── Build posthogos-* pacman packages + local repo ────────────────────────
-# Phase 1.5: instead of overlay-copying branding files onto the ISO
-# (where they end up owned by no package), build the posthogos-* .pkg.tar.zst
-# files here, expose them as a local file:// pacman repo, and let mkarchiso
-# pacstrap them. Result: every owned file on the installed system is
-# pacman-owned from day one. `pacman -Syu` brings in new versions cleanly
-# with no --overwrite dance.
-#
-# pre-build.sh appended `posthogos-keyring` + `posthogos-branding` to
-# packages_desktop.x86_64 and registered the [posthogos] file:// repo in
-# archiso/pacman.conf above, so mkarchiso below will find these packages.
+# pre-build.sh added the packages to packages_desktop.x86_64 and
+# registered the [posthogos] file:// repo in archiso/pacman.conf, so
+# mkarchiso below will resolve them via this dir.
 echo "==> Building posthogos-* packages + local pacman repo"
 pkg_repo="$build_dir/posthogos-localrepo"
 mkdir -p "$pkg_repo"
-# makepkg refuses to run as root. Create a builder user if absent
-# (idempotent for repeated --keep-build runs) and chown the dirs it
-# needs to write to: packages/*/ (each PKGBUILD's src/, pkg/),
-# overlay-generated (posthogos-branding's build() re-invokes
-# build-assets.sh), and the local repo dir (where makepkg writes
-# .pkg.tar.zst and where repo-add later writes posthogos.db).
+# makepkg refuses root. chown the dirs it writes to: each PKGBUILD's
+# src/+pkg/, overlay-generated (branding's build() reruns build-assets.sh),
+# and the local repo dir (PKGDEST + repo-add output).
 id -u builder >/dev/null 2>&1 || useradd -m -s /bin/bash builder
 chown -R builder packages overlay-generated "$pkg_repo"
 
 # ── Signing setup ─────────────────────────────────────────────────────
-# When CI supplies the PostHog packager secret key, import it into the
-# builder's keyring and sign every package + the repo db. Local dev (no
-# key) builds unsigned packages; the build-time [posthogos] repo is at
-# SigLevel = Optional (see pre-build.sh) so unsigned packages skip the
-# check and signed packages get verified against the key we'll import
-# into the build container's pacman keyring after repo-add. End-user
-# pacman.conf (written by posthogos-customize.sh) uses SigLevel =
-# Required, so a release ISO built WITHOUT the key in CI would produce
-# a broken end-user update path. Hard-fail in that case to catch
-# misconfigured CI early.
+# Import the secret key into builder's gpg keyring so makepkg/repo-add
+# can --sign. Hard-fail under CI without a key: end-user pacman.conf is
+# SigLevel=Required, so a release ISO that shipped unsigned would brick
+# `pacman -Syu`.
 makepkg_sign_flags=()
 repo_add_sign_flags=()
 if [ -n "${POSTHOGOS_PACKAGER_KEY:-}" ] && [ -n "${POSTHOGOS_PACKAGER_KEY_FPR:-}" ]; then
     echo "==> Importing PostHog packager signing key (fpr ${POSTHOGOS_PACKAGER_KEY_FPR:0:8}…)"
-    # gpg writes to builder's GNUPGHOME (=/home/builder/.gnupg). Pre-create
-    # with right perms; let gpg auto-init the rest.
     install -d -o builder -g builder -m 0700 /home/builder/.gnupg
-    # Loopback pinentry: lets a passphrase-protected key still sign in a
-    # non-interactive container if we ever switch to one. No-op when the
-    # key has no passphrase (current default).
+    # Loopback pinentry for the (currently no-passphrase) key, in case we
+    # ever switch to one — non-interactive container can't pop pinentry.
     echo 'allow-loopback-pinentry' \
         | sudo -u builder tee /home/builder/.gnupg/gpg-agent.conf >/dev/null
     echo "$POSTHOGOS_PACKAGER_KEY" | sudo -u builder gpg --batch --import
@@ -160,9 +125,8 @@ if [ -n "${POSTHOGOS_PACKAGER_KEY:-}" ] && [ -n "${POSTHOGOS_PACKAGER_KEY_FPR:-}
     makepkg_sign_flags=(--sign --key "$POSTHOGOS_PACKAGER_KEY_FPR")
     repo_add_sign_flags=(--sign --key "$POSTHOGOS_PACKAGER_KEY_FPR")
 elif [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
-    echo "ERROR: running under CI but POSTHOGOS_PACKAGER_KEY / _FPR not set." >&2
-    echo "       End-user pacman.conf will have SigLevel=Required and reject unsigned packages." >&2
-    echo "       Set the GH secret POSTHOGOS_PACKAGER_KEY + repo variable POSTHOGOS_PACKAGER_KEY_FPR." >&2
+    echo "ERROR: CI build needs POSTHOGOS_PACKAGER_KEY + POSTHOGOS_PACKAGER_KEY_FPR." >&2
+    echo "       End-user pacman.conf is SigLevel=Required; unsigned packages would brick pacman -Syu." >&2
     exit 1
 else
     echo "==> POSTHOGOS_PACKAGER_KEY unset → building unsigned (local dev mode)"
@@ -178,59 +142,40 @@ for pkgdir in packages/*/; do
     )
 done
 
-# repo-add accumulates all entries in a single posthogos.db.tar.zst, and
-# generates the symlinks pacman fetches (posthogos.db, posthogos.files).
-# --sign also produces posthogos.db.tar.zst.sig, verified by end-user
-# pacman when [posthogos] is set to SigLevel = Required (not
-# DatabaseOptional).
-#
-# Runs as `builder` (matching the makepkg invocations) so repo-add's
-# --sign step finds the packager key in builder's gpg keyring. Running
-# as root would look in /root/.gnupg, which is empty, so gpg would
-# bail with "The key <fpr> does not exist in your keyring."
+# Run as builder so --sign finds the key in /home/builder/.gnupg
+# (running as root looks in /root/.gnupg → empty → "key does not exist").
 (cd "$pkg_repo" && sudo -u builder repo-add "${repo_add_sign_flags[@]}" \
     posthogos.db.tar.zst ./*.pkg.tar.zst)
 echo "==> Local pacman repo ready:"
 ls -lh "$pkg_repo"
 
-# ── Import packager key into the build-container pacman keyring ───────
-# When we signed packages + the db above, mkarchiso's pacstrap is about
-# to call pacman -Sy on the local [posthogos] repo and will refuse to
-# load the signed db unless the key that signed it is trusted in the
-# build container's pacman-key keyring (separate from builder's gpg
-# keyring used by makepkg). Import + locally sign here. Pacman keyring
-# is already initialized by the Dockerfile (it added the cachyos key
-# the same way).
-#
-# Lets the build-time [posthogos] keep SigLevel = Optional rather than
-# Never, so sigs are actually verified, matching the end-user flow.
+# Import signing key into the build container's pacman-key keyring
+# (separate from builder's gpg keyring used by makepkg above) so
+# pacstrap can verify the signed db. Without this, [posthogos] would
+# need SigLevel=Never instead of Optional.
 if [ ${#repo_add_sign_flags[@]} -gt 0 ] && [ -f packages/posthogos-keyring/posthogos.gpg ]; then
     echo "==> Importing posthogos signing key into build-container pacman keyring"
     pacman-key --add packages/posthogos-keyring/posthogos.gpg
     pacman-key --lsign-key "$POSTHOGOS_PACKAGER_KEY_FPR"
 fi
 
-# Mirror the repo into out/pkgs/ so the CI gh-pages publish + release-asset
-# upload steps don't have to re-build it.
+# Mirror the repo into out/pkgs/ so CI's gh-pages publish + release upload
+# don't have to rebuild it.
 mkdir -p "$out_dir/pkgs"
 cp -a "$pkg_repo"/. "$out_dir/pkgs/"
 
 echo "==> Installing chroot hook"
-# mkarchiso runs airootfs/root/customize_airootfs.sh inside the chroot at
-# squashfs assembly time if present at that exact path.
+# mkarchiso runs airootfs/root/customize_airootfs.sh at squashfs assembly time.
 install -D -m 0755 scripts/posthogos-customize.sh \
     "$build_dir/archiso/airootfs/root/customize_airootfs.sh"
 
 echo "==> Running upstream buildiso.sh"
 cd "$build_dir"
-# We never pass -w. buildiso.sh's `-w` cleanup does `rm -rf` over the build
-# tree, which fails on dirs left mode 0555 by package post-install hooks
-# (notably /etc/ca-certificates/extracted/cadir). Cleanup happens below
-# instead, with chmod first.
+# No -w: buildiso.sh's cleanup does `rm -rf` over the build tree which
+# fails on 0555 dirs left by package post-install hooks. We clean up below.
 buildiso_args=(-p desktop -v)
 
-# buildiso.sh requires root for bind mounts. sudo -E preserves env when not
-# already root (native path); inside container we run as root already.
+# Needs root for bind mounts. sudo -E only when not already root (native path).
 if [ "$(id -u)" -eq 0 ]; then
     ./buildiso.sh "${buildiso_args[@]}"
 else
@@ -239,7 +184,6 @@ fi
 
 echo "==> Copying ISO to out/"
 shopt -s nullglob globstar
-# util-iso.sh places the final renamed ISO at build/out/<profile>/<name>.iso.
 iso_files=("$build_dir"/out/**/*.iso)
 if [ ${#iso_files[@]} -eq 0 ]; then
     echo "ERROR: no ISO produced under $build_dir/out/" >&2
@@ -252,8 +196,7 @@ chmod 644 "$out_dir"/*.iso 2>/dev/null || true
 
 if [ "${KEEP_BUILD:-0}" != "1" ]; then
     echo "==> Removing build/ (KEEP_BUILD=0)"
-    # 0555 dirs (ca-certificates/extracted/cadir) block plain rm; chmod first.
-    chmod -R u+w "$build_dir" 2>/dev/null || true
+    chmod -R u+w "$build_dir" 2>/dev/null || true  # 0555 dirs block rm
     rm -rf "$build_dir"
 fi
 
