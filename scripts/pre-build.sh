@@ -267,13 +267,22 @@ fi
 # https://posthog.github.io/linux-posthogos/$arch) is registered separately
 # by scripts/posthogos-customize.sh inside the chroot at squashfs assembly
 # time, and is what `pacman -Syu` on installed systems hits.
+#
+# SigLevel=Never: the local repo and its signed db live on the same
+# filesystem as the build that just produced them. The build container's
+# pacman keyring doesn't have the PostHog packager key (only the chroot
+# does, via posthogos-keyring), so a signed-db verify would fail at
+# pacstrap. Skipping the check here is safe because the repo is local
+# and we made the packages a moment ago. NOT Optional+TrustAll: TrustAll
+# only governs trust for keys ALREADY in the keyring; an unknown-key
+# sig still bails the verify. Never bypasses sig check entirely.
 build_pacman_conf="archiso/pacman.conf"
 if [ -f "$build_pacman_conf" ] && ! grep -q '^\[posthogos\]' "$build_pacman_conf"; then
     log "Registering [posthogos] file:// repo at $build_dir/posthogos-localrepo"
     cat >>"$build_pacman_conf" <<EOF
 
 [posthogos]
-SigLevel = Optional TrustAll
+SigLevel = Never
 Server = file://${build_dir}/posthogos-localrepo
 EOF
 fi

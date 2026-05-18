@@ -136,10 +136,11 @@ chown -R builder packages overlay-generated "$pkg_repo"
 # When CI supplies the PostHog packager secret key, import it into the
 # builder's keyring and sign every package + the repo db. Local dev (no
 # key) builds unsigned packages; the build-time [posthogos] repo is at
-# SigLevel = Optional TrustAll so unsigned is fine. End-user pacman.conf
-# (written by posthogos-customize.sh) uses SigLevel = Required — so a
-# release ISO built WITHOUT the key in CI would produce a broken end-user
-# update path. Hard-fail in that case to catch misconfigured CI early.
+# SigLevel = Never (see pre-build.sh) so signed or not, pacstrap accepts
+# them. End-user pacman.conf (written by posthogos-customize.sh) uses
+# SigLevel = Required — so a release ISO built WITHOUT the key in CI
+# would produce a broken end-user update path. Hard-fail in that case
+# to catch misconfigured CI early.
 makepkg_sign_flags=()
 repo_add_sign_flags=()
 if [ -n "${POSTHOGOS_PACKAGER_KEY:-}" ] && [ -n "${POSTHOGOS_PACKAGER_KEY_FPR:-}" ]; then
