@@ -23,12 +23,7 @@ PosthogOS can `pacman -Syu` to receive.
   end-user `[posthogos]` repo's `SigLevel = Required`.
 - **posthogos-branding** — icons, wallpapers, fonts, Plasma LAF (Light + Dark), color schemes, sound theme, Konsole profile, SDDM theme, Plymouth theme.
 
-Planned (Phase 2+):
-
-- **posthogos-scripts** — `/usr/local/bin/posthogos-firstrun.sh`, `neohog`, `posthogos-toolkit-install`, systemd units, autostart entries.
-- **posthogos-welcome** — `welcome.qml` + the C++ launcher (pre-compiled in the package; no more chroot-time compile).
-- **posthogos-config** — `/etc/skel/*` dotfiles, login banners, ssh banner.
-- **posthogos** — meta-package depending on all of the above.
+See [Status](#status) at the bottom for what's planned next.
 
 ## How a user gets updates
 
@@ -148,10 +143,23 @@ cd packages/posthogos-branding
 makepkg --sign -d --noconfirm
 ```
 
-## TODO — Phase 1.5
+## Status
+
+Phase 1.5 is code-complete:
 
 - [x] ISO build installs posthogos-branding via pacstrap rather than
       airootfs copy. Eliminates the first-install file-collision dance.
-- [x] GPG-sign packages.
-- [ ] Add posthogos-scripts, posthogos-welcome, posthogos-config,
-      posthogos (meta) packages.
+- [x] GPG-sign packages (posthogos-keyring + `makepkg --sign` /
+      `repo-add --sign` in CI).
+
+Before the first signed release, the human steps in
+[One-time human setup](#one-time-human-setup) above need to run once.
+
+Phase 2 (not started):
+
+- [ ] `posthogos-scripts` — `/usr/local/bin/posthogos-firstrun.sh`,
+      `neohog`, `posthogos-toolkit-install`, systemd units, autostart entries.
+- [ ] `posthogos-welcome` — `welcome.qml` + the C++ launcher (pre-compiled
+      in the package; no more chroot-time compile).
+- [ ] `posthogos-config` — `/etc/skel/*` dotfiles, login banners, ssh banner.
+- [ ] `posthogos` — meta-package depending on all of the above.
