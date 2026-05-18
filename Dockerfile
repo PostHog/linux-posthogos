@@ -1,10 +1,15 @@
 # Builder image for PosthogOS. Invoked by bin/build on non-Arch hosts.
 # Must run with --privileged: mkarchiso needs loop devices and bind mounts.
 #
-# archlinux:latest is x86_64-only. On Apple Silicon hosts, build with
+# archlinux is x86_64-only. On Apple Silicon hosts, build with
 # --platform=linux/amd64 (handled by bin/build); OrbStack/Docker Desktop
 # emulate via Rosetta. Slow but correct: the final ISO is x86_64 regardless.
-FROM archlinux:latest
+#
+# Pinned to a specific snapshot tag (not :latest) so builds are reproducible.
+# Bump periodically to pick up upstream userspace fixes. The pacman -Syu
+# inside this Dockerfile pulls the latest package versions on top regardless,
+# so the pin mainly controls the starting glibc/coreutils/etc snapshot.
+FROM archlinux:base-20260510.0.525573
 
 # Pacman 7's alpm sandbox uses seccomp filters that fail under Rosetta
 # emulation ("error restricting syscalls via seccomp: 22"). Disable it.
