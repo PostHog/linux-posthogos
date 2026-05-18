@@ -3,8 +3,7 @@
 #
 # posthogos: meta-package pulling the full PosthogOS stack.
 #
-# Phase 2 of the PosthogOS pacman repo. Lets a fresh Arch / CachyOS
-# install opt into PosthogOS with a single `pacman -S posthogos`, and
+# Lets a fresh Arch / CachyOS install opt into PosthogOS with a single `pacman -S posthogos`, and
 # lets removal of the brand cleanly cascade if a user wants to revert.
 #
 # No files of its own — pure depends list. Pacman handles the dep graph.

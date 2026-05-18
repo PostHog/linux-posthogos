@@ -3,8 +3,7 @@
 #
 # posthogos-scripts: PosthogOS system scripts as a pacman package.
 #
-# Phase 2 of the PosthogOS pacman repo (see packages/README.md). Lets
-# installed systems pick up firstrun / snapper-init / toolkit-installer /
+# Lets installed systems pick up firstrun / snapper-init / toolkit-installer /
 # neohog fixes via `pacman -Syu` instead of being frozen at the ISO they
 # installed from.
 #
@@ -68,7 +67,7 @@ package() {
 
     # ── XDG autostart (firstrun trigger on first live-session login) ──────
     # posthogos-welcome.desktop is the welcome window's responsibility and
-    # lives in posthogos-welcome (Phase 2 follow-up).
+    # lives in posthogos-welcome.
     install -Dm 0644 "$overlay/etc/xdg/autostart/posthogos-firstrun.desktop" \
         "$pkgdir/etc/xdg/autostart/posthogos-firstrun.desktop"
 

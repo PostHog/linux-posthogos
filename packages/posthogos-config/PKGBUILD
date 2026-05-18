@@ -3,8 +3,7 @@
 #
 # posthogos-config: PosthogOS /etc/skel dotfiles as a pacman package.
 #
-# Phase 2 of the PosthogOS pacman repo (see packages/README.md). Ships
-# the "new user starts with these defaults" content for users created
+# Ships the "new user starts with these defaults" content for users created
 # by Calamares (the installer copies /etc/skel/ into each new user's
 # home on first login).
 #

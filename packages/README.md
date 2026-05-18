@@ -144,25 +144,3 @@ must be signed.
 cd packages/posthogos-branding
 makepkg --sign -d --noconfirm
 ```
-
-## Status
-
-Phase 1.5 is code-complete:
-
-- [x] ISO build installs posthogos-branding via pacstrap rather than
-      airootfs copy. Eliminates the first-install file-collision dance.
-- [x] GPG-sign packages (posthogos-keyring + `makepkg --sign` /
-      `repo-add --sign` in CI).
-
-Before the first signed release, the human steps in
-[One-time human setup](#one-time-human-setup) above need to run once.
-
-Phase 2 (complete):
-
-- [x] `posthogos-scripts` — `/usr/local/bin/posthogos-firstrun.sh`,
-      `neohog`, `posthogos-toolkit-install`, systemd units, autostart entry.
-- [x] `posthogos-welcome` — `welcome.qml` + the C++ launcher (pre-compiled
-      in the package; no more chroot-time compile).
-- [x] `posthogos-config` — `/etc/skel/*` dotfiles (`.zshrc`, `.gitconfig`,
-      ghostty + zellij configs).
-- [x] `posthogos` — meta-package depending on all of the above.

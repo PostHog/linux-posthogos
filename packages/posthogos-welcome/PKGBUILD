@@ -3,8 +3,7 @@
 #
 # posthogos-welcome: PosthogOS first-boot welcome window + Qt6 launcher.
 #
-# Phase 2 of the PosthogOS pacman repo (see packages/README.md). Replaces
-# the prior chroot-time compile (posthogos-customize.sh had a g++ block
+# Replaces he prior chroot-time compile (posthogos-customize.sh had a g++ block
 # that built the launcher from /usr/src/posthogos-welcome-launcher.cpp at
 # squashfs assembly time and deleted the source). Now the .cpp is a
 # package source, build() compiles in the builder container, and the
