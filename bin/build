@@ -52,6 +52,17 @@ fi
 
 export KEEP_BUILD="$keep_build"
 
+# Expand POSTHOGOS_PACKAGER_KEY_FILE → POSTHOGOS_PACKAGER_KEY so .env can
+# reference the secret key on disk instead of trying to inline a multi-line
+# armored block (load_env_file is single-line KEY=value only). Mirrors
+# Docker secrets / Kubernetes envFrom file-mount conventions. The KEY var
+# itself is what in-container-build.sh imports into gpg.
+if [ -z "${POSTHOGOS_PACKAGER_KEY:-}" ] && [ -n "${POSTHOGOS_PACKAGER_KEY_FILE:-}" ]; then
+    [ -f "$POSTHOGOS_PACKAGER_KEY_FILE" ] \
+        || fatal "POSTHOGOS_PACKAGER_KEY_FILE set but file missing: $POSTHOGOS_PACKAGER_KEY_FILE"
+    export POSTHOGOS_PACKAGER_KEY="$(cat "$POSTHOGOS_PACKAGER_KEY_FILE")"
+fi
+
 if [ "$native" = true ]; then
     print_color blue "Building natively (host must be Arch with archiso installed)..."
     exec sudo -E scripts/in-container-build.sh
