@@ -87,8 +87,6 @@ publishes.
       in a tiny `posthogos-keyring` package.
 - [ ] Add posthogos-scripts, posthogos-welcome, posthogos-config,
       posthogos (meta) packages.
-- [ ] Add a `posthogos update` wrapper that runs `pacman -Syu` +
-      `flatpak update` + any extra channels in one command.
 
 ## Signing key generation (when ready for Phase 1.5)
 
