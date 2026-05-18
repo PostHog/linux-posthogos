@@ -41,7 +41,16 @@ optdepends=(
 
 pkgver() {
     cd "$startdir/../.."
-    git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0"
+    local v
+    v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+    if [ -z "$v" ]; then
+        # No git tags yet — emit a deterministic dev marker so makepkg
+        # accepts a non-empty pkgver and the resulting filename signals
+        # this isn't a tagged release. Pacman pkgver allows alnum + . +
+        # _ + + only, so we stick to dots.
+        v="0.0.0.dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    fi
+    echo "$v"
 }
 
 package() {

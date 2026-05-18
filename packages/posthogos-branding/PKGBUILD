@@ -43,7 +43,16 @@ optdepends=(
 pkgver() {
     cd "$startdir/../.."
     # Use the latest annotated/lightweight tag; strip 'v' prefix if present.
-    git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0"
+    # No-tag fallback emits a dev marker (commit short SHA) so the local
+    # build still produces a valid pkgver and the resulting filename
+    # signals it isn't a tagged release. Pacman pkgver allows alnum + . +
+    # _ + + only, so we stick to dots.
+    local v
+    v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+    if [ -z "$v" ]; then
+        v="0.0.0.dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    fi
+    echo "$v"
 }
 
 build() {
