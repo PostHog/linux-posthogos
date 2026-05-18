@@ -74,6 +74,11 @@ pkg_owned_excludes=(
     --exclude='/airootfs/usr/share/posthogos/welcome.qml'
     --exclude='/airootfs/usr/share/applications/posthogos-welcome.desktop'
     --exclude='/airootfs/etc/xdg/autostart/posthogos-welcome.desktop'
+    # posthogos-config
+    --exclude='/airootfs/etc/skel/.zshrc'
+    --exclude='/airootfs/etc/skel/.gitconfig'
+    --exclude='/airootfs/etc/skel/.config/ghostty/'
+    --exclude='/airootfs/etc/skel/.config/zellij/'
 )
 
 echo "==> Applying overlay/ → archiso/ (pkg-owned paths excluded; pacstrapped instead)"

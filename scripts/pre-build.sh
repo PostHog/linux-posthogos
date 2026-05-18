@@ -113,6 +113,14 @@ if [ -f "$pkglist" ]; then
                              # + the app-menu and autostart .desktop entries.
                              # Replaces the prior chroot-time g++ compile in
                              # customize.sh.
+        posthogos-config     # /etc/skel dotfiles (.zshrc, .gitconfig, ghostty
+                             # config, zellij config + posthogos-dev layout).
+                             # KDE/GTK skel files (kdeglobals, gtk-{3,4}.0,
+                             # konsolerc) stay in customize.sh because
+                             # cachyos-kde-settings already owns those paths.
+        posthogos            # Meta-package depending on the five above. Lets
+                             # a fresh Arch install opt into the full stack
+                             # via `pacman -S posthogos`.
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
         qt6-declarative      # qml6 + ALL Qt6 QML modules including QtQuick.Controls

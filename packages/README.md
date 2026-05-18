@@ -24,8 +24,8 @@ PosthogOS can `pacman -Syu` to receive.
 - **posthogos-branding** — icons, wallpapers, fonts, Plasma LAF (Light + Dark), color schemes, sound theme, Konsole profile, SDDM theme, Plymouth theme.
 - **posthogos-scripts** — `/usr/local/bin/{neohog,papirus-folders,posthogos-firstrun.sh,posthogos-firstrun-rescue.sh,posthogos-snapper-init,posthogos-toolkit-install}` + `/etc/xdg/autostart/posthogos-firstrun.desktop` + the snapper-init and firstrun-rescue systemd units (pre-enabled via vendor `multi-user.target.wants/` symlinks).
 - **posthogos-welcome** — Welcome window: pre-compiled Qt6 launcher binary + bash wrapper + `welcome.qml` + app-menu and autostart `.desktop` entries. The launcher is compiled in the PKGBUILD's `build()` (`g++ -O2 -fPIC` against Qt6Core/Gui/Qml), so no more chroot-time compile.
-
-See [Status](#status) at the bottom for what's planned next.
+- **posthogos-config** — `/etc/skel/.zshrc`, `.gitconfig`, ghostty config, zellij config + the `posthogos-dev` layout. KDE/GTK skel files stay in `customize.sh` since `cachyos-kde-settings` already owns those `/etc/skel` paths.
+- **posthogos** — Meta-package depending on all five above. Lets a fresh Arch install opt into the full stack with `pacman -S posthogos`.
 
 ## How a user gets updates
 
@@ -157,13 +157,12 @@ Phase 1.5 is code-complete:
 Before the first signed release, the human steps in
 [One-time human setup](#one-time-human-setup) above need to run once.
 
-Phase 2 (in progress):
+Phase 2 (complete):
 
 - [x] `posthogos-scripts` — `/usr/local/bin/posthogos-firstrun.sh`,
       `neohog`, `posthogos-toolkit-install`, systemd units, autostart entry.
 - [x] `posthogos-welcome` — `welcome.qml` + the C++ launcher (pre-compiled
       in the package; no more chroot-time compile).
-- [ ] `posthogos-config` — `/etc/skel/*` dotfiles (`.zshrc`, `.gitconfig`,
-      ghostty + zellij configs). `kdeglobals` etc. stay in `customize.sh`
-      since `cachyos-kde-settings` already owns those `/etc/skel` paths.
-- [ ] `posthogos` — meta-package depending on all of the above.
+- [x] `posthogos-config` — `/etc/skel/*` dotfiles (`.zshrc`, `.gitconfig`,
+      ghostty + zellij configs).
+- [x] `posthogos` — meta-package depending on all of the above.
