@@ -34,20 +34,10 @@ in `/etc/pacman.conf` (set up by `scripts/posthogos-customize.sh`). A
 plain `pacman -Syu` picks up new package versions whenever a new GitHub
 release is published.
 
-**First install collision** (one-time): the airootfs that Calamares
-copied to disk already contains the icon theme / LAF / etc. files,
-owned by no package. When the user first runs `pacman -S
-posthogos-branding`, pacman refuses to overwrite those files. Run once:
-
-```bash
-sudo pacman -S --overwrite='*' posthogos-branding
-```
-
-Subsequent upgrades are clean — pacman now owns the files.
-
-(Phase 1.5 will replace this with: ISO build installs posthogos-branding
-via pacstrap so the install starts with pacman-owned files from day
-one. Eliminates the collision entirely.)
+No first-install dance: the ISO build pacstraps `posthogos-branding`
+during `mkarchiso` (Phase 1.5), so every branding file lands on the
+installed system with proper pacman ownership from day one. Subsequent
+`pacman -Syu` upgrades are clean — no `--overwrite='*'` needed.
 
 ## How a package gets built
 
@@ -71,11 +61,15 @@ tracks the repo tag (e.g. v0.1.0 → 0.1.0).
 ```
 github release v0.1.0 published
   └─ .github/workflows/build-iso.yml fires
-      ├─ build ISO
-      ├─ stamp version + upload to release
-      ├─ build each packages/*/PKGBUILD
-      ├─ repo-add posthogos.db.tar.zst *.pkg.tar.zst
-      ├─ peaceiris/actions-gh-pages → deploys to gh-pages branch
+      ├─ scripts/in-container-build.sh
+      │   ├─ build posthogos-branding (makepkg) → build/posthogos-localrepo/
+      │   ├─ repo-add posthogos.db.tar.zst → same dir
+      │   ├─ mirror to out/pkgs/
+      │   └─ mkarchiso pacstraps posthogos-branding into the ISO from
+      │      the file:// local repo (so installed systems start with
+      │      pacman-owned branding files)
+      ├─ stamp version + upload ISO to release
+      ├─ peaceiris/actions-gh-pages → deploys out/pkgs/ to gh-pages branch
       │   → posthog.github.io/linux-posthogos/x86_64/{posthogos.db,*.pkg.tar.zst}
       └─ attach .pkg.tar.zst to release as backup assets
 ```
@@ -85,12 +79,12 @@ publishes.
 
 ## TODO — Phase 1.5
 
+- [x] ISO build installs posthogos-branding via pacstrap rather than
+      airootfs copy. Eliminates the first-install file-collision dance.
 - [ ] GPG-sign packages. Generate a PostHog packager key, add to GitHub
       Actions secrets, sign each .pkg.tar.zst with `gpg --detach-sign`,
       drop `TrustAll` from the pacman.conf SigLevel, ship the public key
       in a tiny `posthogos-keyring` package.
-- [ ] ISO build installs posthogos-branding via pacstrap rather than
-      airootfs copy. Eliminates the first-install file-collision dance.
 - [ ] Add posthogos-scripts, posthogos-welcome, posthogos-config,
       posthogos (meta) packages.
 - [ ] Add a `posthogos update` wrapper that runs `pacman -Syu` +

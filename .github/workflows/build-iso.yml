@@ -121,49 +121,15 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
-      # ── Pacman repository: build + publish posthogos-* packages ────────
-      # Existing PosthogOS installs pull these via `pacman -Syu` so brand
-      # iterations (icons, wallpapers, LAF) reach them without reinstall.
-      # Hosted at https://posthog.github.io/linux-posthogos/x86_64/ (the
-      # gh-pages branch of this repo, deployed via GitHub Pages).
+      # ── Pacman repository: publish posthogos-* packages ────────────────
+      # The packages + posthogos.db are already built and sitting in
+      # out/pkgs/ — in-container-build.sh runs makepkg + repo-add inline
+      # so the same .pkg.tar.zst that the ISO pacstrapped is the one we
+      # publish (Phase 1.5: ISO and end-user updates can't drift).
       #
-      # Phase 1 packages: posthogos-branding only. Adding more (scripts,
-      # welcome, config) is just dropping more PKGBUILDs into packages/
-      # and listing them in the for-loop below.
-      - name: Build pacman packages
-        if: success()
-        run: |
-          mkdir -p out/pkgs
-          for pkgdir in packages/*/; do
-              pkg=$(basename "$pkgdir")
-              echo "==> makepkg $pkg"
-              # Build inside the same posthogos-builder container so
-              # makepkg has Arch userspace. -d skips dep checks (the
-              # builder image already has what's needed). --nobuild done
-              # in two steps so PKGDEST lands in our out/pkgs/.
-              docker run --rm \
-                  -v "$PWD:/work" \
-                  -w "/work/$pkgdir" \
-                  -e PKGDEST=/work/out/pkgs \
-                  --entrypoint /bin/bash \
-                  posthogos-builder:latest \
-                  -c "useradd -m -s /bin/bash builder \
-                      && chown -R builder /work \
-                      && sudo -u builder PKGDEST=/work/out/pkgs makepkg -d --noconfirm"
-          done
-          echo "==> built packages:"
-          ls -lh out/pkgs/
-
-      - name: Build pacman repo database
-        if: success()
-        run: |
-          cd out/pkgs
-          # repo-add produces posthogos.db.tar.zst + .files.tar.zst, plus
-          # symlinks (posthogos.db, posthogos.files) that pacman fetches.
-          docker run --rm -v "$PWD:/work" -w /work posthogos-builder:latest \
-              repo-add posthogos.db.tar.zst ./*.pkg.tar.zst
-          ls -lh
-
+      # Hosted at https://posthog.github.io/linux-posthogos/x86_64/ via
+      # the gh-pages branch. Existing PosthogOS installs pull from there
+      # on `pacman -Syu`.
       - name: Deploy pacman repo to gh-pages
         if: success()
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0

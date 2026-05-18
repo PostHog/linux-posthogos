@@ -87,6 +87,13 @@ fi
 pkglist="archiso/packages_desktop.x86_64"
 if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
+        posthogos-branding   # PosthogOS visual identity (icons, wallpapers, LAF,
+                             # color schemes, fonts, sound theme, SDDM/Plymouth
+                             # themes). Built locally from packages/posthogos-branding
+                             # by in-container-build.sh, exposed via the [posthogos]
+                             # file:// repo we register below. Pacstrapping (vs.
+                             # overlay-copying) means files land with proper pacman
+                             # ownership — eliminates the first-install collision.
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
         qt6-declarative      # qml6 + ALL Qt6 QML modules including QtQuick.Controls
@@ -220,6 +227,28 @@ if [ -f "$pkglist" ]; then
             rm -f "${f}.bak"
         done
     fi
+fi
+
+# --- Register local posthogos pacman repo for mkarchiso pacstrap ----------
+# in-container-build.sh builds posthogos-branding into $build_dir/posthogos-localrepo
+# right after this script returns. Point archiso/pacman.conf at it so the
+# mkarchiso pacstrap (which uses this exact pacman.conf) can resolve
+# `posthogos-branding` when it's listed in packages_desktop.x86_64.
+#
+# This is a BUILD-TIME repo only — it lives inside the throwaway build_dir
+# and never reaches the ISO. The end-user [posthogos] repo (pointing at
+# https://posthog.github.io/linux-posthogos/$arch) is registered separately
+# by scripts/posthogos-customize.sh inside the chroot at squashfs assembly
+# time, and is what `pacman -Syu` on installed systems hits.
+build_pacman_conf="archiso/pacman.conf"
+if [ -f "$build_pacman_conf" ] && ! grep -q '^\[posthogos\]' "$build_pacman_conf"; then
+    log "Registering [posthogos] file:// repo at $build_dir/posthogos-localrepo"
+    cat >>"$build_pacman_conf" <<EOF
+
+[posthogos]
+SigLevel = Optional TrustAll
+Server = file://${build_dir}/posthogos-localrepo
+EOF
 fi
 
 # --- util-iso.sh post-build fixups ----------------------------------------
