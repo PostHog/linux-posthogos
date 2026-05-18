@@ -18,7 +18,7 @@
 # packages going forward.
 
 pkgname=posthogos-keyring
-pkgver=0.0.0
+pkgver=0.0.0.dev.b16555a
 pkgrel=1
 pkgdesc='PosthogOS pacman keyring (PostHog packager public key)'
 arch=('any')
@@ -39,7 +39,7 @@ pkgver() {
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet — emit a deterministic dev marker so makepkg
+        # No git tags yet. Emit a deterministic dev marker so makepkg
         # accepts a non-empty pkgver and the resulting filename signals
         # this isn't a tagged release. Pacman pkgver allows alnum + . +
         # _ + + only, so we stick to dots.

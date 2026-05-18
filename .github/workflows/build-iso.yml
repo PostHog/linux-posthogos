@@ -75,8 +75,8 @@ jobs:
           # armored secret-key block (`gpg --armor --export-secret-keys ...`)
           # and stored as a GH Actions secret. The fingerprint is a public
           # value and lives in a repo variable (not a secret).
-          # If either is missing under CI, in-container-build.sh hard-fails
-          # — see the comment block in that script for the reasoning.
+          # If either is missing under CI, in-container-build.sh hard-fails;
+          # see the comment block in that script for the reasoning.
           POSTHOGOS_PACKAGER_KEY: ${{ secrets.POSTHOGOS_PACKAGER_KEY }}
           POSTHOGOS_PACKAGER_KEY_FPR: ${{ vars.POSTHOGOS_PACKAGER_KEY_FPR }}
         run: bin/build
@@ -132,7 +132,7 @@ jobs:
 
       # ── Pacman repository: publish posthogos-* packages ────────────────
       # The packages + posthogos.db are already built and sitting in
-      # out/pkgs/ — in-container-build.sh runs makepkg + repo-add inline
+      # out/pkgs/. in-container-build.sh runs makepkg + repo-add inline
       # so the same .pkg.tar.zst that the ISO pacstrapped is the one we
       # publish (Phase 1.5: ISO and end-user updates can't drift).
       #

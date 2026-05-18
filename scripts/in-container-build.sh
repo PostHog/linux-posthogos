@@ -40,7 +40,7 @@ echo "==> Generating derived assets (resampled wallpapers, slideshow, splash)"
 "$repo_root/scripts/build-assets.sh"
 
 # Paths that posthogos-* pacman packages own. We pacstrap those packages
-# below, so these paths land on the ISO with proper pacman ownership —
+# below, so these paths land on the ISO with proper pacman ownership,
 # and we MUST skip them in the overlay rsync, otherwise the unowned
 # overlay files would clobber the pacstrap'd ones and reintroduce the
 # first-install file collision dance (`pacman -S --overwrite='*'`).
@@ -140,7 +140,7 @@ chown -R builder packages overlay-generated "$pkg_repo"
 # check and signed packages get verified against the key we'll import
 # into the build container's pacman keyring after repo-add. End-user
 # pacman.conf (written by posthogos-customize.sh) uses SigLevel =
-# Required — so a release ISO built WITHOUT the key in CI would produce
+# Required, so a release ISO built WITHOUT the key in CI would produce
 # a broken end-user update path. Hard-fail in that case to catch
 # misconfigured CI early.
 makepkg_sign_flags=()
@@ -186,7 +186,7 @@ done
 #
 # Runs as `builder` (matching the makepkg invocations) so repo-add's
 # --sign step finds the packager key in builder's gpg keyring. Running
-# as root would look in /root/.gnupg, which is empty — gpg would then
+# as root would look in /root/.gnupg, which is empty, so gpg would
 # bail with "The key <fpr> does not exist in your keyring."
 (cd "$pkg_repo" && sudo -u builder repo-add "${repo_add_sign_flags[@]}" \
     posthogos.db.tar.zst ./*.pkg.tar.zst)
@@ -203,7 +203,7 @@ ls -lh "$pkg_repo"
 # the same way).
 #
 # Lets the build-time [posthogos] keep SigLevel = Optional rather than
-# Never — sigs are actually verified, matching the end-user flow.
+# Never, so sigs are actually verified, matching the end-user flow.
 if [ ${#repo_add_sign_flags[@]} -gt 0 ] && [ -f packages/posthogos-keyring/posthogos.gpg ]; then
     echo "==> Importing posthogos signing key into build-container pacman keyring"
     pacman-key --add packages/posthogos-keyring/posthogos.gpg

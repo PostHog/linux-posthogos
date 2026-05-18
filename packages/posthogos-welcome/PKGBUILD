@@ -7,9 +7,9 @@
 # that built the launcher from /usr/src/posthogos-welcome-launcher.cpp at
 # squashfs assembly time and deleted the source). Now the .cpp is a
 # package source, build() compiles in the builder container, and the
-# package ships the binary pre-built — same Qt6 ABI as the runtime
+# package ships the binary pre-built (same Qt6 ABI as the runtime
 # because the build container and the chroot pacstrap the same Qt6
-# version from the same upstream repos.
+# version from the same upstream repos).
 #
 # Source layout: the .cpp lives in this PKGBUILD dir; the wrapper script,
 # QML window, and .desktop entries are still under overlay/airootfs/
@@ -19,7 +19,7 @@
 # Versioning: pkgver() reads from `git describe --tags`.
 
 pkgname=posthogos-welcome
-pkgver=0.0.0
+pkgver=0.0.0.dev.b16555a
 pkgrel=1
 pkgdesc='PosthogOS welcome window (Qt6 QML) + launcher'
 arch=('x86_64')   # ships a compiled binary, so not 'any'
@@ -58,7 +58,7 @@ pkgver() {
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet — emit a deterministic dev marker so makepkg
+        # No git tags yet. Emit a deterministic dev marker so makepkg
         # accepts a non-empty pkgver and the resulting filename signals
         # this isn't a tagged release. Pacman pkgver allows alnum + . +
         # _ + + only, so we stick to dots.

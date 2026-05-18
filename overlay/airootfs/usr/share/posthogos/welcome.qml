@@ -131,7 +131,7 @@ ApplicationWindow {
 
         ActionTile {
             label:       prefs.isLiveIso ? "Install to disk"                       : "Install dev toolkit"
-            description: prefs.isLiveIso ? "Run the Calamares installer"           : "AI CLIs, modern Unix tools, containers, version managers — opt-in"
+            description: prefs.isLiveIso ? "Run the Calamares installer"           : "AI CLIs, modern Unix tools, containers, version managers (opt-in)"
             accent:      prefs.isLiveIso ? root.brandOrange                        : root.brandRed
             onClicked:   prefs.isLiveIso ? Qt.exit(10)                             : toolkitDialog.open()
         }

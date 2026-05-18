@@ -22,7 +22,7 @@
 # version tracks the repo tag (e.g. v0.2.0 → 0.2.0).
 
 pkgname=posthogos-scripts
-pkgver=0.0.0
+pkgver=0.0.0.dev.b16555a
 pkgrel=1
 pkgdesc='PosthogOS system scripts: firstrun, snapper-init, toolkit-install, neohog'
 arch=('any')
@@ -44,7 +44,7 @@ pkgver() {
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet — emit a deterministic dev marker so makepkg
+        # No git tags yet. Emit a deterministic dev marker so makepkg
         # accepts a non-empty pkgver and the resulting filename signals
         # this isn't a tagged release. Pacman pkgver allows alnum + . +
         # _ + + only, so we stick to dots.
@@ -62,8 +62,8 @@ package() {
     # /usr/local is technically the admin namespace but our scripts have
     # always lived here, .desktop files reference these absolute paths,
     # the welcome wrapper expects this layout. Moving them would touch
-    # too much; owning them via pacman is fine — pacman accepts any path
-    # under /usr.
+    # too much; owning them via pacman is fine (pacman accepts any path
+    # under /usr).
     install -d "$pkgdir/usr/local/bin"
     install -m 0755 \
         "$overlay/usr/local/bin/neohog" \

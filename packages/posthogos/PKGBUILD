@@ -6,10 +6,10 @@
 # Lets a fresh Arch / CachyOS install opt into PosthogOS with a single `pacman -S posthogos`, and
 # lets removal of the brand cleanly cascade if a user wants to revert.
 #
-# No files of its own — pure depends list. Pacman handles the dep graph.
+# No files of its own; just a depends list. Pacman handles the dep graph.
 
 pkgname=posthogos
-pkgver=0.0.0
+pkgver=0.0.0.dev.b16555a
 pkgrel=1
 pkgdesc='PosthogOS: meta-package pulling the full PosthogOS stack'
 arch=('any')
@@ -30,7 +30,7 @@ pkgver() {
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet — emit a deterministic dev marker so makepkg
+        # No git tags yet. Emit a deterministic dev marker so makepkg
         # accepts a non-empty pkgver and the resulting filename signals
         # this isn't a tagged release. Pacman pkgver allows alnum + . +
         # _ + + only, so we stick to dots.
@@ -41,7 +41,7 @@ pkgver() {
 
 package() {
     # Meta-package: no files, just the depends list above. The license
-    # link is the one real artifact — every package gets one.
+    # link is the one real artifact (every package gets one).
     install -Dm 0644 "$startdir/../../LICENSE" \
         "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
 }

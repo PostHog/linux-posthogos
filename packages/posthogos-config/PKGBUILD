@@ -8,11 +8,11 @@
 # home on first login).
 #
 # Owned paths:
-#   /etc/skel/.zshrc                                — shell setup
-#   /etc/skel/.gitconfig                            — git defaults + aliases
-#   /etc/skel/.config/ghostty/config                — terminal config
-#   /etc/skel/.config/zellij/config.kdl             — tmux-alt config
-#   /etc/skel/.config/zellij/layouts/posthogos-dev.kdl  — default dev layout
+#   /etc/skel/.zshrc                                    shell setup
+#   /etc/skel/.gitconfig                                git defaults + aliases
+#   /etc/skel/.config/ghostty/config                    terminal config
+#   /etc/skel/.config/zellij/config.kdl                 tmux-alt config
+#   /etc/skel/.config/zellij/layouts/posthogos-dev.kdl  default dev layout
 #
 # NOT owned by this package:
 #   /etc/skel/.config/kdeglobals               (cachyos-kde-settings owns)
@@ -22,14 +22,14 @@
 # Those are written by scripts/posthogos-customize.sh at chroot time
 # because pacman conflicts would block us from owning them here.
 #
-# Source: overlay/airootfs/etc/skel/ — in-container-build.sh excludes
+# Source: overlay/airootfs/etc/skel/. in-container-build.sh excludes
 # the same paths from the airootfs rsync so pacstrap'd files aren't
 # clobbered.
 #
 # Versioning: pkgver() reads from `git describe --tags`.
 
 pkgname=posthogos-config
-pkgver=0.0.0
+pkgver=0.0.0.dev.b16555a
 pkgrel=1
 pkgdesc='PosthogOS /etc/skel dotfiles (zsh, git, ghostty, zellij)'
 arch=('any')
@@ -50,7 +50,7 @@ pkgver() {
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     if [ -z "$v" ]; then
-        # No git tags yet — emit a deterministic dev marker so makepkg
+        # No git tags yet. Emit a deterministic dev marker so makepkg
         # accepts a non-empty pkgver and the resulting filename signals
         # this isn't a tagged release. Pacman pkgver allows alnum + . +
         # _ + + only, so we stick to dots.

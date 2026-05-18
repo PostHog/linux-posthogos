@@ -4,8 +4,8 @@ PosthogOS as a pacman repository.
 
 ## What and why
 
-Everything PosthogOS adds on top of CachyOS — icons, wallpapers, Plasma
-look-and-feel, fonts, scripts, the welcome window — needs an update
+Everything PosthogOS adds on top of CachyOS (icons, wallpapers, Plasma
+look-and-feel, fonts, scripts, the welcome window) needs an update
 path. Without one, brand iteration is frozen at whatever ISO each user
 installed from.
 
@@ -16,16 +16,16 @@ PosthogOS can `pacman -Syu` to receive.
 
 ## Currently shipping
 
-- **posthogos-keyring** — the PostHog packager GPG public key. Installs the
+- **posthogos-keyring**: the PostHog packager GPG public key. Installs the
   pubring at `/usr/share/pacman/keyrings/posthogos.gpg` and locally signs
   it into `/etc/pacman.d/gnupg/` via a pacman hook, so the system trusts
   every `posthogos-*` signature from first boot. Required for the
   end-user `[posthogos]` repo's `SigLevel = Required`.
-- **posthogos-branding** — icons, wallpapers, fonts, Plasma LAF (Light + Dark), color schemes, sound theme, Konsole profile, SDDM theme, Plymouth theme.
-- **posthogos-scripts** — `/usr/local/bin/{neohog,papirus-folders,posthogos-firstrun.sh,posthogos-firstrun-rescue.sh,posthogos-snapper-init,posthogos-toolkit-install}` + `/etc/xdg/autostart/posthogos-firstrun.desktop` + the snapper-init and firstrun-rescue systemd units (pre-enabled via vendor `multi-user.target.wants/` symlinks).
-- **posthogos-welcome** — Welcome window: pre-compiled Qt6 launcher binary + bash wrapper + `welcome.qml` + app-menu and autostart `.desktop` entries. The launcher is compiled in the PKGBUILD's `build()` (`g++ -O2 -fPIC` against Qt6Core/Gui/Qml), so no more chroot-time compile.
-- **posthogos-config** — `/etc/skel/.zshrc`, `.gitconfig`, ghostty config, zellij config + the `posthogos-dev` layout. KDE/GTK skel files stay in `customize.sh` since `cachyos-kde-settings` already owns those `/etc/skel` paths.
-- **posthogos** — Meta-package depending on all five above. Lets a fresh Arch install opt into the full stack with `pacman -S posthogos`.
+- **posthogos-branding**: icons, wallpapers, fonts, Plasma LAF (Light + Dark), color schemes, sound theme, Konsole profile, SDDM theme, Plymouth theme.
+- **posthogos-scripts**: `/usr/local/bin/{neohog,papirus-folders,posthogos-firstrun.sh,posthogos-firstrun-rescue.sh,posthogos-snapper-init,posthogos-toolkit-install}` + `/etc/xdg/autostart/posthogos-firstrun.desktop` + the snapper-init and firstrun-rescue systemd units (pre-enabled via vendor `multi-user.target.wants/` symlinks).
+- **posthogos-welcome**: Welcome window. Pre-compiled Qt6 launcher binary + bash wrapper + `welcome.qml` + app-menu and autostart `.desktop` entries. The launcher is compiled in the PKGBUILD's `build()` (`g++ -O2 -fPIC` against Qt6Core/Gui/Qml), so no more chroot-time compile.
+- **posthogos-config**: `/etc/skel/.zshrc`, `.gitconfig`, ghostty config, zellij config + the `posthogos-dev` layout. KDE/GTK skel files stay in `customize.sh` since `cachyos-kde-settings` already owns those `/etc/skel` paths.
+- **posthogos**: meta-package depending on all five above. Lets a fresh Arch install opt into the full stack with `pacman -S posthogos`.
 
 ## How a user gets updates
 
@@ -37,19 +37,19 @@ release is published.
 No first-install dance: the ISO build pacstraps `posthogos-branding`
 during `mkarchiso` (Phase 1.5), so every branding file lands on the
 installed system with proper pacman ownership from day one. Subsequent
-`pacman -Syu` upgrades are clean — no `--overwrite='*'` needed.
+`pacman -Syu` upgrades are clean: no `--overwrite='*'` needed.
 
 ## Activation behavior (opt-in on existing Arch)
 
 For PosthogOS users who install via the ISO or have new accounts created
-by Calamares, the look-and-feel is active from first login — the relevant
+by Calamares, the look-and-feel is active from first login. The relevant
 Plasma defaults are in `/etc/skel/.config/` (seeded by `customize.sh`)
 and get picked up at user-creation time.
 
 For an existing Arch / CachyOS user who opts in via `pacman -S posthogos`,
 the `posthogos-firstrun.sh` autostart entry (fires on every login until
 a marker file is written) does the work. After install, one logout +
-login cycle is enough to bring up the LAF, color scheme, and wallpaper —
+login cycle is enough to bring up the LAF, color scheme, and wallpaper:
 `plasma-apply-lookandfeel`, `plasma-apply-colorscheme`, and
 `plasma-apply-wallpaperimage` all apply to the running session.
 
@@ -59,8 +59,8 @@ during the same firstrun pass but only become visible on the *next*
 login (the second logout/login cycle). `refreshCurrentShell` /
 `kquitapp+kstart` would apply them live but both tear down the Plasma
 shell on QEMU TCG sessions (black-screen), so they're deliberately
-skipped. Intentional, self-resolving — no user action needed beyond the
-extra logout.
+skipped. Intentional and self-resolving; no user action needed beyond
+the extra logout.
 
 ## How a package gets built
 
@@ -157,9 +157,9 @@ sudo pacman -Syu  # signature verification now works normally
 
 `makepkg` runs without `--sign` if `POSTHOGOS_PACKAGER_KEY` is unset, so
 local `bin/build` produces unsigned packages and the build-time
-`file://` repo (which uses `SigLevel = Optional TrustAll`) accepts them.
-CI hard-fails if `POSTHOGOS_PACKAGER_KEY` is missing — a release ISO
-must be signed.
+`file://` repo (which uses `SigLevel = Optional`) accepts them. CI
+hard-fails if `POSTHOGOS_PACKAGER_KEY` is missing, because a release
+ISO must be signed.
 
 ### Local makepkg signing (developer with key in keyring)
 

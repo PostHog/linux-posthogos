@@ -100,7 +100,7 @@ if [ -f "$pkglist" ]; then
                              # by in-container-build.sh, exposed via the [posthogos]
                              # file:// repo we register below. Pacstrapping (vs.
                              # overlay-copying) means files land with proper pacman
-                             # ownership — eliminates the first-install collision.
+                             # ownership, eliminating the first-install collision.
         posthogos-scripts    # System scripts (firstrun, snapper-init, toolkit
                              # installer, neohog, papirus-folders helper) +
                              # firstrun autostart + snapper-init / firstrun-rescue
@@ -262,7 +262,7 @@ fi
 # mkarchiso pacstrap (which uses this exact pacman.conf) can resolve
 # `posthogos-branding` when it's listed in packages_desktop.x86_64.
 #
-# This is a BUILD-TIME repo only — it lives inside the throwaway build_dir
+# This is a BUILD-TIME repo only. It lives inside the throwaway build_dir
 # and never reaches the ISO. The end-user [posthogos] repo (pointing at
 # https://posthog.github.io/linux-posthogos/$arch) is registered separately
 # by scripts/posthogos-customize.sh inside the chroot at squashfs assembly
