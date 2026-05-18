@@ -39,6 +39,29 @@ during `mkarchiso` (Phase 1.5), so every branding file lands on the
 installed system with proper pacman ownership from day one. Subsequent
 `pacman -Syu` upgrades are clean — no `--overwrite='*'` needed.
 
+## Activation behavior (opt-in on existing Arch)
+
+For PosthogOS users who install via the ISO or have new accounts created
+by Calamares, the look-and-feel is active from first login — the relevant
+Plasma defaults are in `/etc/skel/.config/` (seeded by `customize.sh`)
+and get picked up at user-creation time.
+
+For an existing Arch / CachyOS user who opts in via `pacman -S posthogos`,
+the `posthogos-firstrun.sh` autostart entry (fires on every login until
+a marker file is written) does the work. After install, one logout +
+login cycle is enough to bring up the LAF, color scheme, and wallpaper —
+`plasma-apply-lookandfeel`, `plasma-apply-colorscheme`, and
+`plasma-apply-wallpaperimage` all apply to the running session.
+
+The one deferred bit is the Kickoff start-button icon and pinned taskbar
+launchers: those edits land in `~/.config/plasma-org.kde.plasma.desktop-appletsrc`
+during the same firstrun pass but only become visible on the *next*
+login (the second logout/login cycle). `refreshCurrentShell` /
+`kquitapp+kstart` would apply them live but both tear down the Plasma
+shell on QEMU TCG sessions (black-screen), so they're deliberately
+skipped. Intentional, self-resolving — no user action needed beyond the
+extra logout.
+
 ## How a package gets built
 
 Manually, on an Arch host (or in the `posthogos-builder` Docker image):
