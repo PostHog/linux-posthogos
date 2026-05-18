@@ -88,33 +88,76 @@ fi
 echo "==> Running pre-build patches"
 "$repo_root/scripts/pre-build.sh" "$build_dir"
 
-# ── Build posthogos-branding pacman package + local repo ──────────────────
+# ── Build posthogos-* pacman packages + local repo ────────────────────────
 # Phase 1.5: instead of overlay-copying branding files onto the ISO
-# (where they end up owned by no package), build the posthogos-branding
-# .pkg.tar.zst here, expose it as a local file:// pacman repo, and let
-# mkarchiso pacstrap it. Result: every branding file on the installed
-# system is pacman-owned from day one. `pacman -Syu` brings in new
-# versions cleanly with no --overwrite dance.
+# (where they end up owned by no package), build the posthogos-* .pkg.tar.zst
+# files here, expose them as a local file:// pacman repo, and let mkarchiso
+# pacstrap them. Result: every owned file on the installed system is
+# pacman-owned from day one. `pacman -Syu` brings in new versions cleanly
+# with no --overwrite dance.
 #
-# pre-build.sh appended `posthogos-branding` to packages_desktop.x86_64
-# and registered the [posthogos] file:// repo in archiso/pacman.conf
-# above, so mkarchiso below will find this package via that repo.
-echo "==> Building posthogos-branding package + local pacman repo"
+# pre-build.sh appended `posthogos-keyring` + `posthogos-branding` to
+# packages_desktop.x86_64 and registered the [posthogos] file:// repo in
+# archiso/pacman.conf above, so mkarchiso below will find these packages.
+echo "==> Building posthogos-* packages + local pacman repo"
 pkg_repo="$build_dir/posthogos-localrepo"
 mkdir -p "$pkg_repo"
 # makepkg refuses to run as root. Create a builder user if absent
 # (idempotent for repeated --keep-build runs) and chown the dirs it
-# needs to write to (PKGBUILD work area + overlay-generated, since
-# build() may re-invoke build-assets.sh).
+# needs to write to: packages/*/ (each PKGBUILD's src/, pkg/) and
+# overlay-generated (posthogos-branding's build() re-invokes build-assets.sh).
 id -u builder >/dev/null 2>&1 || useradd -m -s /bin/bash builder
-chown -R builder packages/posthogos-branding overlay-generated
-(
-    cd packages/posthogos-branding
-    sudo -u builder env PKGDEST="$pkg_repo" makepkg -df --noconfirm
-)
-# repo-add generates posthogos.db + posthogos.files (+ .tar.zst variants
-# and the bare-name symlinks pacman fetches).
-(cd "$pkg_repo" && repo-add posthogos.db.tar.zst ./*.pkg.tar.zst)
+chown -R builder packages overlay-generated
+
+# ── Signing setup ─────────────────────────────────────────────────────
+# When CI supplies the PostHog packager secret key, import it into the
+# builder's keyring and sign every package + the repo db. Local dev (no
+# key) builds unsigned packages; the build-time [posthogos] repo is at
+# SigLevel = Optional TrustAll so unsigned is fine. End-user pacman.conf
+# (written by posthogos-customize.sh) uses SigLevel = Required — so a
+# release ISO built WITHOUT the key in CI would produce a broken end-user
+# update path. Hard-fail in that case to catch misconfigured CI early.
+makepkg_sign_flags=()
+repo_add_sign_flags=()
+if [ -n "${POSTHOGOS_PACKAGER_KEY:-}" ] && [ -n "${POSTHOGOS_PACKAGER_KEY_FPR:-}" ]; then
+    echo "==> Importing PostHog packager signing key (fpr ${POSTHOGOS_PACKAGER_KEY_FPR:0:8}…)"
+    # gpg writes to builder's GNUPGHOME (=/home/builder/.gnupg). Pre-create
+    # with right perms; let gpg auto-init the rest.
+    install -d -o builder -g builder -m 0700 /home/builder/.gnupg
+    # Loopback pinentry: lets a passphrase-protected key still sign in a
+    # non-interactive container if we ever switch to one. No-op when the
+    # key has no passphrase (current default).
+    echo 'allow-loopback-pinentry' \
+        | sudo -u builder tee /home/builder/.gnupg/gpg-agent.conf >/dev/null
+    echo "$POSTHOGOS_PACKAGER_KEY" | sudo -u builder gpg --batch --import
+    echo "$POSTHOGOS_PACKAGER_KEY_FPR:6:" | sudo -u builder gpg --import-ownertrust
+    makepkg_sign_flags=(--sign --key "$POSTHOGOS_PACKAGER_KEY_FPR")
+    repo_add_sign_flags=(--sign --key "$POSTHOGOS_PACKAGER_KEY_FPR")
+elif [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "ERROR: running under CI but POSTHOGOS_PACKAGER_KEY / _FPR not set." >&2
+    echo "       End-user pacman.conf will have SigLevel=Required and reject unsigned packages." >&2
+    echo "       Set the GH secret POSTHOGOS_PACKAGER_KEY + repo variable POSTHOGOS_PACKAGER_KEY_FPR." >&2
+    exit 1
+else
+    echo "==> POSTHOGOS_PACKAGER_KEY unset → building unsigned (local dev mode)"
+fi
+
+for pkgdir in packages/*/; do
+    pkg=$(basename "$pkgdir")
+    echo "==> makepkg $pkg"
+    (
+        cd "$pkgdir"
+        sudo -u builder env PKGDEST="$pkg_repo" \
+            makepkg "${makepkg_sign_flags[@]}" -df --noconfirm
+    )
+done
+
+# repo-add accumulates all entries in a single posthogos.db.tar.zst, and
+# generates the symlinks pacman fetches (posthogos.db, posthogos.files).
+# --sign also produces posthogos.db.tar.zst.sig, verified by end-user
+# pacman when [posthogos] is set to SigLevel = Required (not
+# DatabaseOptional).
+(cd "$pkg_repo" && repo-add "${repo_add_sign_flags[@]}" posthogos.db.tar.zst ./*.pkg.tar.zst)
 echo "==> Local pacman repo ready:"
 ls -lh "$pkg_repo"
 

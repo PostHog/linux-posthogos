@@ -1,0 +1,46 @@
+# Maintainer: PostHog <hey@posthog.com>
+# shellcheck disable=SC2034,SC2154
+#
+# posthogos-keyring: the PostHog packager GPG public key as a pacman
+# keyring, so installed systems can verify signatures on every other
+# posthogos-* package before installing.
+#
+# Bootstraps the trust chain. After this package is installed:
+#   - /usr/share/pacman/keyrings/posthogos.gpg holds the public key
+#   - the .install hook imports it into /etc/pacman.d/gnupg/ via
+#     `pacman-key --populate posthogos` and locally signs it via
+#     `pacman-key --updatedb`
+#   - end-user pacman.conf can use `SigLevel = Required` for [posthogos]
+#
+# Key rotation: when we rotate the packager key, the NEW posthogos-keyring
+# package must be signed with the OLD key so that systems trusting the
+# old key can verify + install the new keyring, which then trusts new
+# packages going forward.
+
+pkgname=posthogos-keyring
+pkgver=0.0.0
+pkgrel=1
+pkgdesc='PosthogOS pacman keyring (PostHog packager public key)'
+arch=('any')
+url='https://github.com/posthog/linux-posthogos'
+license=('MIT')
+install="${pkgname}.install"
+source=(
+    'posthogos.gpg'
+    'posthogos-trusted'
+    'posthogos-revoked'
+)
+# Local source files, no checksum mirror to verify against.
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+# pkgver auto-derived from git tag (same pattern as posthogos-branding).
+pkgver() {
+    cd "$startdir/../.."
+    git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0"
+}
+
+package() {
+    install -Dm 0644 "$srcdir/posthogos.gpg"     "$pkgdir/usr/share/pacman/keyrings/posthogos.gpg"
+    install -Dm 0644 "$srcdir/posthogos-trusted" "$pkgdir/usr/share/pacman/keyrings/posthogos-trusted"
+    install -Dm 0644 "$srcdir/posthogos-revoked" "$pkgdir/usr/share/pacman/keyrings/posthogos-revoked"
+}

@@ -21,8 +21,10 @@ BRAND="posthogos"
 # normal `pacman -Syu` flow. Without this entry, every brand iteration
 # would require re-downloading the ISO.
 #
-# SigLevel=Optional TrustAll: packages aren't GPG-signed yet (Phase 1.5
-# work item). When signing lands, this drops to SigLevel=Required.
+# SigLevel=Required: every .pkg.tar.zst AND the posthogos.db.tar.zst
+# must verify against a key in pacman's trusted keyring. The PostHog
+# packager key was pacstrapped via posthogos-keyring and locally signed
+# by its .install hook, so verification works from first boot.
 #
 # Append (don't prepend) so CachyOS's higher-priority repos still win for
 # anything ambiguous; the only names we publish are namespaced
@@ -32,7 +34,7 @@ if ! grep -q '^\[posthogos\]' /etc/pacman.conf; then
     cat >>/etc/pacman.conf <<'EOF'
 
 [posthogos]
-SigLevel = Optional TrustAll
+SigLevel = Required
 Server = https://posthog.github.io/linux-posthogos/$arch
 EOF
 fi

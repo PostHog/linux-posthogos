@@ -70,6 +70,15 @@ jobs:
             pacman-
 
       - name: Build ISO
+        env:
+          # Signing key for posthogos-* pacman packages. Exported as an
+          # armored secret-key block (`gpg --armor --export-secret-keys ...`)
+          # and stored as a GH Actions secret. The fingerprint is a public
+          # value and lives in a repo variable (not a secret).
+          # If either is missing under CI, in-container-build.sh hard-fails
+          # — see the comment block in that script for the reasoning.
+          POSTHOGOS_PACKAGER_KEY: ${{ secrets.POSTHOGOS_PACKAGER_KEY }}
+          POSTHOGOS_PACKAGER_KEY_FPR: ${{ vars.POSTHOGOS_PACKAGER_KEY_FPR }}
         run: bin/build
         timeout-minutes: 50
 

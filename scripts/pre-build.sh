@@ -87,6 +87,13 @@ fi
 pkglist="archiso/packages_desktop.x86_64"
 if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
+        posthogos-keyring    # PostHog packager GPG public key. Bootstrap for
+                             # end-user `pacman -Syu`: installs the pubring at
+                             # /usr/share/pacman/keyrings/posthogos.gpg and the
+                             # .install hook locally signs it into the chroot's
+                             # /etc/pacman.d/gnupg/, so when customize.sh sets
+                             # the end-user [posthogos] repo to SigLevel=Required,
+                             # signature verification works on day one.
         posthogos-branding   # PosthogOS visual identity (icons, wallpapers, LAF,
                              # color schemes, fonts, sound theme, SDDM/Plymouth
                              # themes). Built locally from packages/posthogos-branding

@@ -73,6 +73,10 @@ docker run --rm --privileged \
     -e FAST_BUILD \
     -e SDDM_BG \
     -e SDDM_BG_BLUR \
+    -e CI \
+    -e GITHUB_ACTIONS \
+    -e POSTHOGOS_PACKAGER_KEY \
+    -e POSTHOGOS_PACKAGER_KEY_FPR \
     -w /work \
     posthogos-builder \
     /work/scripts/in-container-build.sh

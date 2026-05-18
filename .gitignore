@@ -25,3 +25,7 @@ test-disk.qcow2
 # (`cp .env.example .env`) and fill in machine-specific paths +
 # preferences. Auto-sourced by bin/build and bin/test.
 .env
+
+# Secrets
+*.sec
+*.pub
