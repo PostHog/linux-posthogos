@@ -19,7 +19,7 @@
 # Versioning: pkgver() reads from `git describe --tags`.
 
 pkgname=posthogos-welcome
-pkgver=0.0.0.dev.c0ac88f
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS welcome window (Qt6 QML) + launcher'
 arch=('x86_64')   # ships a compiled binary, so not 'any'

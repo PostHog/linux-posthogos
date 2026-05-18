@@ -9,7 +9,7 @@
 # No files of its own — pure depends list. Pacman handles the dep graph.
 
 pkgname=posthogos
-pkgver=0.0.0.dev.c0ac88f
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS: meta-package pulling the full PosthogOS stack'
 arch=('any')

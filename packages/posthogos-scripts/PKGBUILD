@@ -22,7 +22,7 @@
 # version tracks the repo tag (e.g. v0.2.0 → 0.2.0).
 
 pkgname=posthogos-scripts
-pkgver=0.0.0.dev.c0ac88f
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS system scripts: firstrun, snapper-init, toolkit-install, neohog'
 arch=('any')

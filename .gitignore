@@ -29,3 +29,12 @@ test-disk.qcow2
 # Secrets
 *.sec
 *.pub
+
+# makepkg local build artifacts. PKGBUILD's build() / package() write
+# into ./src/ and ./pkg/ inside each PKGBUILD dir; the final
+# .pkg.tar.zst (+ .sig) also lands there unless PKGDEST overrides.
+# Regenerated on every `bin/build` and `makepkg` invocation.
+packages/*/pkg/
+packages/*/src/
+packages/*/*.pkg.tar.zst
+packages/*/*.pkg.tar.zst.sig

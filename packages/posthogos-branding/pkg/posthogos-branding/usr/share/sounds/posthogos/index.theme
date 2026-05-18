@@ -1,9 +1,0 @@
-[Sound Theme]
-Name=PosthogOS
-Comment=PosthogOS event sounds (login, notifications, errors)
-Inherits=freedesktop
-Directories=stereo
-Example=service-login
-
-[stereo]
-OutputProfile=stereo

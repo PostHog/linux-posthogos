@@ -29,7 +29,7 @@
 # Versioning: pkgver() reads from `git describe --tags`.
 
 pkgname=posthogos-config
-pkgver=0.0.0.dev.c0ac88f
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS /etc/skel dotfiles (zsh, git, ghostty, zellij)'
 arch=('any')

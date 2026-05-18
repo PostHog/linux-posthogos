@@ -18,7 +18,7 @@
 # posthogos-branding` will show e.g. 0.1.0-1.
 
 pkgname=posthogos-branding
-pkgver=0.0.0.dev.c0ac88f
+pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS visual identity: icons, wallpapers, Plasma look-and-feel, fonts, sound theme'
 arch=('any')
