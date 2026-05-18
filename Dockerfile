@@ -27,7 +27,13 @@ RUN pacman -Syu --noconfirm --needed \
     base-devel \
     imagemagick \
     librsvg \
+    qt6-base \
+    qt6-declarative \
  && pacman -Scc --noconfirm
+# qt6-base + qt6-declarative are needed by posthogos-welcome's PKGBUILD
+# build(), which compiles a small C++ launcher (~30 lines) against Qt6
+# Core/Gui/Qml. Adds ~150 MB to the image but the GH Actions pacman
+# cache absorbs the download cost on subsequent builds.
 
 # Mark all dirs as safe for git. Without this, git refuses to operate on
 # bind-mounted workspaces when the host file owner uid (e.g. 1001 on GitHub

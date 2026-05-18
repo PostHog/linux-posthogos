@@ -69,6 +69,11 @@ pkg_owned_excludes=(
     --exclude='/airootfs/etc/xdg/autostart/posthogos-firstrun.desktop'
     --exclude='/airootfs/etc/systemd/system/posthogos-snapper-init.service'
     --exclude='/airootfs/etc/systemd/system/posthogos-firstrun-rescue.service'
+    # posthogos-welcome
+    --exclude='/airootfs/usr/local/bin/posthogos-welcome'
+    --exclude='/airootfs/usr/share/posthogos/welcome.qml'
+    --exclude='/airootfs/usr/share/applications/posthogos-welcome.desktop'
+    --exclude='/airootfs/etc/xdg/autostart/posthogos-welcome.desktop'
 )
 
 echo "==> Applying overlay/ → archiso/ (pkg-owned paths excluded; pacstrapped instead)"

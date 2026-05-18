@@ -128,24 +128,6 @@ if [ -d /opt/posthog-code ]; then
     chmod +x /opt/posthog-code/*.AppImage 2>/dev/null || true
 fi
 
-# ---- Compile the welcome launcher ---------------------------------------
-# Compiled in-chroot (not pre-built on the host) so the binary links
-# against the same Qt6 ABI it runs against. See the shim's source
-# (/usr/src/posthogos-welcome-launcher.cpp) for what it does.
-launcher_src=/usr/src/posthogos-welcome-launcher.cpp
-if [ -f "$launcher_src" ] && command -v g++ >/dev/null && command -v pkg-config >/dev/null; then
-    log "Compiling welcome launcher"
-    if g++ -O2 -fPIC -o /usr/local/bin/posthogos-welcome-launcher \
-            "$launcher_src" \
-            $(pkg-config --cflags --libs Qt6Core Qt6Gui Qt6Qml) 2>&1 | sed 's/^/  /'; then
-        chmod +x /usr/local/bin/posthogos-welcome-launcher
-        rm -f "$launcher_src"
-        log "  built /usr/local/bin/posthogos-welcome-launcher ($(stat -c%s /usr/local/bin/posthogos-welcome-launcher) bytes)"
-    else
-        log "  WARN: launcher compile failed; bash wrapper will fall back to qml6 (icon will be generic)"
-    fi
-fi
-
 # ---- Suppress CachyOS Hello popup ---------------------------------------
 # cachyos-hello auto-pops on every login. Shadow its /etc/xdg autostart
 # entry with a user-level Hidden=true (XDG spec: user wins over /etc).

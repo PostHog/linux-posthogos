@@ -2,9 +2,10 @@
 // app_id so KWin matches it to posthogos-welcome.desktop and renders the
 // branded icon in the titlebar/taskbar. Plain qml6 sets app_id to "qml".
 // Qt requires setDesktopFileName() to be called programmatically (no env
-// var works), hence this shim. Compiled in-chroot by posthogos-customize.sh;
-// source is removed after compile. QML side stays at welcome.qml;
-// exit codes pass through to the bash wrapper.
+// var works), hence this shim. Compiled in posthogos-welcome's PKGBUILD
+// build() against the build container's Qt6 headers; ships pre-built in
+// the package. QML side stays at welcome.qml; exit codes pass through
+// to the bash wrapper.
 
 #include <QGuiApplication>
 #include <QIcon>

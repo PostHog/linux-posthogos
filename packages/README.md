@@ -23,6 +23,7 @@ PosthogOS can `pacman -Syu` to receive.
   end-user `[posthogos]` repo's `SigLevel = Required`.
 - **posthogos-branding** — icons, wallpapers, fonts, Plasma LAF (Light + Dark), color schemes, sound theme, Konsole profile, SDDM theme, Plymouth theme.
 - **posthogos-scripts** — `/usr/local/bin/{neohog,papirus-folders,posthogos-firstrun.sh,posthogos-firstrun-rescue.sh,posthogos-snapper-init,posthogos-toolkit-install}` + `/etc/xdg/autostart/posthogos-firstrun.desktop` + the snapper-init and firstrun-rescue systemd units (pre-enabled via vendor `multi-user.target.wants/` symlinks).
+- **posthogos-welcome** — Welcome window: pre-compiled Qt6 launcher binary + bash wrapper + `welcome.qml` + app-menu and autostart `.desktop` entries. The launcher is compiled in the PKGBUILD's `build()` (`g++ -O2 -fPIC` against Qt6Core/Gui/Qml), so no more chroot-time compile.
 
 See [Status](#status) at the bottom for what's planned next.
 
@@ -160,7 +161,7 @@ Phase 2 (in progress):
 
 - [x] `posthogos-scripts` — `/usr/local/bin/posthogos-firstrun.sh`,
       `neohog`, `posthogos-toolkit-install`, systemd units, autostart entry.
-- [ ] `posthogos-welcome` — `welcome.qml` + the C++ launcher (pre-compiled
+- [x] `posthogos-welcome` — `welcome.qml` + the C++ launcher (pre-compiled
       in the package; no more chroot-time compile).
 - [ ] `posthogos-config` — `/etc/skel/*` dotfiles (`.zshrc`, `.gitconfig`,
       ghostty + zellij configs). `kdeglobals` etc. stay in `customize.sh`

@@ -107,6 +107,12 @@ if [ -f "$pkglist" ]; then
                              # systemd units (pre-enabled via vendor wants
                              # symlinks in the package). Same build/local-repo
                              # flow as posthogos-branding.
+        posthogos-welcome    # Welcome window: pre-compiled Qt6 launcher binary
+                             # (built in PKGBUILD's build() against the builder
+                             # image's Qt6 headers) + bash wrapper + welcome.qml
+                             # + the app-menu and autostart .desktop entries.
+                             # Replaces the prior chroot-time g++ compile in
+                             # customize.sh.
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
         qt6-declarative      # qml6 + ALL Qt6 QML modules including QtQuick.Controls
