@@ -136,11 +136,13 @@ chown -R builder packages overlay-generated "$pkg_repo"
 # When CI supplies the PostHog packager secret key, import it into the
 # builder's keyring and sign every package + the repo db. Local dev (no
 # key) builds unsigned packages; the build-time [posthogos] repo is at
-# SigLevel = Never (see pre-build.sh) so signed or not, pacstrap accepts
-# them. End-user pacman.conf (written by posthogos-customize.sh) uses
-# SigLevel = Required — so a release ISO built WITHOUT the key in CI
-# would produce a broken end-user update path. Hard-fail in that case
-# to catch misconfigured CI early.
+# SigLevel = Optional (see pre-build.sh) so unsigned packages skip the
+# check and signed packages get verified against the key we'll import
+# into the build container's pacman keyring after repo-add. End-user
+# pacman.conf (written by posthogos-customize.sh) uses SigLevel =
+# Required — so a release ISO built WITHOUT the key in CI would produce
+# a broken end-user update path. Hard-fail in that case to catch
+# misconfigured CI early.
 makepkg_sign_flags=()
 repo_add_sign_flags=()
 if [ -n "${POSTHOGOS_PACKAGER_KEY:-}" ] && [ -n "${POSTHOGOS_PACKAGER_KEY_FPR:-}" ]; then
@@ -190,6 +192,23 @@ done
     posthogos.db.tar.zst ./*.pkg.tar.zst)
 echo "==> Local pacman repo ready:"
 ls -lh "$pkg_repo"
+
+# ── Import packager key into the build-container pacman keyring ───────
+# When we signed packages + the db above, mkarchiso's pacstrap is about
+# to call pacman -Sy on the local [posthogos] repo and will refuse to
+# load the signed db unless the key that signed it is trusted in the
+# build container's pacman-key keyring (separate from builder's gpg
+# keyring used by makepkg). Import + locally sign here. Pacman keyring
+# is already initialized by the Dockerfile (it added the cachyos key
+# the same way).
+#
+# Lets the build-time [posthogos] keep SigLevel = Optional rather than
+# Never — sigs are actually verified, matching the end-user flow.
+if [ ${#repo_add_sign_flags[@]} -gt 0 ] && [ -f packages/posthogos-keyring/posthogos.gpg ]; then
+    echo "==> Importing posthogos signing key into build-container pacman keyring"
+    pacman-key --add packages/posthogos-keyring/posthogos.gpg
+    pacman-key --lsign-key "$POSTHOGOS_PACKAGER_KEY_FPR"
+fi
 
 # Mirror the repo into out/pkgs/ so the CI gh-pages publish + release-asset
 # upload steps don't have to re-build it.
