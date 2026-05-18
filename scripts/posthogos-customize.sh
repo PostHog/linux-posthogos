@@ -119,7 +119,9 @@ install -d -m 0755 /var/cache/fontconfig
 # are executable. Docker Desktop's bind-mount perm propagation on macOS
 # is unreliable, so we re-chmod in the chroot regardless of host perms.
 if [ -d /usr/local/bin ]; then
-    # /usr/local/bin is our namespace; pacman doesn't touch it.
+    # posthogos-scripts is the pacman owner of the posthogos-* scripts +
+    # neohog + papirus-folders here. Belt + suspenders chmod covers
+    # anything else dropped into /usr/local/bin/ by the overlay rsync.
     chmod +x /usr/local/bin/* 2>/dev/null || true
 fi
 if [ -d /opt/posthog-code ]; then

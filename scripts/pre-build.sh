@@ -101,6 +101,12 @@ if [ -f "$pkglist" ]; then
                              # file:// repo we register below. Pacstrapping (vs.
                              # overlay-copying) means files land with proper pacman
                              # ownership — eliminates the first-install collision.
+        posthogos-scripts    # System scripts (firstrun, snapper-init, toolkit
+                             # installer, neohog, papirus-folders helper) +
+                             # firstrun autostart + snapper-init / firstrun-rescue
+                             # systemd units (pre-enabled via vendor wants
+                             # symlinks in the package). Same build/local-repo
+                             # flow as posthogos-branding.
         inter-font           # Free Matter SQ analog; primary system body font
         papirus-icon-theme   # Friendlier folders + place/app icons than Breeze
         qt6-declarative      # qml6 + ALL Qt6 QML modules including QtQuick.Controls

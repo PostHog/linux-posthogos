@@ -1,0 +1,98 @@
+# Maintainer: PostHog <hey@posthog.com>
+# shellcheck disable=SC2034,SC2154
+#
+# posthogos-scripts: PosthogOS system scripts as a pacman package.
+#
+# Phase 2 of the PosthogOS pacman repo (see packages/README.md). Lets
+# installed systems pick up firstrun / snapper-init / toolkit-installer /
+# neohog fixes via `pacman -Syu` instead of being frozen at the ISO they
+# installed from.
+#
+# Source: the same overlay/airootfs/ tree the ISO build reads from.
+# in-container-build.sh excludes these paths from the airootfs rsync so
+# pacstrap'd (pacman-owned) files don't get clobbered by unowned overlay
+# copies.
+#
+# systemd enablement: ships pre-enabled symlinks under
+# /usr/lib/systemd/system/multi-user.target.wants/ rather than relying on a
+# post_install scriptlet's `systemctl enable`. Simpler (no .install file),
+# survives chroot quirks, and removing the package cleanly drops the
+# symlinks because pacman owns them.
+#
+# Versioning: pkgver() reads from `git describe --tags`, so the package
+# version tracks the repo tag (e.g. v0.2.0 → 0.2.0).
+
+pkgname=posthogos-scripts
+pkgver=0.0.0
+pkgrel=1
+pkgdesc='PosthogOS system scripts: firstrun, snapper-init, toolkit-install, neohog'
+arch=('any')
+url='https://github.com/posthog/linux-posthogos'
+license=('MIT')
+
+# Optional deps: scripts probe for these at runtime and degrade gracefully
+# if absent. Not making any hard so the package stays cheap to install.
+optdepends=(
+    'snapper: posthogos-snapper-init configures snapper if installed'
+    'snap-pac: pre/post snapshots on pacman ops (paired with snapper)'
+    'grub-btrfs: snapper-init enables grub-btrfsd for GRUB snapshot menu'
+    'fastfetch: neohog falls through to it (or neofetch) for the actual render'
+    'btrfs-progs: snapper-init checks rootfs fstype, only configures on btrfs'
+)
+
+pkgver() {
+    cd "$startdir/../.."
+    git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0"
+}
+
+package() {
+    local repo_root overlay
+    repo_root="$startdir/../.."
+    overlay="$repo_root/overlay/airootfs"
+
+    # ── /usr/local/bin scripts ────────────────────────────────────────────
+    # /usr/local is technically the admin namespace but our scripts have
+    # always lived here, .desktop files reference these absolute paths,
+    # the welcome wrapper expects this layout. Moving them would touch
+    # too much; owning them via pacman is fine — pacman accepts any path
+    # under /usr.
+    install -d "$pkgdir/usr/local/bin"
+    install -m 0755 \
+        "$overlay/usr/local/bin/neohog" \
+        "$overlay/usr/local/bin/papirus-folders" \
+        "$overlay/usr/local/bin/posthogos-firstrun.sh" \
+        "$overlay/usr/local/bin/posthogos-firstrun-rescue.sh" \
+        "$overlay/usr/local/bin/posthogos-snapper-init" \
+        "$overlay/usr/local/bin/posthogos-toolkit-install" \
+        "$pkgdir/usr/local/bin/"
+
+    # ── XDG autostart (firstrun trigger on first live-session login) ──────
+    # posthogos-welcome.desktop is the welcome window's responsibility and
+    # lives in posthogos-welcome (Phase 2 follow-up).
+    install -Dm 0644 "$overlay/etc/xdg/autostart/posthogos-firstrun.desktop" \
+        "$pkgdir/etc/xdg/autostart/posthogos-firstrun.desktop"
+
+    # ── systemd units ─────────────────────────────────────────────────────
+    # Vendor location: /usr/lib/systemd/system/ (admin overrides via
+    # /etc/systemd/system/ as needed). Same content as the previous
+    # overlay copies which lived in /etc/.
+    install -Dm 0644 "$overlay/etc/systemd/system/posthogos-snapper-init.service" \
+        "$pkgdir/usr/lib/systemd/system/posthogos-snapper-init.service"
+    install -Dm 0644 "$overlay/etc/systemd/system/posthogos-firstrun-rescue.service" \
+        "$pkgdir/usr/lib/systemd/system/posthogos-firstrun-rescue.service"
+
+    # ── Pre-enabled WantedBy symlinks (vendor enablement) ─────────────────
+    # systemd treats /usr/lib/systemd/system/<target>.wants/<unit> as an
+    # enabled symlink. Same effect as `systemctl enable` (which would
+    # create the symlink under /etc/), but owned by pacman and dropped
+    # cleanly on uninstall.
+    install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+    ln -sf "../posthogos-snapper-init.service" \
+        "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/posthogos-snapper-init.service"
+    ln -sf "../posthogos-firstrun-rescue.service" \
+        "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/posthogos-firstrun-rescue.service"
+
+    # ── License ───────────────────────────────────────────────────────────
+    install -Dm 0644 "$repo_root/LICENSE" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
+}

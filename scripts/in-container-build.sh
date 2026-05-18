@@ -39,14 +39,15 @@ git -C upstream archive --format=tar HEAD | tar -x -C "$build_dir"
 echo "==> Generating derived assets (resampled wallpapers, slideshow, splash)"
 "$repo_root/scripts/build-assets.sh"
 
-# Branding paths that the posthogos-branding pacman package owns. We
-# pacstrap that package below, so these paths land on the ISO with proper
-# pacman ownership — and we MUST skip them in the overlay rsync, otherwise
-# the unowned overlay files would clobber the pacstrap'd ones and reintroduce
-# the first-install file collision dance (`pacman -S --overwrite='*'`).
+# Paths that posthogos-* pacman packages own. We pacstrap those packages
+# below, so these paths land on the ISO with proper pacman ownership —
+# and we MUST skip them in the overlay rsync, otherwise the unowned
+# overlay files would clobber the pacstrap'd ones and reintroduce the
+# first-install file collision dance (`pacman -S --overwrite='*'`).
 # Excludes are applied to both overlay/ and overlay-generated/; rsync
 # silently ignores excludes that don't match.
-branding_excludes=(
+pkg_owned_excludes=(
+    # posthogos-branding
     --exclude='/airootfs/usr/share/color-schemes/'
     --exclude='/airootfs/usr/share/plasma/look-and-feel/com.posthog.posthogos'
     --exclude='/airootfs/usr/share/plasma/look-and-feel/com.posthog.posthogos.dark'
@@ -58,9 +59,19 @@ branding_excludes=(
     --exclude='/airootfs/usr/share/icons/'
     --exclude='/airootfs/usr/share/fonts/posthogos'
     --exclude='/airootfs/usr/share/sounds/posthogos'
+    # posthogos-scripts
+    --exclude='/airootfs/usr/local/bin/neohog'
+    --exclude='/airootfs/usr/local/bin/papirus-folders'
+    --exclude='/airootfs/usr/local/bin/posthogos-firstrun.sh'
+    --exclude='/airootfs/usr/local/bin/posthogos-firstrun-rescue.sh'
+    --exclude='/airootfs/usr/local/bin/posthogos-snapper-init'
+    --exclude='/airootfs/usr/local/bin/posthogos-toolkit-install'
+    --exclude='/airootfs/etc/xdg/autostart/posthogos-firstrun.desktop'
+    --exclude='/airootfs/etc/systemd/system/posthogos-snapper-init.service'
+    --exclude='/airootfs/etc/systemd/system/posthogos-firstrun-rescue.service'
 )
 
-echo "==> Applying overlay/ → archiso/ (branding paths excluded; pacstrapped instead)"
+echo "==> Applying overlay/ → archiso/ (pkg-owned paths excluded; pacstrapped instead)"
 # Previously gated on `find overlay ... | grep -q .` to skip the rsync
 # when overlay/ was empty. Under `set -euo pipefail` that pipeline
 # returned non-zero (grep -q exits early → SIGPIPEs find → find non-zero
@@ -74,14 +85,14 @@ echo "==> Applying overlay/ → archiso/ (branding paths excluded; pacstrapped i
 if [ -d overlay ]; then
     rsync -a --info=stats1 \
         --exclude='.gitkeep' --exclude='README.md' \
-        "${branding_excludes[@]}" \
+        "${pkg_owned_excludes[@]}" \
         overlay/ "$build_dir/archiso/"
 fi
 
-echo "==> Applying overlay-generated/ → archiso/ (branding paths excluded; pacstrapped instead)"
+echo "==> Applying overlay-generated/ → archiso/ (pkg-owned paths excluded; pacstrapped instead)"
 if [ -d overlay-generated ]; then
     rsync -a --info=stats1 \
-        "${branding_excludes[@]}" \
+        "${pkg_owned_excludes[@]}" \
         overlay-generated/ "$build_dir/archiso/"
 fi
 
