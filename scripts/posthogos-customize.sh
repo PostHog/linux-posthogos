@@ -33,7 +33,7 @@ fi
 
 # ---- OS identity ---------------------------------------------------------
 # Owned by upstream packages (filesystem, lsb-release), so pacstrap
-# refuses to overwrite — write them post-pacstrap.
+# refuses to overwrite; write them post-pacstrap.
 log "Writing /etc/os-release"
 cat >/etc/os-release <<'EOF'
 NAME="PosthogOS"
@@ -262,7 +262,7 @@ done
 
 # ---- Display manager: plasma-login-manager (plasmalogin) ----------------
 # Upstream KDE's SDDM fork with a Plasma-native greeter. Config must live
-# at /etc/plasmalogin.conf — /etc/plasmalogin.conf.d/ is silently ignored
+# at /etc/plasmalogin.conf, but /etc/plasmalogin.conf.d/ is silently ignored
 # (upstream bug). WallpaperPluginId is required: without it, the greeter
 # bails with "Error loading Applet: package  does not exist".
 log "Writing /etc/plasmalogin.conf (autologin + branded wallpaper)"

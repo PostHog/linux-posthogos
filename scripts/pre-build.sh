@@ -117,8 +117,8 @@ if [ -f "$pkglist" ]; then
     # --- FAST_BUILD: drop alternate kernels -------------------------------
     # CachyOS ships 6 kernels (linux-cachyos + -lts + -zfs/-nvidia-open
     # variants of each). Each triggers `mkinitcpio -P` during pacstrap +
-    # again on plymouth-set-default-theme — 6-12 regens. Drop alternates
-    # locally; CI keeps them for ZFS-root + proprietary-NVIDIA install paths.
+    # again on plymouth-set-default-theme. Drop alternates locally;
+    # CI keeps them for ZFS-root + proprietary-NVIDIA install paths.
     if [ "${FAST_BUILD:-0}" = "1" ]; then
         fast_drop_kernels=(
             linux-cachyos-lts

@@ -73,9 +73,7 @@ pkg_owned_excludes=(
 )
 
 echo "==> Applying overlay/ → archiso/ (pkg-owned paths excluded; pacstrapped instead)"
-# Don't gate on `find overlay | grep -q .` under set -o pipefail — grep
-# exits early, SIGPIPEs find, the guard always evaluates false and the
-# whole rsync silently skips. Empty source dir is a harmless no-op anyway.
+# Don't gate on `find overlay | grep -q .` under set -o pipefail
 if [ -d overlay ]; then
     rsync -a --info=stats1 \
         --exclude='.gitkeep' --exclude='README.md' \
@@ -117,7 +115,7 @@ if [ -n "${POSTHOGOS_PACKAGER_KEY:-}" ] && [ -n "${POSTHOGOS_PACKAGER_KEY_FPR:-}
     echo "==> Importing PostHog packager signing key (fpr ${POSTHOGOS_PACKAGER_KEY_FPR:0:8}…)"
     install -d -o builder -g builder -m 0700 /home/builder/.gnupg
     # Loopback pinentry for the (currently no-passphrase) key, in case we
-    # ever switch to one — non-interactive container can't pop pinentry.
+    # ever switch to one, as non-interactive container can't pop pinentry.
     echo 'allow-loopback-pinentry' \
         | sudo -u builder tee /home/builder/.gnupg/gpg-agent.conf >/dev/null
     echo "$POSTHOGOS_PACKAGER_KEY" | sudo -u builder gpg --batch --import

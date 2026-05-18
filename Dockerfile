@@ -2,9 +2,7 @@
 # devices + bind mounts). archlinux is x86_64-only; bin/build handles the
 # --platform=linux/amd64 on Apple Silicon (Rosetta-emulated, slow but correct).
 #
-# Snapshot tag pin (not :latest) for build reproducibility. Bump
-# periodically — pacman -Syu below pulls latest package versions anyway,
-# so the pin mostly controls the starting glibc/coreutils snapshot.
+# Snapshot tag pin (not :latest) for build reproducibility, bump periodically.
 FROM archlinux:base-20260510.0.525573
 
 # Pacman 7's alpm seccomp filters fail under Rosetta emulation
