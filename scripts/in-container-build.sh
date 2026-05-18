@@ -125,10 +125,12 @@ pkg_repo="$build_dir/posthogos-localrepo"
 mkdir -p "$pkg_repo"
 # makepkg refuses to run as root. Create a builder user if absent
 # (idempotent for repeated --keep-build runs) and chown the dirs it
-# needs to write to: packages/*/ (each PKGBUILD's src/, pkg/) and
-# overlay-generated (posthogos-branding's build() re-invokes build-assets.sh).
+# needs to write to: packages/*/ (each PKGBUILD's src/, pkg/),
+# overlay-generated (posthogos-branding's build() re-invokes
+# build-assets.sh), and the local repo dir (where makepkg writes
+# .pkg.tar.zst and where repo-add later writes posthogos.db).
 id -u builder >/dev/null 2>&1 || useradd -m -s /bin/bash builder
-chown -R builder packages overlay-generated
+chown -R builder packages overlay-generated "$pkg_repo"
 
 # ── Signing setup ─────────────────────────────────────────────────────
 # When CI supplies the PostHog packager secret key, import it into the
@@ -178,7 +180,13 @@ done
 # --sign also produces posthogos.db.tar.zst.sig, verified by end-user
 # pacman when [posthogos] is set to SigLevel = Required (not
 # DatabaseOptional).
-(cd "$pkg_repo" && repo-add "${repo_add_sign_flags[@]}" posthogos.db.tar.zst ./*.pkg.tar.zst)
+#
+# Runs as `builder` (matching the makepkg invocations) so repo-add's
+# --sign step finds the packager key in builder's gpg keyring. Running
+# as root would look in /root/.gnupg, which is empty — gpg would then
+# bail with "The key <fpr> does not exist in your keyring."
+(cd "$pkg_repo" && sudo -u builder repo-add "${repo_add_sign_flags[@]}" \
+    posthogos.db.tar.zst ./*.pkg.tar.zst)
 echo "==> Local pacman repo ready:"
 ls -lh "$pkg_repo"
 

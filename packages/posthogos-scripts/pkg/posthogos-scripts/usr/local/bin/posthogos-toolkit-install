@@ -1,0 +1,361 @@
+#!/usr/bin/env bash
+# posthogos-toolkit-install: the opt-in agentic dev toolkit installer.
+#
+# Designed to be invoked from the Welcome window's "Install dev toolkit"
+# tile (the QML dialog passes --yes + --skip=... for any opted-out
+# categories) but also fully usable interactively from a shell.
+#
+# Categories
+#   ai          AI CLIs: Claude Code, OpenAI Codex, Gemini, Pi, Ollama
+#   dev         shell: zsh + zsh-completions + pure prompt (chsh the
+#               invoking user) PLUS modern Unix replacements: bat eza
+#               fd fzf ripgrep git-delta jq go-yq gh lazygit tig btop
+#               dust tokei hyperfine just zellij atuin zoxide
+#   containers  docker, docker-compose, podman, distrobox, lazydocker
+#               + add invoking user to docker group + subuid/subgid for
+#               rootless podman/distrobox
+#   extras      Tailscale (mesh VPN) + mitmproxy (HTTPS interceptor)
+#               + 1Password CLI (op) + asdf-vm (version manager)
+#
+# Usage
+#   posthogos-toolkit-install                       # interactive prompt per category
+#   posthogos-toolkit-install --yes                 # install everything, no prompt
+#   posthogos-toolkit-install --yes --skip=containers
+#   posthogos-toolkit-install --yes --only=ai,dev
+#
+# Privilege model
+#   This script requires root (pacman, systemctl, /usr/local/bin writes,
+#   /etc/subuid edits). It re-execs itself under `sudo` if not already
+#   root. Group adds + npm globals target the invoking user via SUDO_USER
+#   (or --user=<name> if invoked directly as root from welcome's pkexec).
+
+set -uo pipefail
+
+VERSION=1.0.0
+ALL_CATEGORIES=(ai dev containers extras)
+
+# ── Arg parsing ───────────────────────────────────────────────────────────
+YES=0
+SKIP_LIST=""
+ONLY_LIST=""
+TARGET_USER=""
+
+for arg in "$@"; do
+    case "$arg" in
+        -y|--yes)        YES=1 ;;
+        --skip=*)        SKIP_LIST="${arg#*=}" ;;
+        --only=*)        ONLY_LIST="${arg#*=}" ;;
+        --user=*)        TARGET_USER="${arg#*=}" ;;
+        -h|--help)
+            sed -n '2,28p' "$0" | sed 's/^# \?//'
+            exit 0
+            ;;
+        *)
+            echo "Unknown arg: $arg" >&2
+            echo "Try: $0 --help" >&2
+            exit 2
+            ;;
+    esac
+done
+
+# ── Self-elevate ──────────────────────────────────────────────────────────
+# If not root, re-exec under sudo with --user=<current> appended so the
+# script knows who to add to the docker group / chown things to later.
+if [ "$(id -u)" -ne 0 ]; then
+    if [ -z "$TARGET_USER" ]; then
+        TARGET_USER="$(id -un)"
+    fi
+    exec sudo -E -- "$0" "$@" "--user=$TARGET_USER"
+fi
+
+# At this point we are root.
+# Resolve TARGET_USER from SUDO_USER if --user= wasn't passed.
+if [ -z "$TARGET_USER" ]; then
+    TARGET_USER="${SUDO_USER:-}"
+fi
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    # Last resort: pick the lowest-uid non-system user. This matters for
+    # the welcome window's pkexec path where SUDO_USER is unset.
+    TARGET_USER=$(awk -F: '$3>=1000 && $3<60000 {print $1; exit}' /etc/passwd)
+fi
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+[ -d "$TARGET_HOME" ] || TARGET_HOME="/home/$TARGET_USER"
+
+# ── Brand palette (for log output) ────────────────────────────────────────
+BLUE=$'\033[38;2;29;74;255m'
+ORANGE=$'\033[38;2;245;78;0m'
+HONEY=$'\033[38;2;235;157;42m'
+GREEN=$'\033[38;2;46;160;67m'
+DIM=$'\033[2m'
+BOLD=$'\033[1m'
+RESET=$'\033[0m'
+
+banner() {
+    printf '\n%s%s━━━ %s ━━━%s\n' "$BOLD" "$ORANGE" "$1" "$RESET"
+}
+step()  { printf '%s▸%s %s\n'    "$BLUE"  "$RESET" "$*"; }
+ok()    { printf '%s✓%s %s\n'    "$GREEN" "$RESET" "$*"; }
+warn()  { printf '%s⚠%s %s\n'    "$HONEY" "$RESET" "$*" >&2; }
+
+# ── Resolve which categories to run ───────────────────────────────────────
+should_run() {
+    local cat="$1"
+    if [ -n "$ONLY_LIST" ]; then
+        [[ ",$ONLY_LIST," == *",$cat,"* ]] && return 0 || return 1
+    fi
+    if [ -n "$SKIP_LIST" ]; then
+        [[ ",$SKIP_LIST," == *",$cat,"* ]] && return 1 || return 0
+    fi
+    return 0
+}
+
+confirm_or_skip() {
+    local cat="$1" desc="$2"
+    if [ "$YES" -eq 1 ]; then
+        should_run "$cat" && return 0 || return 1
+    fi
+    should_run "$cat" || return 1
+    printf '\n%s%s%s  %s\nInstall this category? [Y/n] ' "$BOLD" "$cat" "$RESET" "$desc"
+    read -r answer
+    case "${answer,,}" in n|no) return 1 ;; *) return 0 ;; esac
+}
+
+# ── Helpers ───────────────────────────────────────────────────────────────
+pacman_install() {
+    # Pacman in non-interactive mode. --needed skips already-installed.
+    # We don't pass --noconfirm to all of pacman, only to install, so
+    # users get prompted for risky overwrite scenarios.
+    pacman -S --needed --noconfirm "$@"
+}
+
+# Run a command as the target user. Useful for npm globals + tools that write
+# state into $HOME. `runuser -u` is the modern systemd-friendly version
+# of `su -c "$@" <user>` and preserves the env we set inline.
+as_user() {
+    runuser -u "$TARGET_USER" -- "$@"
+}
+
+# ── Category: ai ──────────────────────────────────────────────────────────
+install_ai() {
+    banner "AI CLIs"
+    step "Anthropic Claude Code (native installer)"
+    if curl -fsSL https://claude.ai/install.sh | bash 2>&1 | sed 's/^/    /'; then
+        ok "Claude Code installed"
+    else
+        warn "Claude Code install failed (manual: curl -fsSL https://claude.ai/install.sh | bash)"
+    fi
+
+    step "OpenAI Codex (npm global)"
+    if command -v npm >/dev/null; then
+        if npm install --global --prefix /usr/local --no-fund --no-audit @openai/codex 2>&1 | sed 's/^/    /'; then
+            ok "Codex installed"
+        else
+            warn "Codex install failed"
+        fi
+    else
+        warn "npm not on PATH; skipping Codex (nodejs is supposed to be pre-baked)"
+    fi
+
+    step "Google Gemini CLI (npm global)"
+    if command -v npm >/dev/null; then
+        if npm install --global --prefix /usr/local --no-fund --no-audit @google/gemini-cli 2>&1 | sed 's/^/    /'; then
+            ok "Gemini CLI installed"
+        else
+            warn "Gemini CLI install failed"
+        fi
+    fi
+
+    step "Earendil Works Pi (terminal coding harness)"
+    if curl -fsSL https://pi.dev/install.sh | sh 2>&1 | sed 's/^/    /'; then
+        ok "Pi installed"
+    else
+        warn "Pi install failed"
+    fi
+
+    step "Ollama (local LLM runtime)"
+    if curl -fsSL https://ollama.com/install.sh | sh 2>&1 | sed 's/^/    /'; then
+        # Ollama's installer enables + starts the service when systemd is
+        # running. We're not in a chroot anymore (toolkit runs post-boot),
+        # so this Just Works. Belt-and-suspenders enable in case the
+        # detection mis-fires:
+        systemctl enable --now ollama.service 2>/dev/null || true
+        ok "Ollama installed (service started)"
+    else
+        warn "Ollama install failed"
+    fi
+}
+
+# ── Category: dev ─────────────────────────────────────────────────────────
+# zsh + pure ship here (not their own category) because /etc/skel/.zshrc
+# is wired around the dev tools (alias ls=eza, lg=lazygit, etc.) and
+# only lights up coherently when both arrive together.
+install_dev() {
+    banner "zsh + pure prompt + modern Unix tooling"
+    step "pacman -S (zsh + bat eza fd fzf ripgrep git-delta jq go-yq gh lazygit tig btop dust tokei hyperfine just zellij atuin zoxide)"
+    pacman_install \
+        zsh zsh-completions \
+        bat eza fd fzf ripgrep \
+        git-delta jq go-yq \
+        github-cli lazygit tig \
+        btop dust tokei hyperfine \
+        just zellij \
+        atuin zoxide \
+        2>&1 | sed 's/^/    /'
+
+    # sindresorhus/pure: small zsh prompt, extracted to /usr/share/zsh/pure
+    # where /etc/skel/.zshrc picks it up via fpath. Idempotent.
+    PURE_VERSION=1.23.0
+    if [ ! -f /usr/share/zsh/pure/pure.zsh ]; then
+        step "Installing pure prompt v${PURE_VERSION}"
+        pure_tgz=/tmp/pure-${PURE_VERSION}.tar.gz
+        if curl -fsSL -o "$pure_tgz" \
+                "https://github.com/sindresorhus/pure/archive/refs/tags/v${PURE_VERSION}.tar.gz" \
+            && mkdir -p /usr/share/zsh/pure \
+            && tar -xzf "$pure_tgz" -C /usr/share/zsh/pure --strip-components=1; then
+            rm -f "$pure_tgz"
+            ok "pure prompt installed at /usr/share/zsh/pure"
+        else
+            warn "pure prompt download failed (manual: tarball from https://github.com/sindresorhus/pure/releases)"
+            rm -f "$pure_tgz"
+        fi
+    else
+        ok "pure prompt already installed"
+    fi
+
+    # Switch login shell to zsh so /etc/skel/.zshrc (already in $HOME)
+    # takes effect on next login. Fallback edits /etc/passwd directly
+    # for systems where chsh refuses (e.g. zsh missing from /etc/shells).
+    if [ -x /bin/zsh ] || [ -x /usr/bin/zsh ]; then
+        zsh_path=$(command -v zsh)
+        current_shell=$(getent passwd "$TARGET_USER" | cut -d: -f7)
+        case "$current_shell" in
+            */zsh)
+                ok "$TARGET_USER's login shell is already $current_shell"
+                ;;
+            *)
+                step "Switching $TARGET_USER's login shell to $zsh_path"
+                if chsh -s "$zsh_path" "$TARGET_USER" 2>&1 | sed 's/^/    /'; then
+                    ok "Shell set to $zsh_path; log out and back in to start using it"
+                else
+                    sed -i "/^${TARGET_USER}:/s|:[^:]*$|:${zsh_path}|" /etc/passwd \
+                        && ok "Shell set via /etc/passwd; log out + back in" \
+                        || warn "chsh + /etc/passwd edit both failed"
+                fi
+                ;;
+        esac
+    else
+        warn "zsh not on PATH after install (pacman -S failed?); skipping chsh"
+    fi
+
+    ok "Dev tooling installed (try \`eza -lhaF --git\` or \`lg\` for lazygit; log out + in for the zsh prompt)"
+}
+
+# ── Category: containers ──────────────────────────────────────────────────
+install_containers() {
+    banner "Containers"
+    step "pacman -S docker docker-compose podman distrobox lazydocker"
+    pacman_install docker docker-compose podman distrobox lazydocker 2>&1 | sed 's/^/    /'
+
+    step "Enabling docker.service"
+    systemctl enable --now docker.service 2>&1 | sed 's/^/    /' || warn "docker.service enable failed"
+
+    step "Adding $TARGET_USER to docker group"
+    if getent group docker >/dev/null; then
+        gpasswd -a "$TARGET_USER" docker 2>&1 | sed 's/^/    /' || warn "gpasswd failed"
+        ok "Group add done. $TARGET_USER must log out + back in for it to take effect"
+    fi
+
+    step "Seeding /etc/subuid + /etc/subgid for rootless podman/distrobox"
+    # Conventional Arch range size (65536 ids per user). Skip if entry
+    # already exists for this user.
+    if ! grep -q "^${TARGET_USER}:" /etc/subuid; then
+        echo "${TARGET_USER}:100000:65536" >> /etc/subuid
+        ok "/etc/subuid updated"
+    else
+        ok "/etc/subuid already has an entry for $TARGET_USER"
+    fi
+    if ! grep -q "^${TARGET_USER}:" /etc/subgid; then
+        echo "${TARGET_USER}:100000:65536" >> /etc/subgid
+        ok "/etc/subgid updated"
+    else
+        ok "/etc/subgid already has an entry for $TARGET_USER"
+    fi
+}
+
+# ── Category: extras ──────────────────────────────────────────────────────
+install_extras() {
+    banner "Extras (Tailscale, mitmproxy, 1Password CLI, asdf)"
+    step "pacman -S tailscale mitmproxy"
+    pacman_install tailscale mitmproxy 2>&1 | sed 's/^/    /'
+
+    step "Enabling tailscaled.service"
+    systemctl enable --now tailscaled.service 2>&1 | sed 's/^/    /' || warn "tailscaled enable failed"
+
+    step "1Password CLI (op)"
+    OP_VERSION=2.33.1
+    op_arch=amd64
+    op_zip=/tmp/op-${OP_VERSION}.zip
+    if curl -fsSL -o "$op_zip" \
+            "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_${op_arch}_v${OP_VERSION}.zip" \
+        && command -v unzip >/dev/null \
+        && unzip -o -q "$op_zip" -d /tmp/op-unpack \
+        && install -m 0755 /tmp/op-unpack/op /usr/local/bin/op; then
+        rm -rf /tmp/op-unpack "$op_zip"
+        ok "1Password CLI installed → $(/usr/local/bin/op --version 2>/dev/null || echo '?')"
+    else
+        warn "op install failed"
+        rm -rf /tmp/op-unpack "$op_zip" 2>/dev/null || true
+    fi
+
+    step "asdf-vm (multi-runtime version manager)"
+    ASDF_VERSION=0.16.7
+    asdf_tgz=/tmp/asdf-${ASDF_VERSION}.tar.gz
+    if curl -fsSL -o "$asdf_tgz" \
+            "https://github.com/asdf-vm/asdf/releases/download/v${ASDF_VERSION}/asdf-v${ASDF_VERSION}-linux-amd64.tar.gz" \
+        && tar -xzf "$asdf_tgz" -C /usr/local/bin/ asdf; then
+        chmod 0755 /usr/local/bin/asdf
+        rm -f "$asdf_tgz"
+        ok "asdf installed → $(/usr/local/bin/asdf --version 2>/dev/null || echo '?')"
+    else
+        warn "asdf install failed"
+        rm -f "$asdf_tgz"
+    fi
+}
+
+# ── Summary ───────────────────────────────────────────────────────────────
+summary() {
+    banner "Summary"
+    printf 'Tools on PATH after this run:\n\n'
+    for bin in claude codex gemini pi ollama \
+               bat eza fd fzf rg delta jq yq gh lazygit btop atuin zoxide just zellij \
+               docker podman distrobox lazydocker \
+               tailscale mitmproxy op asdf; do
+        path=$(command -v "$bin" 2>/dev/null || true)
+        if [ -n "$path" ]; then
+            printf '  %s✓%s %-12s %s\n' "$GREEN" "$RESET" "$bin" "${DIM}$path${RESET}"
+        else
+            printf '  %s·%s %-12s %s\n' "$DIM"   "$RESET" "$bin" "${DIM}(not installed)${RESET}"
+        fi
+    done
+    printf '\n%sDone.%s\n' "$BOLD" "$RESET"
+    if grep -q "^docker:" /etc/group && id -nG "$TARGET_USER" 2>/dev/null | grep -qv 'docker'; then
+        # User won't see docker group membership until next login.
+        printf '%sNote:%s log out and back in to pick up the docker group membership.\n' "$HONEY" "$RESET"
+    fi
+}
+
+# ── Main ──────────────────────────────────────────────────────────────────
+printf '%sPosthogOS Dev Toolkit Installer%s v%s\n' "$BOLD" "$RESET" "$VERSION"
+printf '%sTarget user:%s %s   %sTarget home:%s %s\n' \
+    "$DIM" "$RESET" "$TARGET_USER" "$DIM" "$RESET" "$TARGET_HOME"
+
+# Refresh pacman DB once up front so each pacman_install call is fast.
+step "Refreshing pacman databases (sudo pacman -Sy)"
+pacman -Sy 2>&1 | sed 's/^/    /'
+
+confirm_or_skip ai         "Claude Code, Codex, Gemini, Pi, Ollama" && install_ai
+confirm_or_skip dev        "zsh + pure prompt + bat, eza, fd, fzf, ripgrep, delta, jq, yq, gh, lazygit, btop, atuin, zoxide, zellij, just, …" && install_dev
+confirm_or_skip containers "docker, podman, distrobox, lazydocker (+group + subuid/subgid)" && install_containers
+confirm_or_skip extras     "Tailscale, mitmproxy, 1Password CLI, asdf-vm" && install_extras
+
+summary

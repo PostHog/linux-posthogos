@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=PosthogOS
+Description=PosthogOS boot splash, centered logo on brand dark
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/posthogos
+ScriptFile=/usr/share/plymouth/themes/posthogos/posthogos.script

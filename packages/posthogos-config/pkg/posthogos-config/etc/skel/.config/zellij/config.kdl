@@ -1,0 +1,56 @@
+// PosthogOS Zellij defaults.
+//
+// Brand palette mapped to the multiplexer chrome. Default layout is the
+// stock zellij one (single shell pane, tab bar on top, status bar on
+// bottom). To get the structured "editor + git + tests + logs" layout,
+// launch with: `zellij --layout posthogos-dev`
+
+// ─── Theme ────────────────────────────────────────────────────────────────
+default_layout "default"
+theme "posthogos"
+
+themes {
+    posthogos {
+        // Palette mirrors the Ghostty PosthogOS color scheme and the
+        // Konsole PosthogOS.colorscheme. Cream foreground on near-black
+        // background, brand orange/honey for the active/highlight states.
+        fg "#EEEFE9"
+        bg "#151515"
+        black "#151515"
+        red "#F54E00"
+        green "#2EA043"
+        yellow "#EB9D2A"
+        blue "#1D4AFF"
+        magenta "#B45AFF"
+        cyan "#00B5C5"
+        white "#EEEFE9"
+        orange "#EB9D2A"
+    }
+}
+
+// ─── Behavior ─────────────────────────────────────────────────────────────
+// Mouse support: click panes to focus, drag to resize.
+mouse_mode true
+
+// Copy to system clipboard via wl-copy / xclip (auto-detected).
+copy_clipboard "system"
+copy_on_select true
+
+// Pane frames cost vertical real estate; users can re-enable with Ctrl-p f.
+pane_frames false
+
+// Don't auto-attach to existing sessions; `zellij` always opens a fresh one
+// unless the user explicitly `zellij attach <name>`s.
+attach_to_session false
+
+// Scroll buffer: 10k lines is plenty for "see what tests printed 5 mins ago"
+// without eating ridiculous memory.
+scroll_buffer_size 10000
+
+// ─── UI tweaks ────────────────────────────────────────────────────────────
+ui {
+    pane_frames {
+        rounded_corners true
+        hide_session_name false
+    }
+}

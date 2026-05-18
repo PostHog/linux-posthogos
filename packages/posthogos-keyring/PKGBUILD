@@ -18,7 +18,7 @@
 # packages going forward.
 
 pkgname=posthogos-keyring
-pkgver=0.0.0
+pkgver=0.0.0.dev.c0ac88f
 pkgrel=1
 pkgdesc='PosthogOS pacman keyring (PostHog packager public key)'
 arch=('any')

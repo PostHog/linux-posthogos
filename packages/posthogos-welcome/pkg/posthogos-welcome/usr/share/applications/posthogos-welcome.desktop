@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=PosthogOS Welcome
+GenericName=Welcome Screen
+Comment=Quick actions and links for PosthogOS
+Exec=/usr/local/bin/posthogos-welcome
+Icon=posthogos-welcome
+Terminal=false
+Categories=System;Utility;
+Keywords=welcome;hello;intro;help;
+# X11/legacy fallback: KWin matches a running window's WM_CLASS against
+# StartupWMClass to know which .desktop file it belongs to (and thus
+# which icon to draw). qml6 sets WM_CLASS to "qml6" by default; the
+# wrapper exec's via setsid so the right WM_CLASS comes from
+# QT_QPA_APP_DESKTOP_FILE_NAME on Wayland instead.
+StartupWMClass=posthogos-welcome

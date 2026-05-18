@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=PosthogOS Welcome
+Comment=First-boot welcome and quick actions for PosthogOS
+Exec=/usr/local/bin/posthogos-welcome --autostart
+Icon=posthogos-welcome
+Terminal=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=plasma-session-running
+Categories=System;
+# Match the menu entry's StartupWMClass so KWin associates running
+# autostart-launched windows with the same .desktop file → same icon.
+StartupWMClass=posthogos-welcome
