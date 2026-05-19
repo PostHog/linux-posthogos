@@ -53,12 +53,16 @@ jobs:
               /opt/hostedtoolcache
           echo "After:"  && df -h /
 
-      # Recursive so upstream/archiso is populated
+      # Recursive so upstream/archiso is populated. fetch-tags: PKGBUILDs'
+      # pkgver() resolves the release version via `git describe --tags`,
+      # which finds nothing under actions/checkout's default fetch-depth=1.
       - name: Checkout (with upstream submodule)
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
           submodules: recursive
+          fetch-tags: true
+          fetch-depth: 0
 
       # Invalidates cache only when the package list changes or the Dockerfile bootstrap changes
       - name: Restore pacman cache

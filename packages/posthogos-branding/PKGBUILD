@@ -32,8 +32,14 @@ pkgver() {
 }
 
 build() {
-    # idempotent: wipes overlay-generated/ and regenerates from branding/posthogos/.
     cd "$startdir/../.."
+    # Skip when overlay-generated/ is already populated (the in-container
+    # build flow runs build-assets.sh before invoking makepkg). Standalone
+    # `makepkg` from a clean checkout still falls through to the regen.
+    if [ -d overlay-generated/airootfs/usr/share/icons ]; then
+        echo "  overlay-generated/ already populated; skipping build-assets.sh"
+        return 0
+    fi
     ./scripts/build-assets.sh
 }
 

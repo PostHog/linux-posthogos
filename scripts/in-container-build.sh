@@ -100,9 +100,20 @@ pkg_repo="$build_dir/posthogos-localrepo"
 mkdir -p "$pkg_repo"
 # makepkg refuses root. chown the dirs it writes to: each PKGBUILD's
 # src/+pkg/, overlay-generated (branding's build() reruns build-assets.sh),
-# and the local repo dir (PKGDEST + repo-add output).
+# and the local repo dir (PKGDEST + repo-add output). Also chown the
+# repo root TOP-LEVEL ONLY (not -R) so builder can rm/create entries
+# directly under /work — needed by build-assets.sh's wipe-and-regen.
+# Without this on CI (runner uid 1001 ≠ builder uid 1000), `rm -rf
+# overlay-generated` from inside makepkg's build() hits "Permission denied".
 id -u builder >/dev/null 2>&1 || useradd -m -s /bin/bash builder
 chown -R builder packages overlay-generated "$pkg_repo"
+chown builder "$repo_root"
+
+# Belt + suspenders for git "dubious ownership" — /etc/gitconfig already
+# carries safe.directory='*' from the Dockerfile, but explicitly setting
+# it for builder avoids any sudo-inheritance quirks. Without trusted git,
+# the PKGBUILDs' pkgver() falls through to "0.0.0.dev.unknown".
+sudo -u builder git config --global --add safe.directory '*' >/dev/null 2>&1 || true
 
 # ── Signing setup ─────────────────────────────────────────────────────
 # Import the secret key into builder's gpg keyring so makepkg/repo-add
