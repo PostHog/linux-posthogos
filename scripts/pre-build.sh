@@ -95,6 +95,9 @@ if [ -f "$pkglist" ]; then
         ghostty              # default terminal (replaces Konsole in pins)
         nodejs               # dev-toolkit's `npm install -g` for AI CLIs
         npm
+        krdp                 # Plasma 6 built-in RDP server. Off by default;
+                             # enable locally via System Settings → Remote
+                             # Desktop, or headlessly via posthogos-rdp-enable.
     )
     log "Appending PosthogOS packages to $pkglist"
     for pkg in "${posthogos_pkgs[@]}"; do
@@ -193,6 +196,17 @@ if [ -f util-iso.sh ]; then
         -e 's|vars+=("\$(date +%y%m%d)")|# date suffix removed by pre-build.sh|' \
         util-iso.sh
     rm -f util-iso.sh.bak
+fi
+
+# --- buildiso.sh: kill the misleading EXIT trap ---------------------------
+# Upstream registers `trap 'trap_exit EXIT "An unknown error has occurred"' EXIT`
+# which fires on EVERY exit (including exit 0), unconditionally printing
+# the error message and confusing CI logs. The ERR trap (line above it)
+# stays so real errors still surface.
+if [ -f buildiso.sh ]; then
+    log "Patching buildiso.sh (drop spurious EXIT trap)"
+    sed -i.bak "/^trap 'trap_exit EXIT/d" buildiso.sh
+    rm -f buildiso.sh.bak
 fi
 
 log "Done."
