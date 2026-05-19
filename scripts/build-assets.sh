@@ -429,17 +429,16 @@ elif [ -d "$sound_src" ]; then
 fi
 
 # --- PostHog Code AppImage (optional) -------------------------------------
-# Bundled when bin/build stages it via POSTHOG_CODE_APPIMAGE env var into
-# .appimages/posthog-code.AppImage. Silent skip if absent so CI / fresh
-# clones still build cleanly without the dev binary.
+# Bundled when bin/build pulls a release asset from PostHog/code into
+# .appimages/posthog-code.AppImage. Silent skip if absent so fresh clones
+# still build cleanly when no upstream release exists yet.
 #
 # Layout:
 #   /opt/posthog-code/posthog-code.AppImage   the AppImage itself, +x
 #   /usr/share/applications/posthog-code.desktop   launcher
 #   /usr/share/icons/hicolor/<size>/apps/posthog-code.png   icon
 #
-# Runtime deps: AppImages need libfuse2 to self-mount. We add `fuse2` to
-# the package list in scripts/pre-build.sh whenever this section bundles.
+# Runtime deps: AppImages need libfuse2 (fuse2 in the pacstrap list).
 appimage_src="$repo_root/.appimages/posthog-code.AppImage"
 if [ -f "$appimage_src" ]; then
     appimage_size=$(du -h "$appimage_src" | cut -f1)

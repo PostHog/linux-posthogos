@@ -100,9 +100,9 @@ fi
 # that match known plugin IDs.
 
 # Taskbar pins, left to right. posthog-code.desktop is conditional (only
-# present if POSTHOG_CODE_APPIMAGE was staged at build time); Plasma
-# silently drops unknown entries. Calamares isn't pinned: the welcome
-# window's "Install to disk" tile already surfaces it.
+# present if bin/build found an AppImage in PostHog/code's latest release);
+# Plasma silently drops unknown entries. Calamares isn't pinned: the
+# welcome window's "Install to disk" tile already surfaces it.
 taskbar_launchers="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:posthogos-welcome.desktop"
 
 # Kickoff "Favorites" tab (separator-only different format).

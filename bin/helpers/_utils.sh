@@ -37,7 +37,6 @@ set_source_and_root_dir() {
 
 # Load .env (machine-local build config) if present. Variables here
 # behave identically to env-var prefixes on the command line, e.g.
-#   POSTHOG_CODE_APPIMAGE=/path/...   (staged into .appimages/)
 #   FAST_BUILD=1
 #   KEEP_BUILD=1
 #   POSTHOGOS_ICON_VARIANT=classic

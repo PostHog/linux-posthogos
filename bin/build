@@ -29,24 +29,40 @@ fi
 
 mkdir -p out
 
-# Optional: bundle the PostHog Code AppImage as a default app.
-# The build container only sees files under /work (= repo root), so we
-# stage the AppImage into .appimages/ (gitignored, 200+ MB so never
-# commit). build-assets.sh checks that path and skips silently if absent;
-# CI without an AppImage still builds a valid ISO, the launcher just
-# won't show up in the menu / Kickoff favorites.
-if [ -n "${POSTHOG_CODE_APPIMAGE:-}" ]; then
-    [ -f "$POSTHOG_CODE_APPIMAGE" ] || fatal "POSTHOG_CODE_APPIMAGE set but file missing: $POSTHOG_CODE_APPIMAGE"
-    mkdir -p .appimages
-    # Use mv-like semantics via cp+stat-check: skip the copy if source and
-    # dest are identical (saves time on a 200 MB file across iterations).
-    src_size=$(stat -f%z "$POSTHOG_CODE_APPIMAGE" 2>/dev/null || stat -c%s "$POSTHOG_CODE_APPIMAGE")
-    dst=.appimages/posthog-code.AppImage
-    if [ ! -f "$dst" ] || [ "$(stat -f%z "$dst" 2>/dev/null || stat -c%s "$dst")" != "$src_size" ]; then
-        print_color blue "Staging PostHog Code AppImage (${src_size} bytes) → $dst"
-        cp -f "$POSTHOG_CODE_APPIMAGE" "$dst"
+# Stage the PostHog Code AppImage from the latest GitHub release.
+# build-assets.sh consumes .appimages/posthog-code.AppImage; skip silently
+# if the latest release has no .AppImage asset (the launcher just won't
+# show up in the menu / Kickoff favorites). Cached by release tag —
+# re-downloads only when upstream cuts a new release.
+mkdir -p .appimages
+appimage_dst=".appimages/posthog-code.AppImage"
+appimage_tag_marker=".appimages/.posthog-code-tag"
+posthog_code_api="https://api.github.com/repos/PostHog/code/releases/latest"
+release_json=$(curl -sfL -H 'Accept: application/vnd.github+json' "$posthog_code_api" 2>/dev/null || true)
+if [ -z "$release_json" ]; then
+    print_color yellow "Could not query PostHog/code releases (network? rate limit?); skipping AppImage stage"
+else
+    # No deps on jq/gh — grep the JSON for the first .AppImage asset URL + the tag.
+    asset_url=$(printf '%s' "$release_json" \
+        | grep -Eo '"browser_download_url":[[:space:]]*"[^"]+\.AppImage"' \
+        | head -n1 \
+        | sed -E 's/.*"(https[^"]+\.AppImage)".*/\1/')
+    upstream_tag=$(printf '%s' "$release_json" \
+        | grep -Eo '"tag_name":[[:space:]]*"[^"]+"' \
+        | head -n1 \
+        | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/')
+    if [ -z "$asset_url" ]; then
+        print_color yellow "PostHog/code's latest release (${upstream_tag:-unknown}) has no .AppImage; skipping"
+        rm -f "$appimage_dst" "$appimage_tag_marker"
+    elif [ -f "$appimage_dst" ] && [ "$(cat "$appimage_tag_marker" 2>/dev/null)" = "$upstream_tag" ]; then
+        print_color blue "PostHog Code AppImage cached ($upstream_tag); skipping download"
     else
-        print_color blue "PostHog Code AppImage already staged at $dst (same size; skipping copy)"
+        print_color blue "Downloading PostHog Code AppImage ($upstream_tag) → $appimage_dst"
+        curl -fL --progress-bar -o "$appimage_dst.partial" "$asset_url" \
+            || fatal "AppImage download failed: $asset_url"
+        mv "$appimage_dst.partial" "$appimage_dst"
+        chmod +x "$appimage_dst"
+        printf '%s\n' "$upstream_tag" > "$appimage_tag_marker"
     fi
 fi
 
