@@ -171,20 +171,11 @@ jobs:
                   --notes "Built from workflow_dispatch against \`${{ steps.ver.outputs.ref }}\`."
           fi
 
-      # Attach the ISO to the GitHub release page as a downloadable asset
-      - name: Attach ISO to the release
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="${{ steps.ver.outputs.release_tag }}"
-          for iso in out/*.iso; do
-              echo "uploading $iso → release $tag"
-              gh release upload "$tag" "$iso" --clobber
-          done
-
-      # Also upload as a workflow artifact for 90 days
-      - name: Upload ISO as workflow artifact
+      # Upload the full ISO as a workflow artifact FIRST, before splitting,
+      # because the next step deletes the original when it produces chunks.
+      # Workflow artifacts cap per-file at ~10 GB and require GitHub login
+      # to download — fine for internal QA, not great for public users.
+      - name: Upload full ISO as workflow artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
@@ -193,6 +184,48 @@ jobs:
           retention-days: 90
           if-no-files-found: error
           compression-level: 0
+
+      # Split the ISO if it's over GitHub's 2 GiB release-asset cap.
+      # End user reassembles with: cat posthogos-*.iso.part?? > posthogos.iso
+      # Files under 2 GiB pass through untouched so we don't penalize
+      # smaller builds (e.g. FAST_BUILD).
+      - name: Split oversized ISO for release upload
+        if: success()
+        run: |
+          cd out
+          shopt -s nullglob
+          max_release_size=$((2 * 1024 * 1024 * 1024))   # GH's 2 GiB cap
+          chunk_size=$((1900 * 1024 * 1024))             # 1.9 GiB, margin
+          for iso in *.iso; do
+              size=$(stat -c%s "$iso")
+              if [ "$size" -lt "$max_release_size" ]; then
+                  echo "$iso ($size bytes) fits under 2 GiB; no split needed"
+                  continue
+              fi
+              echo "Splitting $iso ($size bytes) into 1.9 GiB chunks"
+              # foo.iso → foo.iso.part00, foo.iso.part01, …
+              split -b "$chunk_size" -a 2 -d "$iso" "${iso}.part"
+              ls -lh "${iso}.part"*
+              rm "$iso"
+          done
+
+      # Attach ISO chunks (or unsplit ISO if it fit) to the GitHub release.
+      - name: Attach ISO to the release
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.ver.outputs.release_tag }}"
+          shopt -s nullglob
+          assets=(out/*.iso out/*.iso.part[0-9][0-9])
+          if [ ${#assets[@]} -eq 0 ]; then
+              echo "::error::No ISO or chunks found in out/"
+              exit 1
+          fi
+          for asset in "${assets[@]}"; do
+              echo "uploading $asset → release $tag"
+              gh release upload "$tag" "$asset" --clobber
+          done
 
       # ── Pacman repository: publish posthogos-* packages ────────────────
       # The packages + posthogos.db are already built and sitting in
