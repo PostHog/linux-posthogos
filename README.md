@@ -67,6 +67,25 @@ bin/test      # boot the latest ISO in QEMU
 bin/clean     # rm -rf build/ out/
 ```
 
+## Downloading a release ISO
+
+Each release on the [releases page](https://github.com/PostHog/linux-posthogos/releases) ships the ISO and the signed `posthogos-*` pacman packages.
+
+The ISO is ~3 GB, which exceeds GitHub's 2 GiB per-asset cap on release downloads, so it's split into ~1.9 GiB chunks (`posthogos-desktop-linux-vX.Y.Z.iso.part00`, `.part01`, …). Download all `.partNN` files for the release and reassemble:
+
+```bash
+cat posthogos-desktop-linux-vX.Y.Z.iso.part?? > posthogos-desktop-linux-vX.Y.Z.iso
+```
+
+Order matters but `cat` with the `??` glob handles it (chunks are zero-padded and sort lexicographically). Verify the result:
+
+```bash
+file posthogos-desktop-linux-vX.Y.Z.iso
+#   posthogos-...iso: DOS/MBR boot sector; partition 1 ...
+```
+
+Then flash to a USB stick (`dd`, balenaEtcher, Rufus, etc.) and boot. PosthogOS team members can also pull the unsplit ISO from the workflow run's "posthogos-vX.Y.Z" artifact (requires GitHub login, 90-day retention).
+
 ## How the build works
 
 1. `bin/build` builds the `posthogos-builder` Docker image (`Dockerfile`).
@@ -90,6 +109,33 @@ The chroot hook ([scripts/posthogos-customize.sh](scripts/posthogos-customize.sh
 
 CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, `cachyos-calamares-next`, `cachyos-hello`) stay installed; their files are shadowed by `overlay/` or patched by the chroot hook. This avoids forking those packages.
 
+## Remote access
+
+PosthogOS ships the Plasma 6 built-in RDP server (`krdp` package). The daemon is **off by default** — no port is exposed unless a user explicitly enables it.
+
+**Local install (you have the desktop in front of you):** System Settings → Remote Desktop. Set a password, toggle the server on. RDP listens on TCP 3389.
+
+**Headless / VPS (only SSH access):** SSH in, then run:
+
+```bash
+posthogos-rdp-enable                          # interactive password prompt
+# or:
+POSTHOGOS_RDP_PASSWORD=hunter2 posthogos-rdp-enable
+```
+
+The helper creates an RDP user matching your Unix user, enables `plasma-krdp_server.service` as a user service (with linger so it survives SSH logout), and prints the connection command. Open TCP 3389 in your VPS firewall separately — the helper deliberately doesn't touch firewall rules.
+
+Then connect with any RDP client:
+
+```bash
+# Linux
+xfreerdp /v:<vps-ip> /u:<user> /cert:ignore
+# macOS: Microsoft Remote Desktop → Add PC → <vps-ip>:3389
+# Windows: mstsc.exe /v:<vps-ip>:3389
+```
+
+Run `posthogos-rdp-enable --help` for flags (custom port, custom user, `--disable` to tear down). The first connection warns about a self-signed TLS cert — expected; krdp regenerates it on first start.
+
 ## Verification checklist
 
 Run end-to-end before declaring a build done:
@@ -102,6 +148,7 @@ Run end-to-end before declaring a build done:
 - [ ] `cat /etc/os-release` in the live env shows `PRETTY_NAME="PosthogOS"`
 - [ ] Calamares opens with PosthogOS branding + slideshow
 - [ ] Full install to a qcow2 disk completes; installed system boots with branding intact
+- [ ] `posthogos-rdp-enable` succeeds in a live session and an `xfreerdp` connection from the host lands in Plasma
 
 ## Out of scope
 

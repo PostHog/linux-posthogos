@@ -211,13 +211,16 @@ jobs:
 
       # Attach ISO chunks (or unsplit ISO if it fit) to the GitHub release.
       - name: Attach ISO to the release
+        id: attach_iso
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${{ steps.ver.outputs.release_tag }}"
           shopt -s nullglob
-          assets=(out/*.iso out/*.iso.part[0-9][0-9])
+          full_isos=(out/*.iso)
+          chunks=(out/*.iso.part[0-9][0-9])
+          assets=("${full_isos[@]}" "${chunks[@]}")
           if [ ${#assets[@]} -eq 0 ]; then
               echo "::error::No ISO or chunks found in out/"
               exit 1
@@ -226,6 +229,48 @@ jobs:
               echo "uploading $asset → release $tag"
               gh release upload "$tag" "$asset" --clobber
           done
+          # Tell the next step whether we uploaded chunks (so it knows to
+          # append the reassembly snippet to the release body).
+          if [ ${#chunks[@]} -gt 0 ]; then
+              echo "uploaded_chunks=true" >> "$GITHUB_OUTPUT"
+          else
+              echo "uploaded_chunks=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # When the ISO had to be chunked, append a reassembly snippet to the
+      # release body so end users see how to rejoin the parts. Idempotent:
+      # the snippet is keyed off a marker comment, so re-running the workflow
+      # on the same release doesn't stack duplicates.
+      - name: Append chunk-reassembly note to release body
+        if: success() && steps.attach_iso.outputs.uploaded_chunks == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.ver.outputs.release_tag }}"
+          version="${{ steps.ver.outputs.version }}"
+          marker="<!-- posthogos:iso-reassembly -->"
+          body=$(gh release view "$tag" --json body --jq '.body // ""')
+          if printf '%s' "$body" | grep -qF "$marker"; then
+              echo "Reassembly snippet already present in release body; skipping."
+              exit 0
+          fi
+          snippet="
+          $marker
+          ### Downloading the ISO
+
+          The ISO is split into ~1.9 GiB chunks because GitHub release assets cap at 2 GiB. Download all \`posthogos-desktop-linux-${version}.iso.part??\` files attached to this release, then reassemble:
+
+          \`\`\`bash
+          cat posthogos-desktop-linux-${version}.iso.part?? > posthogos-desktop-linux-${version}.iso
+          \`\`\`
+
+          The chunks are zero-padded and sort lexicographically, so the \`??\` glob handles the order. Then flash the result to a USB with \`dd\`, balenaEtcher, or Rufus.
+
+          PosthogOS team members can pull the unsplit ISO from the build run's \"posthogos-${version}\" workflow artifact (login required)."
+          combined=$(printf '%s\n%s\n' "$body" "$snippet")
+          # gh release edit consumes --notes for the body
+          printf '%s' "$combined" | gh release edit "$tag" --notes-file -
+          echo "Appended reassembly snippet to release $tag"
 
       # ── Pacman repository: publish posthogos-* packages ────────────────
       # The packages + posthogos.db are already built and sitting in
