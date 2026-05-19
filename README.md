@@ -111,19 +111,15 @@ CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, 
 
 ## Remote access
 
-PosthogOS ships the Plasma 6 built-in RDP server (`krdp` package). The daemon is **off by default** — no port is exposed unless a user explicitly enables it.
+The Plasma 6 built-in RDP server (`krdp` package) is pre-installed. It's off by default; enable it via System Settings → Remote Desktop (set a password, toggle on). RDP listens on TCP 3389; connect with any RDP client (`xfreerdp`, mstsc, Microsoft Remote Desktop).
 
-**Local install (you have the desktop in front of you):** System Settings → Remote Desktop. Set a password, toggle the server on. RDP listens on TCP 3389.
-
-**Headless / VPS (only SSH access):** SSH in, then run:
+### Enabling on a headless session
 
 ```bash
-posthogos-rdp-enable                          # interactive password prompt
-# or:
-POSTHOGOS_RDP_PASSWORD=hunter2 posthogos-rdp-enable
+sudo loginctl enable-linger "$USER"                  # keep the user manager alive after logout
+krdpservercli add-user "$USER"                       # interactive password prompt
+systemctl --user enable --now plasma-krdp_server.service
 ```
-
-The helper creates an RDP user matching your Unix user, enables `plasma-krdp_server.service` as a user service (with linger so it survives SSH logout), and prints the connection command. Open TCP 3389 in your VPS firewall separately — the helper deliberately doesn't touch firewall rules.
 
 Then connect with any RDP client:
 
@@ -134,7 +130,7 @@ xfreerdp /v:<vps-ip> /u:<user> /cert:ignore
 # Windows: mstsc.exe /v:<vps-ip>:3389
 ```
 
-Run `posthogos-rdp-enable --help` for flags (custom port, custom user, `--disable` to tear down). The first connection warns about a self-signed TLS cert — expected; krdp regenerates it on first start.
+First connection warns about a self-signed TLS cert, which is expected; krdp regenerates it on first start. To tear down: `systemctl --user disable --now plasma-krdp_server.service`.
 
 ## Verification checklist
 
@@ -148,7 +144,7 @@ Run end-to-end before declaring a build done:
 - [ ] `cat /etc/os-release` in the live env shows `PRETTY_NAME="PosthogOS"`
 - [ ] Calamares opens with PosthogOS branding + slideshow
 - [ ] Full install to a qcow2 disk completes; installed system boots with branding intact
-- [ ] `posthogos-rdp-enable` succeeds in a live session and an `xfreerdp` connection from the host lands in Plasma
+- [ ] System Settings → Remote Desktop is present; toggling it on lets an `xfreerdp` connection from the host land in Plasma
 
 ## Out of scope
 
