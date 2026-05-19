@@ -24,6 +24,13 @@ sha256sums=('SKIP' 'SKIP' 'SKIP')   # local files
 
 # pkgver: latest git tag (v-stripped), or 0.0.0.dev.<sha> when no tags.
 pkgver() {
+    # CI (and in-container builds generally) inject the resolved version
+    # via this env var so we don't rely on git working inside makepkg's
+    # subshell (which has flaked under sudo + bind-mounted repos).
+    if [ -n "${POSTHOGOS_PKGVER:-}" ]; then
+        echo "${POSTHOGOS_PKGVER#v}"
+        return
+    fi
     cd "$startdir/../.."
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')

@@ -24,6 +24,10 @@ optdepends=(
 
 # pkgver: latest git tag (v-stripped), or 0.0.0.dev.<sha> when no tags.
 pkgver() {
+    if [ -n "${POSTHOGOS_PKGVER:-}" ]; then
+        echo "${POSTHOGOS_PKGVER#v}"
+        return
+    fi
     cd "$startdir/../.."
     local v
     v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')

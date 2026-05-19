@@ -124,6 +124,11 @@ jobs:
           # see the comment block in that script for the reasoning.
           POSTHOGOS_PACKAGER_KEY: ${{ secrets.POSTHOGOS_PACKAGER_KEY }}
           POSTHOGOS_PACKAGER_KEY_FPR: ${{ vars.POSTHOGOS_PACKAGER_KEY_FPR }}
+          # Resolved version (e.g. v0.1.0 for releases, vmain.abc123 for
+          # dispatches). Each PKGBUILD's pkgver() honors this as override
+          # — avoids needing git to work inside makepkg's subshell, which
+          # has flaked under sudo + bind-mounted .git/ in CI.
+          POSTHOGOS_PKGVER: ${{ steps.ver.outputs.version }}
         run: bin/build
         timeout-minutes: 75
 
@@ -210,6 +215,8 @@ jobs:
           done
 
       # Attach ISO chunks (or unsplit ISO if it fit) to the GitHub release.
+      # Wraps gh release upload in a retry loop because GitHub's upload API
+      # returns transient 5xx errors under load.
       - name: Attach ISO to the release
         id: attach_iso
         if: success()
@@ -225,12 +232,24 @@ jobs:
               echo "::error::No ISO or chunks found in out/"
               exit 1
           fi
+          upload_with_retry() {
+              local tag="$1" asset="$2"
+              local attempt
+              for attempt in 1 2 3 4 5; do
+                  if gh release upload "$tag" "$asset" --clobber; then
+                      return 0
+                  fi
+                  local delay=$((attempt * 10))
+                  echo "::warning::Upload of $(basename "$asset") failed (attempt $attempt/5); retrying in ${delay}s..."
+                  sleep "$delay"
+              done
+              echo "::error::Upload of $(basename "$asset") failed after 5 attempts"
+              return 1
+          }
           for asset in "${assets[@]}"; do
               echo "uploading $asset → release $tag"
-              gh release upload "$tag" "$asset" --clobber
+              upload_with_retry "$tag" "$asset"
           done
-          # Tell the next step whether we uploaded chunks (so it knows to
-          # append the reassembly snippet to the release body).
           if [ ${#chunks[@]} -gt 0 ]; then
               echo "uploaded_chunks=true" >> "$GITHUB_OUTPUT"
           else
@@ -298,8 +317,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${{ steps.ver.outputs.release_tag }}"
+          upload_with_retry() {
+              local tag="$1" asset="$2"
+              local attempt
+              for attempt in 1 2 3 4 5; do
+                  if gh release upload "$tag" "$asset" --clobber; then
+                      return 0
+                  fi
+                  local delay=$((attempt * 10))
+                  echo "::warning::Upload of $(basename "$asset") failed (attempt $attempt/5); retrying in ${delay}s..."
+                  sleep "$delay"
+              done
+              echo "::error::Upload of $(basename "$asset") failed after 5 attempts"
+              return 1
+          }
           for pkg in out/pkgs/*.pkg.tar.zst; do
               [ -f "$pkg" ] || continue
               echo "uploading $pkg → release $tag"
-              gh release upload "$tag" "$pkg" --clobber
+              upload_with_retry "$tag" "$pkg"
           done

@@ -141,12 +141,29 @@ else
     echo "==> POSTHOGOS_PACKAGER_KEY unset → building unsigned (local dev mode)"
 fi
 
+# Resolve a pkgver once, outside makepkg's pkgver() context — the
+# in-container git access inside makepkg's subshell can flake under
+# sudo + bind-mounted repos (we've seen the fallback resolve to
+# "0.0.0.dev.unknown" in CI). Each PKGBUILD's pkgver() picks up this
+# env var as override; the git fallback inside the PKGBUILD stays for
+# pure-local invocations.
+if [ -z "${POSTHOGOS_PKGVER:-}" ]; then
+    v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+    if [ -z "$v" ]; then
+        v="0.0.0.dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    fi
+    export POSTHOGOS_PKGVER="$v"
+fi
+echo "==> Building packages with POSTHOGOS_PKGVER=${POSTHOGOS_PKGVER}"
+
 for pkgdir in packages/*/; do
     pkg=$(basename "$pkgdir")
     echo "==> makepkg $pkg"
     (
         cd "$pkgdir"
-        sudo -u builder env PKGDEST="$pkg_repo" \
+        sudo -u builder env \
+            PKGDEST="$pkg_repo" \
+            POSTHOGOS_PKGVER="$POSTHOGOS_PKGVER" \
             makepkg "${makepkg_sign_flags[@]}" -df --noconfirm
     )
 done
