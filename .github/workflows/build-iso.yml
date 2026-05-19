@@ -1,10 +1,12 @@
 # Build a release-quality PosthogOS ISO and attach it to a GitHub release.
 #
 # Triggers:
-#   release: published     — normal flow; ref = release tag, uploads to it.
-#   workflow_dispatch      — manual; user supplies ref (tag/branch/SHA) +
-#                            optional version label. Creates a draft
-#                            release at <version> if one doesn't exist.
+#   release: published   — normal flow; ref = release tag, uploads to it.
+#   workflow_dispatch    — manual; the "Use workflow from" branch picker
+#                          in the UI selects the branch. The tag is
+#                          derived from <branch>.<short-random> so
+#                          back-to-back dispatches don't collide.
+#                          Creates a draft release for that tag.
 #
 # Caches .pacman-cache/ (~2.4 GB of pacstrap'd packages) so we don't
 # re-download all of CachyOS + Arch extras on every build. Cache key is
@@ -16,18 +18,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Tag, branch, or commit SHA to build from'
-        required: true
-        type: string
-      version:
-        description: 'Version label for ISO filenames + release (defaults to ref). Must match semver, e.g. 0.1.0 or v1.2.3-rc.1.'
-        required: false
-        type: string
+    # No inputs — the branch is picked via the standard "Use workflow from"
+    # selector at the top of the Run workflow dialog (resolved as github.ref_name).
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.release.tag_name || inputs.ref }}
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -41,34 +36,39 @@ jobs:
 
     steps:
       # Resolves three values used downstream:
-      #   ref          — what to check out (release event: the tag; dispatch: inputs.ref)
-      #   version      — semver-normalized "v<x.y.z>" used for ISO filenames + release name
-      #   release_tag  — actual tag for `gh release upload`. For the release
-      #                  event this is the literal release tag (so we don't
-      #                  rewrite "0.1.0" → "v0.1.0" and miss the existing
-      #                  release). For dispatch it equals $version.
+      #   ref          — what to check out
+      #   version      — used for ISO filenames + workflow artifact name
+      #   release_tag  — target for `gh release upload`
+      # Release event: all three derive from the release's actual tag.
+      # Dispatch: ref = the picker's branch, version/tag = v<branch>.<rand>.
+      # The .<rand> suffix (6 hex chars) keeps repeated dispatches from
+      # colliding on the same branch. Tag uses '.' separators (not '-') so
+      # the resulting pacman pkgver stays valid (pacman pkgver allows
+      # alnum + . + _ + +, no dashes).
       - name: Resolve ref + version + release tag
         id: ver
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
               ref="${{ github.event.release.tag_name }}"
+              stripped="${ref#v}"
+              if ! [[ "$stripped" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$ ]]; then
+                  echo "::error::Release tag '$ref' isn't a valid version. Expected e.g. 0.1.0, v0.1.0, 1.2.3-rc.1"
+                  exit 1
+              fi
+              version="v${stripped}"
               release_tag="$ref"
-              version_input="$ref"
           else
-              ref="${{ inputs.ref }}"
-              version_input="${{ inputs.version }}"
-              [ -z "$version_input" ] && version_input="$ref"
-              # Dispatch path: we'll create or reuse a release tagged with the
-              # normalized version. The actual git ref can be anything (SHA,
-              # branch, tag) — it determines what we build, not what we publish to.
-              release_tag="v${version_input#v}"
+              ref="${{ github.ref_name }}"
+              # Sanitize: lowercase, anything not alnum-or-dot → dot,
+              # collapse repeated dots, trim leading/trailing dots.
+              safe_branch=$(echo "$ref" \
+                  | tr '[:upper:]' '[:lower:]' \
+                  | tr -c 'a-z0-9.' '.' \
+                  | sed -E 's/\.+/./g; s/^\.//; s/\.$//')
+              rand=$(openssl rand -hex 3)
+              version="v${safe_branch}.${rand}"
+              release_tag="$version"
           fi
-          stripped="${version_input#v}"
-          if ! [[ "$stripped" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$ ]]; then
-              echo "::error::Version '$version_input' isn't a valid semver. Expected e.g. 0.1.0, v0.1.0, 1.2.3-rc.1. For workflow_dispatch with a non-tag ref, pass an explicit 'version' input."
-              exit 1
-          fi
-          version="v${stripped}"
           echo "Resolved: ref=$ref version=$version release_tag=$release_tag"
           {
               echo "ref=$ref"
