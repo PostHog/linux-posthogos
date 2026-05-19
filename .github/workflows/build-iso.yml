@@ -43,7 +43,7 @@ jobs:
       #   version      — used for ISO filenames + workflow artifact name
       #   release_tag  — target for `gh release upload`
       # Release event: all three derive from the release's actual tag.
-      # Dispatch: ref = the picker's branch, version/tag = v<branch>.<rand>.
+      # Dispatch: ref = the picker's branch, version/tag = <branch>.<rand>.
       # The .<rand> suffix (6 hex chars) keeps repeated dispatches from
       # colliding on the same branch. Tag uses '.' separators (not '-') so
       # the resulting pacman pkgver stays valid (pacman pkgver allows
@@ -69,7 +69,7 @@ jobs:
                   | tr -c 'a-z0-9.' '.' \
                   | sed -E 's/\.+/./g; s/^\.//; s/\.$//')
               rand=$(openssl rand -hex 3)
-              version="v${safe_branch}.${rand}"
+              version="${safe_branch}.${rand}"
               release_tag="$version"
           fi
           echo "Resolved: ref=$ref version=$version release_tag=$release_tag"
@@ -124,7 +124,7 @@ jobs:
           # see the comment block in that script for the reasoning.
           POSTHOGOS_PACKAGER_KEY: ${{ secrets.POSTHOGOS_PACKAGER_KEY }}
           POSTHOGOS_PACKAGER_KEY_FPR: ${{ vars.POSTHOGOS_PACKAGER_KEY_FPR }}
-          # Resolved version (e.g. v0.1.0 for releases, vmain.abc123 for
+          # Resolved version (e.g. v0.1.0 for releases, main.abc123 for
           # dispatches). Each PKGBUILD's pkgver() honors this as override
           # — avoids needing git to work inside makepkg's subshell, which
           # has flaked under sudo + bind-mounted .git/ in CI.
