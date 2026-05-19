@@ -100,13 +100,19 @@ fi
 # that match known plugin IDs.
 
 # Taskbar pins, left to right. posthog-code.desktop is conditional (only
-# present if bin/build found an AppImage in PostHog/code's latest release);
-# Plasma silently drops unknown entries. Calamares isn't pinned: the
-# welcome window's "Install to disk" tile already surfaces it.
-taskbar_launchers="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:posthogos-welcome.desktop"
+# present if bin/build found an AppImage in PostHog/code's latest release).
+# Plasma renders an unknown .desktop as a "?" placeholder rather than
+# silently dropping it, so we have to filter the list ourselves instead
+# of relying on the launcher to skip missing entries. Calamares isn't
+# pinned: the welcome window's "Install to disk" tile already surfaces it.
+posthog_code_entry=""
+if [ -f /usr/share/applications/posthog-code.desktop ]; then
+    posthog_code_entry="applications:posthog-code.desktop,"
+fi
+taskbar_launchers="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,${posthog_code_entry}applications:posthogos-welcome.desktop"
 
 # Kickoff "Favorites" tab (separator-only different format).
-kickoff_favorites="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,applications:posthog-code.desktop,applications:systemsettings.desktop,applications:posthogos-welcome.desktop"
+kickoff_favorites="applications:firefox.desktop,applications:com.mitchellh.ghostty.desktop,applications:org.kde.dolphin.desktop,${posthog_code_entry}applications:systemsettings.desktop,applications:posthogos-welcome.desktop"
 
 appletsrc="${XDG_CONFIG_HOME:-$HOME/.config}/plasma-org.kde.plasma.desktop-appletsrc"
 echo "+ patching $appletsrc"
