@@ -154,6 +154,9 @@ if [ -z "${POSTHOGOS_PKGVER:-}" ]; then
     fi
     export POSTHOGOS_PKGVER="$v"
 fi
+# Normalize for pacman pkgver: alnum + . + _ + + only, no hyphens.
+# Tags like v0.0.1-alpha.1 → 0.0.1_alpha.1.
+export POSTHOGOS_PKGVER="${POSTHOGOS_PKGVER//-/_}"
 echo "==> Building packages with POSTHOGOS_PKGVER=${POSTHOGOS_PKGVER}"
 
 for pkgdir in packages/*/; do
