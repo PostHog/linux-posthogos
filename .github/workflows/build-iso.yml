@@ -1,4 +1,10 @@
-# Build a release-quality PosthogOS ISO and attach it to the GitHub release.
+# Build a release-quality PosthogOS ISO and attach it to a GitHub release.
+#
+# Triggers:
+#   release: published     — normal flow; ref = release tag, uploads to it.
+#   workflow_dispatch      — manual; user supplies ref (tag/branch/SHA) +
+#                            optional version label. Creates a draft
+#                            release at <version> if one doesn't exist.
 #
 # Caches .pacman-cache/ (~2.4 GB of pacstrap'd packages) so we don't
 # re-download all of CachyOS + Arch extras on every build. Cache key is
@@ -9,9 +15,19 @@ name: Build ISO
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag, branch, or commit SHA to build from'
+        required: true
+        type: string
+      version:
+        description: 'Version label for ISO filenames + release (defaults to ref). Must match semver, e.g. 0.1.0 or v1.2.3-rc.1.'
+        required: false
+        type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.release.tag_name }}
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || inputs.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -24,19 +40,41 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      # Validate + normalize the release tag
-      - name: Validate tag
+      # Resolves three values used downstream:
+      #   ref          — what to check out (release event: the tag; dispatch: inputs.ref)
+      #   version      — semver-normalized "v<x.y.z>" used for ISO filenames + release name
+      #   release_tag  — actual tag for `gh release upload`. For the release
+      #                  event this is the literal release tag (so we don't
+      #                  rewrite "0.1.0" → "v0.1.0" and miss the existing
+      #                  release). For dispatch it equals $version.
+      - name: Resolve ref + version + release tag
         id: ver
         run: |
-          raw="${{ github.event.release.tag_name }}"
-          stripped="${raw#v}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+              ref="${{ github.event.release.tag_name }}"
+              release_tag="$ref"
+              version_input="$ref"
+          else
+              ref="${{ inputs.ref }}"
+              version_input="${{ inputs.version }}"
+              [ -z "$version_input" ] && version_input="$ref"
+              # Dispatch path: we'll create or reuse a release tagged with the
+              # normalized version. The actual git ref can be anything (SHA,
+              # branch, tag) — it determines what we build, not what we publish to.
+              release_tag="v${version_input#v}"
+          fi
+          stripped="${version_input#v}"
           if ! [[ "$stripped" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$ ]]; then
-              echo "::error::Release tag '$raw' isn't a valid version. Expected e.g. 0.1.0, v0.1.0, 1.2.3-rc.1"
+              echo "::error::Version '$version_input' isn't a valid semver. Expected e.g. 0.1.0, v0.1.0, 1.2.3-rc.1. For workflow_dispatch with a non-tag ref, pass an explicit 'version' input."
               exit 1
           fi
           version="v${stripped}"
-          echo "Version: $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved: ref=$ref version=$version release_tag=$release_tag"
+          {
+              echo "ref=$ref"
+              echo "version=$version"
+              echo "release_tag=$release_tag"
+          } >> "$GITHUB_OUTPUT"
 
       # ubuntu-latest ships ~25 GB free. mkarchiso wants ~10 GB for the build
       # tree + ~3 GB for the ISO + ~4 GB combined cache restore. Reclaim ~15 GB
@@ -59,7 +97,7 @@ jobs:
       - name: Checkout (with upstream submodule)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ steps.ver.outputs.ref }}
           submodules: recursive
           fetch-tags: true
           fetch-depth: 0
@@ -111,13 +149,32 @@ jobs:
               mv "$iso" "$new"
           done
 
+      # For workflow_dispatch, the target release might not exist yet.
+      # Create a draft if missing; the release event always already has one.
+      - name: Ensure GitHub release exists
+        if: success() && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.ver.outputs.release_tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+              echo "Release $tag already exists; uploading to it."
+          else
+              echo "Creating draft release $tag (target: ${{ steps.ver.outputs.ref }})..."
+              gh release create "$tag" \
+                  --target "${{ steps.ver.outputs.ref }}" \
+                  --title "$tag (manual build)" \
+                  --draft \
+                  --notes "Built from workflow_dispatch against \`${{ steps.ver.outputs.ref }}\`."
+          fi
+
       # Attach the ISO to the GitHub release page as a downloadable asset
       - name: Attach ISO to the release
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${{ github.event.release.tag_name }}"
+          tag="${{ steps.ver.outputs.release_tag }}"
           for iso in out/*.iso; do
               echo "uploading $iso → release $tag"
               gh release upload "$tag" "$iso" --clobber
@@ -159,7 +216,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${{ github.event.release.tag_name }}"
+          tag="${{ steps.ver.outputs.release_tag }}"
           for pkg in out/pkgs/*.pkg.tar.zst; do
               [ -f "$pkg" ] || continue
               echo "uploading $pkg → release $tag"
