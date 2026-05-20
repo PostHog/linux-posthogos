@@ -95,9 +95,6 @@ if [ -f "$pkglist" ]; then
         ghostty              # default terminal (replaces Konsole in pins)
         nodejs               # dev-toolkit's `npm install -g` for AI CLIs
         npm
-        krdp                 # Plasma 6 built-in RDP server. Off by default;
-                             # enable locally via System Settings → Remote
-                             # Desktop, or headlessly via posthogos-rdp-enable.
     )
     log "Appending PosthogOS packages to $pkglist"
     for pkg in "${posthogos_pkgs[@]}"; do

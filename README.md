@@ -109,42 +109,18 @@ The chroot hook ([scripts/posthogos-customize.sh](scripts/posthogos-customize.sh
 
 CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, `cachyos-calamares-next`, `cachyos-hello`) stay installed; their files are shadowed by `overlay/` or patched by the chroot hook. This avoids forking those packages.
 
-## Remote access
-
-The Plasma 6 built-in RDP server (`krdp` package) is pre-installed. It's off by default; enable it via System Settings → Remote Desktop (set a password, toggle on). RDP listens on TCP 3389; connect with any RDP client (`xfreerdp`, mstsc, Microsoft Remote Desktop).
-
-### Enabling on a headless session
-
-```bash
-sudo loginctl enable-linger "$USER"                  # keep the user manager alive after logout
-krdpservercli add-user "$USER"                       # interactive password prompt
-systemctl --user enable --now plasma-krdp_server.service
-```
-
-Then connect with any RDP client:
-
-```bash
-# Linux
-xfreerdp /v:<vps-ip> /u:<user> /cert:ignore
-# macOS: Microsoft Remote Desktop → Add PC → <vps-ip>:3389
-# Windows: mstsc.exe /v:<vps-ip>:3389
-```
-
-First connection warns about a self-signed TLS cert, which is expected; krdp regenerates it on first start. To tear down: `systemctl --user disable --now plasma-krdp_server.service`.
-
 ## Verification checklist
 
 Run end-to-end before declaring a build done:
 
-- [ ] ISO boots in UEFI mode in QEMU
-- [ ] Boot menu shows PosthogOS titles, not CachyOS
-- [ ] Plymouth splash shows the PosthogOS logo
-- [ ] SDDM greeter uses the PosthogOS theme
-- [ ] Desktop session loads with PosthogOS wallpaper + colour scheme
-- [ ] `cat /etc/os-release` in the live env shows `PRETTY_NAME="PosthogOS"`
-- [ ] Calamares opens with PosthogOS branding + slideshow
+- [x] ISO boots in UEFI mode in QEMU
+- [x] Boot menu shows PosthogOS titles, not CachyOS
+- [x] Plymouth splash shows the PosthogOS logo
+- [x] SDDM greeter uses the PosthogOS theme
+- [x] Desktop session loads with PosthogOS wallpaper + colour scheme
+- [x] `cat /etc/os-release` in the live env shows `PRETTY_NAME="PosthogOS"`
+- [x] Calamares opens with PosthogOS branding + slideshow
 - [ ] Full install to a qcow2 disk completes; installed system boots with branding intact
-- [ ] System Settings → Remote Desktop is present; toggling it on lets an `xfreerdp` connection from the host land in Plasma
 
 ## Out of scope
 

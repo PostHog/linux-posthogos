@@ -148,7 +148,9 @@ fi
 # env var as override; the git fallback inside the PKGBUILD stays for
 # pure-local invocations.
 if [ -z "${POSTHOGOS_PKGVER:-}" ]; then
-    v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+    # `|| true`: without it, `set -euo pipefail` + no tags (git describe exits
+    # 128) propagates through the pipe and kills the script silently.
+    v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)
     if [ -z "$v" ]; then
         v="0.0.0.dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     fi
