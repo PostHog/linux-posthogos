@@ -98,7 +98,7 @@ jobs:
       # pkgver() resolves the release version via `git describe --tags`,
       # which finds nothing under actions/checkout's default fetch-depth=1.
       - name: Checkout (with upstream submodule)
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ steps.ver.outputs.ref }}
           submodules: recursive
@@ -107,7 +107,7 @@ jobs:
 
       # Invalidates cache only when the package list changes or the Dockerfile bootstrap changes
       - name: Restore pacman cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .pacman-cache
           key: pacman-${{ hashFiles('upstream/archiso/packages_desktop.x86_64', 'upstream/archiso/bootstrap_packages.x86_64', 'Dockerfile') }}
@@ -182,7 +182,7 @@ jobs:
       # to download — fine for internal QA, not great for public users.
       - name: Upload full ISO as workflow artifact
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: posthogos-${{ steps.ver.outputs.version }}
           path: out/*.iso
