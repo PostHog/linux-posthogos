@@ -320,6 +320,37 @@ jobs:
           keep_files: true     # don't wipe historical packages on each release
           commit_message: "release ${{ steps.ver.outputs.version }}: posthogos pacman repo"
 
+      # ── Pacman repository: prune superseded packages ───────────────────
+      # `keep_files: true` above is load-bearing (a clean publish would wipe
+      # sibling arch dirs + .nojekyll once a multi-arch matrix exists), so it
+      # never deletes old versions — every release's packages accumulate even
+      # though posthogos.db only references the latest. Those orphans are
+      # never fetched by `pacman -Syu`; they just grow the Pages quota.
+      # Prune them, keeping the 2 newest versions per package (a small
+      # downgrade window). Scoped to this arch's dir; commits directly to
+      # gh-pages since keep_files won't propagate deletions.
+      - name: Prune superseded packages from gh-pages
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          arch="${{ env.TARGET_ARCH }}"
+          clone="$(mktemp -d)"
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "$clone"
+          python3 "${GITHUB_WORKSPACE}/scripts/prune-pacman-repo.py" "$clone/$arch" --keep 2
+          cd "$clone"
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "prune superseded $arch packages (keep 2 newest)"
+            git push origin gh-pages
+          else
+            echo "Nothing to prune."
+          fi
+
       - name: Attach package files to the release
         if: success()
         env:
