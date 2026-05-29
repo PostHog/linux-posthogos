@@ -277,6 +277,20 @@ for part_conf in /usr/share/calamares/modules/partition.conf /etc/calamares/modu
     fi
 done
 
+# ---- Calamares: default hostname ----------------------------------------
+# users.conf ships with template "cachyos-${cpu}", which the installer
+# surfaces as the default answer to "What is the name of this computer?"
+# (e.g. cachyos-x8664). Rebrand to posthogos-${cpu} so it reads
+# posthogos-x8664 (or the relevant arch) while keeping the arch suffix.
+for users_conf in /usr/share/calamares/modules/users.conf /etc/calamares/modules/users.conf; do
+    if [ -f "$users_conf" ]; then
+        log "Patching $users_conf → hostname template: posthogos-\${cpu}"
+        sed -i 's|^\(\s*\)template:.*cachyos-\${cpu}.*|\1template: "posthogos-${cpu}"|' "$users_conf"
+        log "  result: $(grep 'template:' "$users_conf")"
+        break
+    fi
+done
+
 # ---- Display manager: plasma-login-manager (plasmalogin) ----------------
 # Upstream KDE's SDDM fork with a Plasma-native greeter. Config must live
 # at /etc/plasmalogin.conf, but /etc/plasmalogin.conf.d/ is silently ignored
