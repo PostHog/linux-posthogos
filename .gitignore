@@ -37,3 +37,6 @@ packages/*/pkg/
 packages/*/src/
 packages/*/*.pkg.tar.zst
 packages/*/*.pkg.tar.zst.sig
+
+# Posthog Code AppImage files
+.appimages

@@ -29,6 +29,18 @@ fi
 
 mkdir -p out
 
+# --- Target architecture (single source of truth) -------------------------
+# x86_64 is the only fully-working target today: the package base (Arch +
+# CachyOS, including the linux-cachyos kernel) ships x86_64 only, so an
+# aarch64 build fails at pacstrap until it's ported to an arm package base.
+BUILD_ARCH="${BUILD_ARCH:-x86_64}"
+case "$BUILD_ARCH" in
+    x86_64)  docker_platform="linux/amd64"; appimage_arch_re='x64|x86_64|amd64' ;;
+    aarch64) docker_platform="linux/arm64"; appimage_arch_re='arm64|aarch64' ;;
+    *) fatal "Unsupported BUILD_ARCH '$BUILD_ARCH' (expected x86_64 or aarch64)" ;;
+esac
+export BUILD_ARCH
+
 # Stage the PostHog Code AppImage from the latest GitHub release.
 # build-assets.sh consumes .appimages/posthog-code.AppImage; skip silently
 # if the latest release has no .AppImage asset (the launcher just won't
@@ -37,32 +49,42 @@ mkdir -p out
 mkdir -p .appimages
 appimage_dst=".appimages/posthog-code.AppImage"
 appimage_tag_marker=".appimages/.posthog-code-tag"
+
+# Match the AppImage to the ISO's *target* arch (BUILD_ARCH), not the build
+# host: on an Apple Silicon Mac the host is arm64 but the default build is an
+# x86_64 ISO inside a linux/amd64 container, and the AppImage runs on the
+# installed system.
 posthog_code_api="https://api.github.com/repos/PostHog/code/releases/latest"
 release_json=$(curl -sfL -H 'Accept: application/vnd.github+json' "$posthog_code_api" 2>/dev/null || true)
 if [ -z "$release_json" ]; then
     print_color yellow "Could not query PostHog/code releases (network? rate limit?); skipping AppImage stage"
 else
-    # No deps on jq/gh — grep the JSON for the first .AppImage asset URL + the tag.
+    # No deps on jq/gh — grep the JSON for the .AppImage matching the ISO arch.
+    # A release ships both x64 and arm64 AppImages; the arch token sits right
+    # before the .AppImage suffix (e.g. ...-x64.AppImage), so anchor on that.
     asset_url=$(printf '%s' "$release_json" \
         | grep -Eo '"browser_download_url":[[:space:]]*"[^"]+\.AppImage"' \
-        | head -n1 \
-        | sed -E 's/.*"(https[^"]+\.AppImage)".*/\1/')
+        | sed -E 's/.*"(https[^"]+\.AppImage)".*/\1/' \
+        | grep -iE "($appimage_arch_re)\.AppImage\$" \
+        | head -n1)
     upstream_tag=$(printf '%s' "$release_json" \
         | grep -Eo '"tag_name":[[:space:]]*"[^"]+"' \
         | head -n1 \
         | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/')
+    # Cache key includes arch so switching ISO arch invalidates a stale AppImage.
+    appimage_cache_key="${upstream_tag} ${BUILD_ARCH}"
     if [ -z "$asset_url" ]; then
-        print_color yellow "PostHog/code's latest release (${upstream_tag:-unknown}) has no .AppImage; skipping"
+        print_color yellow "PostHog/code release (${upstream_tag:-unknown}) has no .AppImage for $BUILD_ARCH; skipping"
         rm -f "$appimage_dst" "$appimage_tag_marker"
-    elif [ -f "$appimage_dst" ] && [ "$(cat "$appimage_tag_marker" 2>/dev/null)" = "$upstream_tag" ]; then
-        print_color blue "PostHog Code AppImage cached ($upstream_tag); skipping download"
+    elif [ -f "$appimage_dst" ] && [ "$(cat "$appimage_tag_marker" 2>/dev/null)" = "$appimage_cache_key" ]; then
+        print_color blue "PostHog Code AppImage cached ($upstream_tag, $BUILD_ARCH); skipping download"
     else
-        print_color blue "Downloading PostHog Code AppImage ($upstream_tag) → $appimage_dst"
+        print_color blue "Downloading PostHog Code AppImage ($upstream_tag, $BUILD_ARCH) → $appimage_dst"
         curl -fL --progress-bar -o "$appimage_dst.partial" "$asset_url" \
             || fatal "AppImage download failed: $asset_url"
         mv "$appimage_dst.partial" "$appimage_dst"
         chmod +x "$appimage_dst"
-        printf '%s\n' "$upstream_tag" > "$appimage_tag_marker"
+        printf '%s\n' "$appimage_cache_key" > "$appimage_tag_marker"
     fi
 fi
 
@@ -84,8 +106,9 @@ if [ "$native" = true ]; then
     exec sudo -E scripts/in-container-build.sh
 fi
 
-print_color blue "Building PosthogOS builder image..."
-docker build --platform=linux/amd64 -t posthogos-builder -f Dockerfile .
+print_color blue "Building PosthogOS builder image ($BUILD_ARCH / $docker_platform)..."
+docker build --platform="$docker_platform" --build-arg BUILD_ARCH="$BUILD_ARCH" \
+    -t "posthogos-builder-$BUILD_ARCH" -f Dockerfile .
 
 print_color blue "Running build in privileged container..."
 # Persistent pacman cache: ~2.4 GB on first build, near-zero deltas after.
@@ -93,7 +116,7 @@ print_color blue "Running build in privileged container..."
 mkdir -p .pacman-cache
 docker run --rm --privileged \
     --name posthogos \
-    --platform=linux/amd64 \
+    --platform="$docker_platform" \
     -v "$PWD":/work \
     -v "$PWD/.pacman-cache":/var/cache/pacman/pkg \
     -e KEEP_BUILD \
@@ -105,8 +128,9 @@ docker run --rm --privileged \
     -e POSTHOGOS_PACKAGER_KEY \
     -e POSTHOGOS_PACKAGER_KEY_FPR \
     -e POSTHOGOS_PKGVER \
+    -e BUILD_ARCH \
     -w /work \
-    posthogos-builder \
+    "posthogos-builder-$BUILD_ARCH" \
     /work/scripts/in-container-build.sh
 
 iso=$(ls -1t out/*.iso 2>/dev/null | head -n1 || true)

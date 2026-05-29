@@ -38,7 +38,10 @@ RUN git config --system --add safe.directory '*'
 #
 # TODO: bump mirrorlist URLs when upstream releases new versions
 #       (cachyos-keyring version is stable across releases).
-ARG CACHYOS_MIRROR=https://mirror.cachyos.org/repo/x86_64/cachyos
+#
+# BUILD_ARCH threads the target arch through the mirror URL.
+ARG BUILD_ARCH=x86_64
+ARG CACHYOS_MIRROR=https://mirror.cachyos.org/repo/${BUILD_ARCH}/cachyos
 RUN pacman-key --init \
  && pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com \
  && pacman-key --lsign-key F3B607488DB35A47 \

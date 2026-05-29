@@ -48,6 +48,15 @@ if [ -z "$iso" ]; then
 fi
 [ -n "$iso" ] && [ -f "$iso" ] || fatal "No ISO found. Run bin/build first or pass --iso PATH."
 
+# Guest arch = the ISO's target. x86_64 is the only arch we build today;
+# the aarch64 branches below are scaffolding for a future arm port.
+guest_arch="${BUILD_ARCH:-x86_64}"
+case "$guest_arch" in
+    x86_64|aarch64) ;;
+    *) fatal "Unsupported guest_arch="${BUILD_ARCH:-x86_64}"
+ '$guest_arch' (expected x86_64 or aarch64)";;
+esac
+
 # Absolute path: UTM needs it to resolve from its own working directory.
 iso=$(cd "$(dirname "$iso")" && printf '%s/%s' "$PWD" "$(basename "$iso")")
 
@@ -84,8 +93,8 @@ if [ "$emulator" = "utm" ]; then
     cat <<EOF
 
 UTM is launching. First-time setup:
-  1. Click "Create a New Virtual Machine" → "Emulate" (since the ISO is
-     x86_64 and you're likely on Apple Silicon)
+  1. Click "Create a New Virtual Machine" → "Emulate" if the ISO arch
+     ($guest_arch) differs from your Mac, else "Virtualize"
   2. Operating System: Linux
   3. Browse for the boot ISO and pick:
        $iso
@@ -98,51 +107,68 @@ EOF
 fi
 
 # ---- QEMU path -----------------------------------------------------------
-require_commands qemu-system-x86_64
+qemu_bin="qemu-system-${guest_arch}"
+require_commands "$qemu_bin"
 
-# Locate OVMF firmware (UEFI). Search common locations.
+# Locate UEFI firmware. Both the path and the filename differ per arch
+# (edk2-x86_64-code.fd / OVMF for x86_64; edk2-aarch64-code.fd / AAVMF /
+# QEMU_EFI for aarch64).
+case "$guest_arch" in
+    x86_64)
+        fw_candidates=(
+            /opt/homebrew/share/qemu/edk2-x86_64-code.fd
+            /usr/local/share/qemu/edk2-x86_64-code.fd
+            /usr/share/edk2-ovmf/x64/OVMF_CODE.fd
+            /usr/share/edk2/x64/OVMF_CODE.fd
+            /usr/share/OVMF/OVMF_CODE.fd
+        ) ;;
+    aarch64)
+        fw_candidates=(
+            /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+            /usr/local/share/qemu/edk2-aarch64-code.fd
+            /usr/share/edk2/aarch64/QEMU_EFI.fd
+            /usr/share/edk2-armvirt/aarch64/QEMU_EFI.fd
+            /usr/share/AAVMF/AAVMF_CODE.fd
+        ) ;;
+esac
 ovmf=""
-for candidate in \
-    /opt/homebrew/share/qemu/edk2-x86_64-code.fd \
-    /usr/local/share/qemu/edk2-x86_64-code.fd \
-    /usr/share/edk2-ovmf/x64/OVMF_CODE.fd \
-    /usr/share/edk2/x64/OVMF_CODE.fd \
-    /usr/share/OVMF/OVMF_CODE.fd; do
+for candidate in "${fw_candidates[@]}"; do
     [ -f "$candidate" ] && ovmf="$candidate" && break
 done
-[ -n "$ovmf" ] || fatal "OVMF firmware not found. Install qemu's edk2 firmware package."
+[ -n "$ovmf" ] || fatal "UEFI firmware for $guest_arch not found. Install qemu's edk2 firmware package."
 
-# ---- Accel + CPU + perf flags --------------------------------------------
-# Apple Silicon cross-arch falls back to TCG; tune for ~3-5× speedup
-# (thread=multi parallelizes across host cores, tb-size=512 enlarges
-# translation cache). HVF/KVM hosts don't need this.
+# ---- Accel + CPU + machine + perf flags ----------------------------------
+# Native virt (HVF on macOS, KVM on Linux) when the host arch matches the
+# guest; otherwise cross-arch TCG, tuned for ~3-5× speedup (thread=multi
+# parallelizes across host cores, tb-size=512 enlarges the translation cache).
+host_arch=$(uname -m)
+[ "$host_arch" = "arm64" ] && host_arch="aarch64"   # macOS vs Linux naming
 
-is_emulating_x86=0   # 1 when we're cross-arch (Apple Silicon → x86 guest)
-case "$(uname -s)" in
-    Darwin)
-        if [ "$(uname -m)" = "arm64" ]; then
-            accel="tcg,thread=multi,tb-size=512"
-            cpu_flag=(-cpu "${POSTHOGOS_QEMU_CPU:-Penryn}")
-            is_emulating_x86=1
-        else
-            accel="hvf:tcg"
-            cpu_flag=(-cpu host)
-        fi
-        ;;
-    Linux)
-        if [ -e /dev/kvm ]; then
-            accel="kvm"
-            cpu_flag=(-cpu host)
-        else
-            accel="tcg,thread=multi,tb-size=512"
-            cpu_flag=(-cpu "${POSTHOGOS_QEMU_CPU:-Penryn}")
-        fi
-        ;;
-    *)
-        accel="tcg,thread=multi,tb-size=512"
-        cpu_flag=(-cpu "${POSTHOGOS_QEMU_CPU:-Penryn}")
-        ;;
+# Machine type + emulated-CPU model are arch-specific (q35/Penryn for x86_64,
+# virt/cortex-a72 for aarch64).
+case "$guest_arch" in
+    x86_64)  machine_type="q35";  emu_cpu="${POSTHOGOS_QEMU_CPU:-Penryn}";;
+    aarch64) machine_type="virt"; emu_cpu="${POSTHOGOS_QEMU_CPU:-cortex-a72}";;
 esac
+
+is_emulating=0   # 1 when cross-arch (slow TCG path)
+[ "$guest_arch" != "$host_arch" ] && is_emulating=1
+
+if [ "$is_emulating" = "1" ]; then
+    accel="tcg,thread=multi,tb-size=512"
+    cpu_flag=(-cpu "$emu_cpu")
+else
+    case "$(uname -s)" in
+        Darwin) accel="hvf:tcg"; cpu_flag=(-cpu host);;
+        Linux)
+            if [ -e /dev/kvm ]; then
+                accel="kvm"; cpu_flag=(-cpu host)
+            else
+                accel="tcg,thread=multi,tb-size=512"; cpu_flag=(-cpu "$emu_cpu")
+            fi ;;
+        *) accel="tcg,thread=multi,tb-size=512"; cpu_flag=(-cpu "$emu_cpu");;
+    esac
+fi
 
 # Host cores → guest vCPUs (capped at 8; TCG threading scales sub-linearly
 # past that). RAM bumped to 8G because KDE Plasma 6 wants room to breathe, and
@@ -152,7 +178,7 @@ smp_count="${POSTHOGOS_QEMU_SMP:-$(( host_cores > 8 ? 8 : host_cores ))}"
 ram="${POSTHOGOS_QEMU_RAM:-8G}"
 
 args=(
-    -machine "type=q35,accel=$accel"
+    -machine "type=$machine_type,accel=$accel"
     "${cpu_flag[@]}"
     -m "$ram" -smp "$smp_count"
     -drive "if=pflash,format=raw,readonly=on,file=$ovmf"
@@ -181,9 +207,9 @@ if [ "$install_mode" = true ]; then
     args+=(-drive "file=$disk,if=virtio,format=qcow2")
 fi
 
-if [ "$is_emulating_x86" = "1" ]; then
-    print_color yellow "  emulating x86_64 on $(uname -m): expect ~2-5 min boot via TCG"
-    print_color yellow "  for native speed: bin/test --utm  OR  test on a real x86_64 box"
+if [ "$is_emulating" = "1" ]; then
+    print_color yellow "  emulating $guest_arch on $host_arch: expect ~2-5 min boot via TCG"
+    print_color yellow "  for native speed: bin/test --utm  OR  test on a real $guest_arch box"
 fi
-print_color blue "Booting $iso (qemu, accel=$accel, $smp_count vCPUs, $ram RAM)..."
-exec qemu-system-x86_64 "${args[@]}"
+print_color blue "Booting $iso ($qemu_bin, accel=$accel, $smp_count vCPUs, $ram RAM)..."
+exec "$qemu_bin" "${args[@]}"

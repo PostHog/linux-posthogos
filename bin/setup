@@ -2,13 +2,18 @@
 #/ Usage: bin/setup
 #/ Description: Verify host has the tools needed to build and test PosthogOS.
 #/
-#/ macOS host:  needs docker + qemu-system-x86_64
-#/ Arch host:   needs archiso + qemu-system-x86_64 (and you'd run bin/build --native)
+#/ macOS host:  needs docker + qemu-system-<arch>  (arch = ISO target, default x86_64)
+#/ Arch host:   needs archiso + qemu-system-<arch> (and you'd run bin/build --native)
 
 source bin/helpers/_utils.sh
 set_source_and_root_dir
 
 print_color blue "Checking host prerequisites..."
+
+# QEMU binary matches the arch you'll test (the ISO target). Defaults to
+# x86_64 — the only arch we build today; override with BUILD_ARCH to match bin/test.
+guest_arch="${BUILD_ARCH:-x86_64}"
+qemu_bin="qemu-system-${guest_arch}"
 
 if [ ! -d upstream/archiso ]; then
     print_color blue "Initializing upstream/ submodule..."
@@ -17,18 +22,18 @@ fi
 
 case "$(uname -s)" in
     Darwin)
-        require_commands docker qemu-system-x86_64
+        require_commands docker "$qemu_bin"
         success "Docker found ($(docker --version))"
-        success "QEMU found ($(qemu-system-x86_64 --version | head -1))"
+        success "QEMU found ($("$qemu_bin" --version | head -1))"
         docker info >/dev/null 2>&1 || fatal "Docker daemon not running. Start Docker Desktop / OrbStack."
         success "Docker daemon is up"
         ;;
     Linux)
         if grep -qi 'arch\|cachyos' /etc/os-release 2>/dev/null; then
-            require_commands mkarchiso qemu-system-x86_64
+            require_commands mkarchiso "$qemu_bin"
             success "Native Arch host detected: run bin/build --native"
         else
-            require_commands docker qemu-system-x86_64
+            require_commands docker "$qemu_bin"
             success "Non-Arch Linux host; using Docker path"
             docker info >/dev/null 2>&1 || fatal "Docker daemon not running."
         fi

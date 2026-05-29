@@ -12,6 +12,11 @@ cd "$build_dir"
 
 log() { printf '[pre-build] %s\n' "$*"; }
 
+# Target arch (set by bin/build / CI; default x86_64, the only working
+# target today). x86_64 leaves profiledef + util-iso byte-for-byte upstream;
+# other arches get retargeted below.
+iso_arch="${BUILD_ARCH:-x86_64}"
+
 # --- ISO identity in archiso/profiledef.sh --------------------------------
 pf="archiso/profiledef.sh"
 [ -f "$pf" ] || { echo "Missing $pf" >&2; exit 1; }
@@ -27,6 +32,21 @@ rm -f "${pf}.bak"
 
 log "Identity now:"
 grep -E '^(iso_name|iso_label|iso_publisher|iso_application)=' "$pf"
+
+# --- Target arch retarget (non-x86_64 only) -------------------------------
+# x86_64 is left untouched (upstream profiledef already sets it). For other
+# arches: point profiledef's arch at the real target and drop the x86-only
+# squashfs BCJ filter ('-Xbcj' 'x86'), which mksquashfs rejects elsewhere.
+# (FAST_BUILD rewrites the whole tool-options line below, dropping BCJ anyway.)
+if [ "$iso_arch" != "x86_64" ]; then
+    log "Retargeting profiledef arch → $iso_arch (and dropping x86 squashfs BCJ filter)"
+    sed -i.bak \
+        -e 's|^arch=.*|arch="'"$iso_arch"'"|' \
+        -e "s|'-Xbcj' 'x86' ||" \
+        "$pf"
+    rm -f "${pf}.bak"
+    grep -E '^(arch|airootfs_image_tool_options)=' "$pf"
+fi
 
 # --- Fast compression for dev iteration -----------------------------------
 # FAST_BUILD=1: xz → zstd, 5-10x faster, ~25% larger. Local-only.
@@ -68,7 +88,8 @@ fi
 
 # --- Extra packages -------------------------------------------------------
 # Appending (vs. shadowing the file) lets upstream additions flow through.
-pkglist="archiso/packages_desktop.x86_64"
+# archiso names package lists packages_<profile>.<arch>; resolve by arch.
+pkglist="archiso/packages_desktop.${iso_arch}"
 if [ -f "$pkglist" ]; then
     posthogos_pkgs=(
         # PosthogOS packages from the local file:// repo we register below.
@@ -193,6 +214,17 @@ if [ -f util-iso.sh ]; then
         -e 's|vars+=("\$(date +%y%m%d)")|# date suffix removed by pre-build.sh|' \
         util-iso.sh
     rm -f util-iso.sh.bak
+
+    # util-iso.sh hardcodes the x86_64 arch in three spots: the source
+    # package list (packages_desktop.x86_64 → packages.x86_64), the
+    # pkglist.x86_64.txt it copies out, and the -x86_64.iso name mkarchiso
+    # emits. mkarchiso derives those from profiledef's arch=, so retarget
+    # them to match. Guarded so x86_64 stays byte-for-byte upstream.
+    if [ "$iso_arch" != "x86_64" ]; then
+        log "Retargeting util-iso.sh hardcoded x86_64 filenames → $iso_arch"
+        sed -i.bak "s/x86_64/${iso_arch}/g" util-iso.sh
+        rm -f util-iso.sh.bak
+    fi
 fi
 
 # --- buildiso.sh: kill the misleading EXIT trap ---------------------------

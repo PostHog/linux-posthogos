@@ -32,6 +32,13 @@ jobs:
   build:
     name: Build ISO
     runs-on: ubuntu-latest
+    env:
+      # x86_64 is the only working target today (Arch + CachyOS publish x86_64 only).
+      # Kept as a var so the pacman cache key, the gh-pages repo
+      # dir, and bin/build's BUILD_ARCH stay in lockstep. A future arm port
+      # adds a matrix here instead of editing scattered hardcodes. NOTE:
+      # ubuntu-latest is x86_64; an arm build would need a runs-on arm runner.
+      TARGET_ARCH: x86_64
     # mkarchiso alone is ~45-50 min on ubuntu-latest under Rosetta-style
     # cross-emulation; add 5-10 min for the build prelude (build-assets,
     # makepkg ×6) and the post-build cleanup (chmod -R + rm -rf ~10 GB).
@@ -110,7 +117,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .pacman-cache
-          key: pacman-${{ hashFiles('upstream/archiso/packages_desktop.x86_64', 'upstream/archiso/bootstrap_packages.x86_64', 'Dockerfile') }}
+          key: pacman-${{ env.TARGET_ARCH }}-${{ hashFiles(format('upstream/archiso/packages_desktop.{0}', env.TARGET_ARCH), format('upstream/archiso/bootstrap_packages.{0}', env.TARGET_ARCH), 'Dockerfile') }}
           restore-keys: |
             pacman-
 
@@ -129,6 +136,8 @@ jobs:
           # — avoids needing git to work inside makepkg's subshell, which
           # has flaked under sudo + bind-mounted .git/ in CI.
           POSTHOGOS_PKGVER: ${{ steps.ver.outputs.version }}
+          # Target arch for the ISO + posthogos-* packages (see job env).
+          BUILD_ARCH: ${{ env.TARGET_ARCH }}
         run: bin/build
         timeout-minutes: 75
 
@@ -307,7 +316,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: out/pkgs
-          destination_dir: x86_64
+          destination_dir: ${{ env.TARGET_ARCH }}
           keep_files: true     # don't wipe historical packages on each release
           commit_message: "release ${{ steps.ver.outputs.version }}: posthogos pacman repo"
 

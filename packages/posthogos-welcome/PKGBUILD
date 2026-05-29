@@ -10,7 +10,7 @@ pkgname=posthogos-welcome
 pkgver=0.0.0
 pkgrel=1
 pkgdesc='PosthogOS welcome window (Qt6 QML) + launcher'
-arch=('x86_64')   # ships a compiled binary
+arch=('x86_64' 'aarch64')   # compiled binary; makepkg builds it natively per-arch
 url='https://github.com/posthog/linux-posthogos'
 license=('MIT')
 
