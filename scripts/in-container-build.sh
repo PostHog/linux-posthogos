@@ -180,6 +180,13 @@ done
 echo "==> Local pacman repo ready:"
 ls -lh "$pkg_repo"
 
+# Evict stale brand packages from the persistent pacman cache.
+pacman_cache="${PACMAN_CACHE_DIR:-/var/cache/pacman/pkg}"
+if [ -d "$pacman_cache" ]; then
+    echo "==> Evicting stale posthogos-* from $pacman_cache (avoids checksum collisions)"
+    rm -f "$pacman_cache"/posthogos-*.pkg.tar.zst "$pacman_cache"/posthogos-*.pkg.tar.zst.sig
+fi
+
 # Import signing key into the build container's pacman-key keyring
 # (separate from builder's gpg keyring used by makepkg above) so
 # pacstrap can verify the signed db. Without this, [posthogos] would

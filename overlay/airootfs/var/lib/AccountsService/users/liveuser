@@ -1,0 +1,12 @@
+# AccountsService descriptor for the live-session user.
+#   - Icon: the "Max" hedgehog avatar (generated into overlay-generated/ by
+#     build-assets.sh; see /var/lib/AccountsService/icons/liveuser).
+#   - The display name "Max" comes from the GECOS field, set by
+#     scripts/posthogos-customize.sh (usermod -c); accountsservice reads
+#     RealName from GECOS rather than from this file.
+#   - SystemAccount=false so the plasmalogin greeter lists the user.
+[User]
+Session=plasma.desktop
+XSession=plasma
+Icon=/var/lib/AccountsService/icons/liveuser
+SystemAccount=false

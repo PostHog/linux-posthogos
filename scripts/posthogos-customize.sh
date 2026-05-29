@@ -98,6 +98,23 @@ ls -ld /home/liveuser /home/liveuser/.cache  # log the resulting state
 # /home itself must be traversable.
 [ -d /home ] && chmod 0755 /home
 
+# ---- liveuser identity: name "Max" + hedgehog avatar --------------------
+# Display name comes from the GECOS field — accountsservice surfaces it as
+# RealName for the greeter / lock screen / Kickoff. usermod edits
+# /etc/passwd directly, so it works even though nsswitch may not resolve
+# `liveuser` by name in this chroot. The avatar PNG + AccountsService
+# descriptor (Icon=) ship via overlay-generated/ + overlay/; here we also
+# drop ~/.face.icon for SDDM-style greeters that bypass accountsservice.
+log "Setting liveuser display name to 'Max'"
+usermod -c Max liveuser 2>/dev/null || log "WARN: usermod -c Max failed"
+avatar="/var/lib/AccountsService/icons/liveuser"
+if [ -f "$avatar" ] && [ -d /home/liveuser ]; then
+    log "Seeding /home/liveuser/.face.icon from AccountsService avatar"
+    install -m 0644 -o 1000 -g 1000 "$avatar" /home/liveuser/.face.icon
+else
+    log "Avatar $avatar absent; skipping .face.icon (Max will use default icon)"
+fi
+
 # Fontconfig cache: writable by all. Otherwise every Plasma startup spams
 # "Fontconfig error: No writable cache directories".
 install -d -m 0755 /var/cache/fontconfig

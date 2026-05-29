@@ -116,6 +116,24 @@ if [ -f "$hog_src" ]; then
     done
 fi
 
+# Live user (liveuser) avatar: "Max" the hedgehog, the live session's
+# profile picture. AccountsService is the canonical source the plasmalogin
+# greeter, lock screen, and Kickoff read; the icon lives at the path the
+# user descriptor (overlay/.../AccountsService/users/liveuser) points at.
+# customize.sh seeds ~/.face.icon from this too for SDDM-style fallbacks.
+# Square-padded (-extent) since the source isn't 1:1 and avatar widgets
+# assume square.
+log "Installing liveuser avatar (Max hedgehog)"
+avatar_src="$src/hedgehogs/builder_hog.png"
+if [ -f "$avatar_src" ]; then
+    avatar_dst="$out/airootfs/var/lib/AccountsService/icons"
+    mkdir -p "$avatar_dst"
+    # AccountsService icon files are named after the user, no extension.
+    "$MAGICK" "$avatar_src" -filter Lanczos -resize 256x256 \
+        -background none -gravity center -extent 256x256 \
+        "$avatar_dst/liveuser"
+fi
+
 # Scalable fallback: the native-aspect logomark SVG. Real apps
 # use the rasterized PNGs above; the scalable dir is a fallback for unusual
 # sizes and is rarely queried.
@@ -192,30 +210,26 @@ icon_install() {
 icon_map=$(cat <<'MAP'
 places     folder           folder,inode-directory,folder-orange,folder-yellow,folder-red,folder-green,folder-blue,folder-teal,folder-violet,folder-magenta,user-home
 places     trash            user-trash,user-trash-full
-mimetypes  doc              text-x-generic,text-x-plain,application-x-generic,text-x-readme
+mimetypes  doc              text-x-generic,text-x-plain,text-x-readme
 mimetypes  page             text-html,text-x-markdown
 mimetypes  pdf              application-pdf
 mimetypes  pdf-locked       application-pgp-encrypted
 mimetypes  video            video-x-generic
-mimetypes  spreadsheet      x-office-spreadsheet,application-vnd.oasis.opendocument.spreadsheet
+mimetypes  spreadsheet      x-office-spreadsheet
 mimetypes  presentation     x-office-presentation
 mimetypes  report           x-office-document
 mimetypes  sql              application-sql,application-x-sqlite3
-apps       notebook         accessories-text-editor,org.kde.kate,org.kde.kwrite
-apps       contact          contact-new,x-office-address-book,org.kde.kaddressbook
-apps       envelope         mail-message-new,internet-mail,org.kde.kmail2,thunderbird
+apps       notebook         accessories-text-editor
+apps       contact          contact-new,x-office-address-book
+apps       envelope         mail-message-new,internet-mail
 apps       forums           internet-chat,network-chat
 apps       games            applications-games
-apps       handbook         accessories-dictionary,help-browser
+apps       handbook         help-browser
 apps       compass          applications-internet,internet-web-browser
 apps       map              applications-geography
 apps       bookmark         user-bookmarks,bookmark-new
 apps       canvas           applications-graphics
-apps       hogpaint         gimp,org.kde.krita
-apps       photobooth       camera,camera-photo,org.kde.kamoso
-apps       typewriter       org.kde.kate
-apps       post-it          org.kde.knotes
-apps       switch           system-shutdown,system-log-out
+apps       photobooth       camera,camera-photo
 MAP
 )
 
