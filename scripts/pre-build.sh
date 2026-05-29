@@ -13,8 +13,9 @@ cd "$build_dir"
 log() { printf '[pre-build] %s\n' "$*"; }
 
 # Target arch (set by bin/build / CI; default x86_64, the only working
-# target today). x86_64 leaves profiledef + util-iso byte-for-byte upstream;
-# other arches get retargeted below.
+# target today). x86_64 keeps upstream's arch/util-iso; other arches get
+# retargeted below. (The squashfs compressor is overridden for all arches in
+# the compressor section further down.)
 iso_arch="${BUILD_ARCH:-x86_64}"
 
 # --- ISO identity in archiso/profiledef.sh --------------------------------
@@ -37,7 +38,8 @@ grep -E '^(iso_name|iso_label|iso_publisher|iso_application)=' "$pf"
 # x86_64 is left untouched (upstream profiledef already sets it). For other
 # arches: point profiledef's arch at the real target and drop the x86-only
 # squashfs BCJ filter ('-Xbcj' 'x86'), which mksquashfs rejects elsewhere.
-# (FAST_BUILD rewrites the whole tool-options line below, dropping BCJ anyway.)
+# (Only matters under SQUASHFS_COMP=xz; the default zstd path below rewrites
+# the whole tool-options line anyway, dropping BCJ.)
 if [ "$iso_arch" != "x86_64" ]; then
     log "Retargeting profiledef arch → $iso_arch (and dropping x86 squashfs BCJ filter)"
     sed -i.bak \
@@ -48,13 +50,27 @@ if [ "$iso_arch" != "x86_64" ]; then
     grep -E '^(arch|airootfs_image_tool_options)=' "$pf"
 fi
 
-# --- Fast compression for dev iteration -----------------------------------
-# FAST_BUILD=1: xz → zstd, 5-10x faster, ~25% larger. Local-only.
-if [ "${FAST_BUILD:-0}" = "1" ]; then
-    log "FAST_BUILD=1 → switching squashfs compressor to zstd"
+# --- Squashfs compressor --------------------------------------------------
+# Default: zstd -19. squashfs compresses each block independently, so the
+# effective compression window is capped at the block size (1M) no matter the
+# compressor — at that window zstd -19 lands within a few percent of xz's
+# ratio while running ~5x faster (xz's remaining edge is mostly its x86 BCJ
+# filter, which zstd can't use; not worth ~45 min of build time).
+#
+# Knobs:
+#   FAST_BUILD=1          zstd -3, faster still, for throwaway local iteration
+#   SQUASHFS_ZSTD_LEVEL=N override the zstd level (1-22)
+#   SQUASHFS_COMP=xz      keep upstream xz for the absolute smallest ISO (slow)
+if [ "${SQUASHFS_COMP:-zstd}" = "xz" ]; then
+    log "SQUASHFS_COMP=xz → keeping upstream xz compressor (smallest ISO, slowest)"
+else
+    zstd_level="${SQUASHFS_ZSTD_LEVEL:-19}"
+    [ "${FAST_BUILD:-0}" = "1" ] && zstd_level="${SQUASHFS_ZSTD_LEVEL:-3}"
+    log "Setting squashfs compressor → zstd -$zstd_level"
     sed -i.bak \
-        "s|^airootfs_image_tool_options=.*|airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '3' '-b' '1M')|" \
+        "s|^airootfs_image_tool_options=.*|airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '$zstd_level' '-b' '1M')|" \
         "$pf"
+    rm -f "${pf}.bak"
 fi
 
 # --- Suppress macOS-host xattr noise --------------------------------------

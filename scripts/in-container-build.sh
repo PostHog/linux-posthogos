@@ -4,8 +4,10 @@
 # buildiso.sh to produce the ISO.
 #
 # Expected env:
-#   KEEP_BUILD=1       (default 0) keep build/ work tree after build
-#   FAST_BUILD=1       (default 0) use zstd not xz for squashfs
+#   KEEP_BUILD=1            (default 0) keep build/ work tree after build
+#   FAST_BUILD=1            (default 0) zstd -3 squashfs for throwaway builds
+#   SQUASHFS_ZSTD_LEVEL=N   (default 19) override squashfs zstd level (1-22)
+#   SQUASHFS_COMP=xz        keep upstream xz (smallest ISO, slowest); else zstd
 
 set -euo pipefail
 
