@@ -64,8 +64,14 @@ cp -f /etc/resolv.conf "$ROOT/etc/resolv.conf" 2>/dev/null || true
 # 4. Install the stack. The posthogos meta pulls branding/config/scripts/
 #    welcome/keyring plus the curated system packages (ghostty, snapper,
 #    fonts, …) declared in its depends.
+#
+#    --overwrite '/etc/skel/*': the CachyOS netinstall default pulls
+#    cachyos-zsh-config, which owns /etc/skel/.zshrc — the same template
+#    posthogos-config ships. posthogos intends to own its skel files (the
+#    KDE ones are even written imperatively for this exact reason), so let
+#    it take them over instead of aborting on the file conflict.
 log "Installing posthogos meta-package into target (pacman -Sy)"
-if arch-chroot "$ROOT" pacman -Sy --noconfirm --needed posthogos; then
+if arch-chroot "$ROOT" pacman -Sy --noconfirm --needed --overwrite '/etc/skel/*' posthogos; then
     log "posthogos installed"
 
     # 5. Apply the shared system tweaks inside the target. posthogos-scripts
