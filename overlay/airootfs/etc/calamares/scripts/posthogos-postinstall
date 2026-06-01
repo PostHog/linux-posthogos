@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Calamares postinstall hook — installs the PosthogOS stack onto a freshly
+# pacstrapped target and applies the shared system tweaks.
+#
+# The active CachyOS Calamares profile (settings.conf) does a fresh ONLINE
+# pacstrap; it does not clone the live squashfs. So nothing PosthogOS
+# reaches the target unless we install it here. posthogos-customize.sh
+# registers this script as a `shellprocess@posthogos_postinstall` instance
+# and inserts it into the exec sequence just before the generic
+# `shellprocess` cleanup step.
+#
+# Runs with dontChroot:true, so commands execute in the LIVE environment
+# and the target root is passed as $1 (${ROOT} from Calamares). We reach
+# into the target with arch-chroot ourselves.
+#
+# Best-effort: a failure here must never abort the install and strand the
+# user with no system. We log loudly and exit 0; the worst case is a
+# bootable-but-unbranded target, which is the pre-fix status quo.
+
+set -uo pipefail
+
+ROOT="${1:?usage: posthogos-postinstall <target-root>}"
+
+log()  { printf '[posthogos-postinstall] %s\n' "$*"; }
+warn() { printf '[posthogos-postinstall] WARN: %s\n' "$*" >&2; }
+
+log "Target root: $ROOT"
+
+# 1. Register [posthogos] so `pacman -S` can resolve it. apply-common adds
+#    the same block (idempotent grep) for runtime updates; we need it now,
+#    before the install. SigLevel=Required works once the key is signed
+#    in step 2.
+if ! grep -q '^\[posthogos\]' "$ROOT/etc/pacman.conf" 2>/dev/null; then
+    log "Registering [posthogos] repo in target pacman.conf"
+    cat >>"$ROOT/etc/pacman.conf" <<'EOF'
+
+[posthogos]
+SigLevel = Required
+Server = https://posthog.github.io/linux-posthogos/$arch
+EOF
+fi
+
+# 2. Bootstrap keyring trust. The target is a fresh pacstrap that has never
+#    seen the PosthogOS packager key, so SigLevel=Required would reject the
+#    repo. Copy the live keyring files (present because posthogos-keyring is
+#    installed in the live session) into the target and locally sign the key
+#    — the same thing posthogos-keyring's .install hook does.
+kr=/usr/share/pacman/keyrings
+if [ -f "$kr/posthogos.gpg" ]; then
+    log "Seeding target keyring from live $kr/posthogos*"
+    install -d "$ROOT$kr"
+    cp -f "$kr/posthogos.gpg" "$kr/posthogos-trusted" "$kr/posthogos-revoked" \
+        "$ROOT$kr/" 2>/dev/null || true
+    arch-chroot "$ROOT" pacman-key --populate posthogos \
+        || warn "pacman-key --populate posthogos failed (install may hit a signature check)"
+    arch-chroot "$ROOT" pacman-key --updatedb || true
+else
+    warn "live keyring $kr/posthogos.gpg absent; relying on the posthogos-keyring package's own hook"
+fi
+
+# 3. Make sure the chroot can resolve + reach the network for the repo.
+cp -f /etc/resolv.conf "$ROOT/etc/resolv.conf" 2>/dev/null || true
+
+# 4. Install the stack. The posthogos meta pulls branding/config/scripts/
+#    welcome/keyring plus the curated system packages (ghostty, snapper,
+#    fonts, …) declared in its depends.
+log "Installing posthogos meta-package into target (pacman -Sy)"
+if arch-chroot "$ROOT" pacman -Sy --noconfirm --needed posthogos; then
+    log "posthogos installed"
+
+    # 5. Apply the shared system tweaks inside the target. posthogos-scripts
+    #    is now installed, so the script is present at this path.
+    if [ -x "$ROOT/usr/local/bin/posthogos-apply-common" ]; then
+        log "Running posthogos-apply-common in target chroot"
+        arch-chroot "$ROOT" /usr/local/bin/posthogos-apply-common \
+            || warn "posthogos-apply-common reported errors (see log above)"
+    else
+        warn "posthogos-apply-common missing in target; skipping shared tweaks"
+    fi
+else
+    warn "pacman -S posthogos failed — the target will be largely vanilla CachyOS."
+    warn "Most likely network connectivity or a [posthogos] repo signature issue."
+fi
+
+log "Done."
+exit 0

@@ -7,7 +7,7 @@
 # pacstrap the same Qt6 from the same upstream repos.
 
 pkgname=posthogos-welcome
-pkgver=0.0.0.dev.e70abd1
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='PosthogOS welcome window (Qt6 QML) + launcher'
 arch=('x86_64' 'aarch64')   # compiled binary; makepkg builds it natively per-arch
@@ -19,6 +19,8 @@ depends=(
     'qt6-declarative'    # QtQml + QtQuick.Controls + QtQuick.Layouts
     'qqc2-breeze-style'  # without it welcome.qml exits 2
     'hicolor-icon-theme' # for /usr/share/icons/hicolor/* lookup
+    'xcb-util-cursor'    # Qt 6.5+ xcb plugin dep; missing → SIGABRT at
+                         # QGuiApplication init on TCG (no WAYLAND_DISPLAY)
 )
 
 optdepends=(

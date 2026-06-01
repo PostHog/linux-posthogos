@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# System-level PosthogOS tweaks shared by the live ISO and an installed
+# Calamares target. Operates on the system it runs *inside* (paths are
+# absolute, no ${ROOT} prefix):
+#   - live ISO:  scripts/posthogos-customize.sh calls it in the build chroot
+#   - installed: the Calamares postinstall hook runs it via `arch-chroot`
+#
+# Only things that are identical on both systems live here. Live-only
+# logic (liveuser provisioning/identity/autologin, Calamares config
+# patches, build-time perm fixups) stays in posthogos-customize.sh.
+#
+# These tweaks are imperative rather than packaged because the files are
+# owned by upstream packages (os-release → filesystem, kdeglobals →
+# cachyos-kde-settings, …) so pacman refuses to ship them in a posthogos
+# package; writing them post-install overwrites cleanly.
+#
+# Idempotent: safe to re-run.
+
+set -euo pipefail
+
+log() { printf '[posthogos-apply-common] %s\n' "$*"; }
+
+BRAND="posthogos"
+
+# ---- PosthogOS pacman repo ----------------------------------------------
+# Register [posthogos] so the system gets package updates via
+# `pacman -Syu`. SigLevel=Required works because posthogos-keyring's
+# .install hook (or the Calamares postinstall's pacman-key --populate)
+# locally signed the packager key. Appended (not prepended) so CachyOS's
+# higher-priority repos still win for anything ambiguous; we only publish
+# `posthogos-*` names anyway.
+if ! grep -q '^\[posthogos\]' /etc/pacman.conf; then
+    log "Registering [posthogos] pacman repo"
+    cat >>/etc/pacman.conf <<'EOF'
+
+[posthogos]
+SigLevel = Required
+Server = https://posthog.github.io/linux-posthogos/$arch
+EOF
+fi
+
+# ---- OS identity ---------------------------------------------------------
+# Owned by upstream packages (filesystem, lsb-release), so pacman refuses
+# to overwrite; write them here instead.
+log "Writing /etc/os-release"
+cat >/etc/os-release <<'EOF'
+NAME="PosthogOS"
+PRETTY_NAME="PosthogOS"
+ID=posthogos
+ID_LIKE="cachyos arch"
+BUILD_ID=rolling
+ANSI_COLOR="38;2;255;100;0"
+HOME_URL="https://github.com/posthog/linux-posthogos"
+DOCUMENTATION_URL="https://github.com/posthog/linux-posthogos"
+SUPPORT_URL="https://github.com/posthog/linux-posthogos/issues"
+BUG_REPORT_URL="https://github.com/posthog/linux-posthogos/issues"
+LOGO=posthogos
+EOF
+
+log "Writing /etc/lsb-release"
+cat >/etc/lsb-release <<'EOF'
+LSB_VERSION=1.4
+DISTRIB_ID=PosthogOS
+DISTRIB_RELEASE=rolling
+DISTRIB_DESCRIPTION="PosthogOS"
+EOF
+
+# ---- /etc/motd -----------------------------------------------------------
+log "Writing /etc/motd"
+cat >/etc/motd <<'EOF'
+
+  Welcome to PosthogOS, a CachyOS-based spin with PostHog branding.
+
+  Source: https://github.com/posthog/linux-posthogos
+  Issues: https://github.com/posthog/linux-posthogos/issues
+
+EOF
+
+# Fontconfig cache: writable by all. Otherwise every Plasma startup spams
+# "Fontconfig error: No writable cache directories".
+install -d -m 0755 /var/cache/fontconfig
+
+# ---- Suppress CachyOS Hello popup (skel) --------------------------------
+# cachyos-hello auto-pops on every login. Shadow its /etc/xdg autostart
+# entry with a user-level Hidden=true (XDG spec: user wins over /etc).
+# Only the /etc/skel half is shared; the live ISO seeds the existing
+# liveuser separately in posthogos-customize.sh.
+log "Suppressing cachyos-hello autostart for future users (/etc/skel)"
+install -d -m 0755 /etc/skel/.config/autostart
+cat >/etc/skel/.config/autostart/cachyos-hello.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=CachyOS Hello
+Hidden=true
+EOF
+
+# ---- Plasma + GTK defaults for new users ---------------------------------
+# cachyos-kde-settings owns these /etc/skel paths, so posthogos-config
+# can't ship them (file conflict). Writing post-install overwrites cleanly.
+# posthogos-firstrun.sh reads kdeglobals at first Plasma session and
+# *applies* the look-and-feel from here.
+log "Writing /etc/skel Plasma + GTK defaults"
+mkdir -p /etc/skel/.config/gtk-3.0 /etc/skel/.config/gtk-4.0
+
+cat >/etc/skel/.config/kdeglobals <<'EOF'
+[General]
+ColorScheme=PosthogosLight
+Name=PosthogOS Light
+font=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+smallestReadableFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+toolBarFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+# Default terminal: set both keys (legacy + Plasma 6) for full coverage.
+TerminalApplication=ghostty
+TerminalService=com.mitchellh.ghostty.desktop
+
+[KDE]
+LookAndFeelPackage=com.posthog.posthogos
+widgetStyle=Breeze
+SingleClick=false
+
+[Icons]
+Theme=PosthogOS
+
+# Sound theme at /usr/share/sounds/posthogos/. Falls through to the
+# freedesktop default for events we don't override.
+[Sounds]
+Theme=posthogos
+EOF
+
+# Tell System Settings which LAF is active. Without this file the KCM
+# shows nothing selected until firstrun applies it.
+mkdir -p /etc/skel/.config/kdedefaults
+echo 'com.posthog.posthogos' > /etc/skel/.config/kdedefaults/package
+
+for v in gtk-3.0 gtk-4.0; do
+    cat >"/etc/skel/.config/$v/settings.ini" <<'EOF'
+[Settings]
+gtk-theme-name=Breeze
+gtk-icon-theme-name=PosthogOS
+gtk-font-name=Inter 11
+gtk-cursor-theme-name=breeze_cursors
+gtk-application-prefer-dark-theme=false
+EOF
+done
+
+# Konsole: use the branded profile by default.
+cat >/etc/skel/.config/konsolerc <<'EOF'
+[Desktop Entry]
+DefaultProfile=PosthogOS.profile
+
+[MainWindow]
+MenuBar=Disabled
+ToolBarsMovable=Disabled
+EOF
+
+# ---- Plymouth ------------------------------------------------------------
+# Theme descriptor comes from posthogos-branding. Point plymouthd at it,
+# then regenerate the initramfs so the splash is embedded.
+if [ -f "/usr/share/plymouth/themes/$BRAND/$BRAND.plymouth" ]; then
+    mkdir -p /etc/plymouth
+    cat >/etc/plymouth/plymouthd.conf <<EOF
+[Daemon]
+Theme=$BRAND
+ShowDelay=0
+EOF
+
+    # FAST_BUILD (live build only) skips the ~10 min initramfs regen. The
+    # marker never exists on an installed target, so installs always get a
+    # proper branded initramfs.
+    if [ -f /etc/posthogos-fast-build ]; then
+        log "Configuring Plymouth theme: $BRAND (FAST_BUILD: config-only, no initramfs regen)"
+        rm -f /etc/posthogos-fast-build   # don't ship the marker
+    elif command -v plymouth-set-default-theme >/dev/null; then
+        log "Configuring Plymouth theme: $BRAND (running -R to embed into initramfs)"
+        plymouth-set-default-theme -R "$BRAND" || log "WARN: plymouth-set-default-theme failed"
+    else
+        log "Configuring Plymouth theme: $BRAND (running mkinitcpio -P)"
+        mkinitcpio -P
+    fi
+else
+    log "Plymouth theme '$BRAND' not present (no .plymouth descriptor); leaving CachyOS default"
+fi
+
+# ---- Curate the wallpaper picker -----------------------------------------
+# Prune CachyOS-flavored wallpapers that dilute the brand in System
+# Settings. Keep ours + stock Breeze.
+log "Pruning non-PosthogOS / non-Breeze wallpapers"
+if [ -d /usr/share/wallpapers ]; then
+    for wp in /usr/share/wallpapers/*/; do
+        name=$(basename "$wp")
+        case "$name" in
+            Posthogos*) ;;                              # ours
+            Breeze|Next|Path|Volna|Lake|Mountain|Pollen|Patak|Cluster|Kay|Cascade|Flow) ;;  # Breeze stock
+            *)
+                log "  removing /usr/share/wallpapers/$name"
+                rm -rf "$wp"
+                ;;
+        esac
+    done
+fi
+
+# ---- Papirus folder color ------------------------------------------------
+# Blue → orange via the vendored AUR helper at /usr/local/bin/papirus-folders.
+PAPIRUS_COLOR=orange
+if [ -d /usr/share/icons/Papirus-Light ] && [ -x /usr/local/bin/papirus-folders ]; then
+    log "Recoloring Papirus-Light folders → $PAPIRUS_COLOR (papirus-folders)"
+    /usr/local/bin/papirus-folders -t Papirus-Light -C "$PAPIRUS_COLOR" -v \
+        || log "WARN: papirus-folders failed"
+fi
+
+# Plasma 6's Discover auto-detects Flatpak when the binary's present;
+# no separate discover-flatpak-backend package needed.
+if command -v flatpak >/dev/null; then
+    log "Registering Flathub as a system-wide Flatpak remote"
+    flatpak remote-add --system --if-not-exists \
+        flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+        2>&1 | sed 's/^/  /' \
+        || log "WARN: flathub remote-add failed (Discover will still find it on first run)"
+fi
+
+# ---- Caches --------------------------------------------------------------
+log "Refreshing desktop / icon / gtk / font caches"
+[ -d /usr/share/icons ] && find /usr/share/icons -maxdepth 1 -mindepth 1 -type d \
+    -exec gtk-update-icon-cache -q -t -f {} \; 2>/dev/null || true
+update-desktop-database -q 2>/dev/null || true
+glib-compile-schemas /usr/share/glib-2.0/schemas/ 2>/dev/null || true
+fc-cache -f /usr/share/fonts 2>/dev/null || true   # register branded fonts
+
+log "Done."

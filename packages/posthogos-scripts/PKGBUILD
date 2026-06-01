@@ -6,7 +6,7 @@
 # /usr/lib/systemd/system/multi-user.target.wants/ (no .install hook).
 
 pkgname=posthogos-scripts
-pkgver=0.0.0.dev.e70abd1
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='PosthogOS system scripts: firstrun, snapper-init, toolkit-install, neohog'
 arch=('any')
@@ -48,6 +48,7 @@ package() {
     install -m 0755 \
         "$overlay/usr/local/bin/neohog" \
         "$overlay/usr/local/bin/papirus-folders" \
+        "$overlay/usr/local/bin/posthogos-apply-common" \
         "$overlay/usr/local/bin/posthogos-firstrun.sh" \
         "$overlay/usr/local/bin/posthogos-firstrun-rescue.sh" \
         "$overlay/usr/local/bin/posthogos-snapper-init" \

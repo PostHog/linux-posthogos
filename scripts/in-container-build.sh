@@ -55,6 +55,7 @@ pkg_owned_excludes=(
     # posthogos-scripts
     --exclude='/airootfs/usr/local/bin/neohog'
     --exclude='/airootfs/usr/local/bin/papirus-folders'
+    --exclude='/airootfs/usr/local/bin/posthogos-apply-common'
     --exclude='/airootfs/usr/local/bin/posthogos-firstrun.sh'
     --exclude='/airootfs/usr/local/bin/posthogos-firstrun-rescue.sh'
     --exclude='/airootfs/usr/local/bin/posthogos-snapper-init'
