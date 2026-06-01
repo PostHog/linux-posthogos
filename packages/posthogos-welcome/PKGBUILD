@@ -19,6 +19,8 @@ depends=(
     'qt6-declarative'    # QtQml + QtQuick.Controls + QtQuick.Layouts
     'qqc2-breeze-style'  # without it welcome.qml exits 2
     'hicolor-icon-theme' # for /usr/share/icons/hicolor/* lookup
+    'xcb-util-cursor'    # Qt 6.5+ xcb plugin dep; missing → SIGABRT at
+                         # QGuiApplication init on TCG (no WAYLAND_DISPLAY)
 )
 
 optdepends=(

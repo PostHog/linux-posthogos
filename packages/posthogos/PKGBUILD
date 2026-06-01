@@ -18,6 +18,23 @@ depends=(
     'posthogos-scripts'
     'posthogos-welcome'
     'posthogos-config'
+
+    # Curated system stack that makes up the full PosthogOS experience.
+    # The sub-packages keep these soft (optdepends) so they stay lean on
+    # their own; the meta is what guarantees the opinionated whole. This
+    # is also what installs them on a Calamares target (the live ISO gets
+    # them via scripts/pre-build.sh's pacstrap list). Keep in sync with
+    # the system-package block in scripts/pre-build.sh.
+    'inter-font'           # primary system body font (referenced in kdeglobals)
+    'papirus-icon-theme'   # parent theme the PosthogOS icon theme inherits
+    'ghostty'              # default terminal (skel configs + Plasma pins)
+    'flatpak'              # secondary app channel (Flathub set up in apply-common)
+    'snapper'              # btrfs snapshots; initialized by posthogos-snapper-init
+    'snap-pac'             # pacman hooks: snapshot before/after every -S/U/R
+    'grub-btrfs'           # GRUB submenu entries for each snapper snapshot
+    'fuse2'                # libfuse2 for AppImages (e.g. posthog-code)
+    'nodejs'               # dev-toolkit's `npm install -g` for AI CLIs
+    'npm'
 )
 
 # pkgver: latest git tag (v-stripped), or 0.0.0.dev.<sha> when no tags.
