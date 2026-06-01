@@ -42,9 +42,11 @@ ApplicationWindow {
     readonly property color cardBg:         "#FFFFFF"
     readonly property color cardBorder:     "#E5E7E0"
 
-    // Persistent prefs via Qt6 QtCore.Settings, auto-writing to
-    // ~/.config/PostHog/PosthogOS-Welcome.conf. The shell wrapper reads
-    // this same file to decide whether to skip on next autostart.
+    // Persistent prefs via Qt6 QtCore.Settings. The path is derived from the
+    // launcher's organizationName + applicationName, so it's
+    // ~/.config/PostHog/posthogos-welcome.conf (lowercase). The shell wrapper
+    // reads/writes this SAME file — isLiveIso (live-vs-installed hero tile)
+    // and showOnStartup (autostart skip) — so the casing must match exactly.
     Settings {
         id: prefs
         category: "Startup"

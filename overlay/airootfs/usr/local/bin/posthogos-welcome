@@ -11,7 +11,13 @@
 
 set -e
 
-prefs="${XDG_CONFIG_HOME:-$HOME/.config}/PostHog/PosthogOS-Welcome.conf"
+# Must match the path Qt's QSettings uses, which is derived from the
+# launcher's organizationName ("PostHog") + applicationName
+# ("posthogos-welcome") — i.e. lowercase posthogos-welcome.conf. Writing to
+# any other casing means the QML never reads what we stamp here (that bug
+# left the hero tile stuck on "Install to disk" on installed systems and
+# broke the show-on-startup toggle).
+prefs="${XDG_CONFIG_HOME:-$HOME/.config}/PostHog/posthogos-welcome.conf"
 
 # Honor the "Show on next startup" checkbox state. Default = show.
 # Only the autostart entry passes --autostart; manual launches from the
