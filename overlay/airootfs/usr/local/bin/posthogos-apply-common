@@ -190,7 +190,9 @@ fi
 # REQUIRED or the greeter bails with "Error loading Applet: package does not
 # exist". Live autologin (User=liveuser) is layered on top by
 # posthogos-customize.sh; installed systems get the branding without it.
-greeter_wallpaper="/usr/share/wallpapers/PosthogosOfficeParty/contents/images_dark/3840x2160.png"
+# Light variant (contents/images/, not images_dark/) to match the default
+# PosthogOS Light desktop wallpaper.
+greeter_wallpaper="/usr/share/wallpapers/PosthogosOfficeParty/contents/images/3840x2160.png"
 if [ -f "$greeter_wallpaper" ]; then
     log "Branding plasma-login-manager greeter (/etc/plasmalogin.conf)"
     cat >/etc/plasmalogin.conf <<EOF
