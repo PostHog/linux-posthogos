@@ -14,9 +14,9 @@
  * Plasma-convention path: `<LAF>/contents/splash/Splash.qml`. No metadata,
  * no extra config. Picked up whenever the parent LAF is the active theme.
  *
- * Colors match PosthogosLight.colors:
- *   bg   #eeefe9 (Window/BackgroundNormal)
- *   text #23251d (Window/ForegroundNormal)
+ * Colors:
+ *   bg   #e1d7c2 (warm tan, matches the brand wallpaper tone)
+ *   text #23251d (PosthogosLight Window/ForegroundNormal)
  */
 import QtQuick
 
@@ -24,7 +24,7 @@ Rectangle {
     id: root
     width: 1920
     height: 1080
-    color: "#eeefe9"
+    color: "#e1d7c2"
 
     // Plasma updates this 1→5 as boot stages complete. We re-evaluate the
     // logo + text opacity/scale animations in onStageChanged below.
