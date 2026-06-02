@@ -9,9 +9,9 @@
  * triangle blends slightly into dark bg but the orange/blue/yellow
  * triangles still carry the brand mark legibly).
  *
- * Colors match PosthogosDark.colors:
- *   bg   #1e1f23 (Window/BackgroundNormal)
- *   text #edeef4 (Window/ForegroundNormal)
+ * Colors:
+ *   bg   #333732 (warm dark grey)
+ *   text #edeef4 (PosthogosDark Window/ForegroundNormal)
  */
 import QtQuick
 
@@ -19,7 +19,7 @@ Rectangle {
     id: root
     width: 1920
     height: 1080
-    color: "#1e1f23"
+    color: "#333732"
 
     property int stage
 
