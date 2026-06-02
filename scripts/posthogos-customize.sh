@@ -114,34 +114,21 @@ if [ -d /home/liveuser ] && [ -d /etc/skel ]; then
     chown -R 1000:1000 /home/liveuser
 fi
 
-# ---- Display manager: plasma-login-manager (plasmalogin) ----------------
-# Upstream KDE's SDDM fork with a Plasma-native greeter. Config must live
-# at /etc/plasmalogin.conf, but /etc/plasmalogin.conf.d/ is silently ignored
-# (upstream bug). WallpaperPluginId is required: without it, the greeter
-# bails with "Error loading Applet: package  does not exist".
-#
-# Live only: User=liveuser autologin. The installed target gets its
-# display-manager autologin (or none) from Calamares' displaymanager module
-# against the real user it creates.
-log "Writing /etc/plasmalogin.conf (live autologin + branded wallpaper)"
-cat >/etc/plasmalogin.conf <<'EOF'
+# ---- Display manager: live autologin (plasma-login-manager) -------------
+# apply-common already wrote the branded greeter config (/etc/plasmalogin.conf).
+# Layer the live ISO's passwordless autologin on top. Installed systems skip
+# this — their real user / autologin choice comes from Calamares' users +
+# displaymanager modules.
+if [ -f /etc/plasmalogin.conf ] && ! grep -q '^\[Autologin\]' /etc/plasmalogin.conf; then
+    log "Adding live autologin (liveuser) to /etc/plasmalogin.conf"
+    cat >>/etc/plasmalogin.conf <<'EOF'
+
 [Autologin]
 User=liveuser
 Session=plasma.desktop
 Relogin=false
-
-[Users]
-MinimumUid=100
-MaximumUid=60000
-
-[Greeter]
-WallpaperPluginId=org.kde.image
-
-[Greeter][Wallpaper][org.kde.image][General]
-Image=file:///usr/share/wallpapers/PosthogosKeyboardGarden/contents/images_dark/3840x2160.png
-PreviewImage=file:///usr/share/wallpapers/PosthogosKeyboardGarden/contents/images_dark/3840x2160.png
-FillMode=2
 EOF
+fi
 
 # ---- Calamares branding --------------------------------------------------
 # cachyos-calamares-next ships settings.conf under /usr/share/, vanilla

@@ -183,6 +183,33 @@ else
     log "Plymouth theme '$BRAND' not present (no .plymouth descriptor); leaving CachyOS default"
 fi
 
+# ---- Login greeter: plasma-login-manager branded wallpaper --------------
+# CachyOS's default greeter is plasma-login-manager (the SDDM fork with a
+# Plasma-native greeter). Config must live at /etc/plasmalogin.conf — the
+# .conf.d/ dir is silently ignored (upstream bug). WallpaperPluginId is
+# REQUIRED or the greeter bails with "Error loading Applet: package does not
+# exist". Live autologin (User=liveuser) is layered on top by
+# posthogos-customize.sh; installed systems get the branding without it.
+greeter_wallpaper="/usr/share/wallpapers/PosthogosKeyboardGarden/contents/images_dark/3840x2160.png"
+if [ -f "$greeter_wallpaper" ]; then
+    log "Branding plasma-login-manager greeter (/etc/plasmalogin.conf)"
+    cat >/etc/plasmalogin.conf <<EOF
+[Users]
+MinimumUid=1000
+MaximumUid=60000
+
+[Greeter]
+WallpaperPluginId=org.kde.image
+
+[Greeter][Wallpaper][org.kde.image][General]
+Image=file://$greeter_wallpaper
+PreviewImage=file://$greeter_wallpaper
+FillMode=2
+EOF
+else
+    log "Greeter wallpaper $greeter_wallpaper absent; leaving plasma-login-manager default"
+fi
+
 # ---- Curate the wallpaper picker -----------------------------------------
 # Prune CachyOS-flavored wallpapers that dilute the brand in System
 # Settings. Keep ours + stock Breeze.
