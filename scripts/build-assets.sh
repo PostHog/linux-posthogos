@@ -134,6 +134,37 @@ if [ -f "$avatar_src" ]; then
         "$avatar_dst/liveuser"
 fi
 
+# Hog avatars for the Users KCM gallery (System Settings → Users → "change
+# avatar"). The picker (plasma-workspace kcms/users) scans
+# /usr/share/plasma/avatars/ RECURSIVELY for *.png/*.jpg, so dropping PNGs in a
+# posthogos/ subdir adds them alongside the bundled Konqi set and the CachyOS
+# mascot — purely additive, nothing patched. Single centered characters on a
+# transparent bg crop cleanly into the picker's circular tiles. 512px (vs the
+# liveuser avatar's 256) keeps tiles crisp on HiDPI; AccountsService copies the
+# chosen file on apply.
+#
+# EVERY image in branding/posthogos/hedgehogs/ becomes a gallery avatar — to add
+# more, just drop a PNG/JPG in that folder (no edits here). The source filename
+# is prettified to Title Case for the display name (e.g. cowboy_hog.png →
+# "Cowboy Hog.png"), which is what the picker shows in the hover tooltip.
+log "Installing hog avatars (Users KCM gallery)"
+avatars_dst="$out/airootfs/usr/share/plasma/avatars/posthogos"
+mkdir -p "$avatars_dst"
+hog_count=0
+for hog in "$src/hedgehogs/"*.png "$src/hedgehogs/"*.jpg "$src/hedgehogs/"*.jpeg; do
+    [ -f "$hog" ] || continue   # no nullglob here; skip unmatched patterns
+    # Prettify filename → "Title Case": drop ext, _/- → space, capitalize words.
+    base=$(basename "$hog"); name="${base%.*}"; name="${name//_/ }"; name="${name//-/ }"
+    title=""
+    for word in $name; do word="${word,,}"; title+="${word^} "; done
+    title="${title% }"
+    "$MAGICK" "$hog" -filter Lanczos -resize 512x512 \
+        -background none -gravity center -extent 512x512 \
+        "$avatars_dst/${title}.png"
+    hog_count=$((hog_count + 1))
+done
+log "  $hog_count hog avatar(s) installed"
+
 # Scalable fallback: the native-aspect logomark SVG. Real apps
 # use the rasterized PNGs above; the scalable dir is a fallback for unusual
 # sizes and is rarely queried.
