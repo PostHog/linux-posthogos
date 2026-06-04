@@ -190,10 +190,12 @@ fi
 # REQUIRED or the greeter bails with "Error loading Applet: package does not
 # exist". Live autologin (User=liveuser) is layered on top by
 # posthogos-customize.sh; installed systems get the branding without it.
-# Light variant (contents/images/, not images_dark/) to match the default
-# PosthogOS Light desktop wallpaper.
-greeter_wallpaper="/usr/share/wallpapers/PosthogosOfficeParty/contents/images/3840x2160.png"
-if [ -f "$greeter_wallpaper" ]; then
+# Point Image= at the wallpaper PACKAGE dir (not a single PNG) so the greeter's
+# wallpaper KCM shows "Office Party" as the selected entry rather than a loose
+# image, and org.kde.image picks the resolution + light/dark variant itself —
+# same form the desktop look-and-feel `defaults` uses.
+greeter_wallpaper="/usr/share/wallpapers/PosthogosOfficeParty/"
+if [ -d "$greeter_wallpaper" ]; then
     log "Branding plasma-login-manager greeter (/etc/plasmalogin.conf)"
     cat >/etc/plasmalogin.conf <<EOF
 [Users]
@@ -204,12 +206,38 @@ MaximumUid=60000
 WallpaperPluginId=org.kde.image
 
 [Greeter][Wallpaper][org.kde.image][General]
-Image=file://$greeter_wallpaper
-PreviewImage=file://$greeter_wallpaper
+Image=$greeter_wallpaper
 FillMode=2
 EOF
 else
     log "Greeter wallpaper $greeter_wallpaper absent; leaving plasma-login-manager default"
+fi
+
+# ---- Lock screen: kscreenlocker branded wallpaper ------------------------
+# kscreenlocker reads kscreenlockerrc through the XDG config cascade, so a
+# system default under /etc/xdg/ brands the lock screen for any user without a
+# per-user override yet (fresh live + installed). Unlike the desktop wallpaper
+# (which plasmashell reads from the look-and-feel `defaults`), nothing applies a
+# lock-screen wallpaper from look-and-feel — the LAF KCM has no kscreenlocker
+# handling — so this explicit config is required. Package dir (not a single PNG)
+# so the lock-screen wallpaper KCM shows "Startup Monopoly" selected and
+# org.kde.image picks the resolution + light/dark variant itself. WallpaperPlugin
+# is kscreenlocker's plugin key (distinct from the desktop containment's
+# `wallpaperplugin` and the greeter's `WallpaperPluginId`).
+lock_wallpaper="/usr/share/wallpapers/PosthogosStartupMonopoly/"
+if [ -d "$lock_wallpaper" ]; then
+    log "Branding lock screen wallpaper (/etc/xdg/kscreenlockerrc)"
+    mkdir -p /etc/xdg
+    cat >/etc/xdg/kscreenlockerrc <<EOF
+[Greeter]
+WallpaperPlugin=org.kde.image
+
+[Greeter][Wallpaper][org.kde.image][General]
+Image=$lock_wallpaper
+FillMode=2
+EOF
+else
+    log "Lock wallpaper $lock_wallpaper absent; leaving kscreenlocker default"
 fi
 
 # ---- Curate the wallpaper picker -----------------------------------------

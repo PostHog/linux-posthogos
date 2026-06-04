@@ -6,7 +6,7 @@
 # /usr/lib/systemd/system/multi-user.target.wants/ (no .install hook).
 
 pkgname=posthogos-scripts
-pkgver=0.1.1
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='PosthogOS system scripts: firstrun, snapper-init, toolkit-install, neohog'
 arch=('any')

@@ -7,7 +7,7 @@
 # instead, because cachyos-kde-settings already owns those paths.
 
 pkgname=posthogos-config
-pkgver=0.1.1
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='PosthogOS /etc/skel dotfiles (zsh, git, ghostty, zellij)'
 arch=('any')
