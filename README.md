@@ -4,7 +4,7 @@
 
 ### Downloading a release ISO
 
-A custom-styled CachyOS KDE spin that Forks [CachyOS/CachyOS-Live-ISO](https://github.com/CachyOS/CachyOS-Live-ISO) and rebrands the boot splash, login screen, desktop, and installer.
+The ISO is a custom-styled CachyOS KDE spin that Forks [CachyOS/CachyOS-Live-ISO](https://github.com/CachyOS/CachyOS-Live-ISO) and rebrands the boot splash, login screen, desktop, and installer.
 
 Each release on the [releases page](https://github.com/PostHog/linux-posthogos/releases) ships the ISO and the signed `posthogos-*` pacman packages. Download all `.partNN` files for the release and reassemble:
 
@@ -23,7 +23,7 @@ Then flash to a USB stick (`dd`, balenaEtcher, Rufus, etc.) and boot.
 
 ### Applying to an existing install
 
-PosthogOS publishes its branding (icons, wallpapers, look-and-feel) as signed repos for all three package managers — pacman, apt, and dnf/zypper — so an existing install can pull it without reinstalling. The activation is the same everywhere: a firstrun autostart entry applies the theme on your next login, dispatching on your desktop. **KDE Plasma** gets the full look-and-feel; **GNOME**, **Cinnamon**, and **XFCE** get a Tier-1 flavour (wallpaper, icon theme, fonts — plus accent colour and dock favourites on GNOME) with no custom Shell/GTK theme; other desktops get a notification and no changes.
+PosthogOS publishes its branding (icons, wallpapers, look-and-feel) as signed repos for all multiple package managers (`pacman`, `apt`, and `dnf/zypper`). A firstrun autostart entry applies the theme on your next login.
 
 #### Arch / CachyOS (pacman)
 
@@ -62,14 +62,16 @@ After this, plain `sudo pacman -Syu` picks up new branding versions whenever a r
 
 #### Debian / Ubuntu (apt)
 
-The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-branding` and `posthogos-scripts` as `.deb`s (the rest of the stack is Arch-specific), for amd64 and arm64. See the desktop-support note above.
+The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-branding` and `posthogos-scripts` as `.deb`s, for `amd64` and `arm64` devices. See the desktop-support note above.
 
 1. Trust the packager key and register the repo:
 
    ```bash
    sudo install -d /etc/apt/keyrings
+   
    sudo curl -fsSL https://posthog.github.io/linux-posthogos/deb/posthogos.gpg \
      -o /etc/apt/keyrings/posthogos.gpg
+   
    echo 'deb [signed-by=/etc/apt/keyrings/posthogos.gpg] https://posthog.github.io/linux-posthogos/deb stable main' \
      | sudo tee /etc/apt/sources.list.d/posthogos.list >/dev/null
    ```
@@ -83,7 +85,7 @@ The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-
 
 3. Log out and back in — same firstrun activation as above.
 
-After this, `sudo apt update && sudo apt upgrade` picks up new branding versions. (Standalone `.deb`s are also attached to each release for offline `apt install ./posthogos-*.deb`.)
+After this, `sudo apt update && sudo apt upgrade` picks up new branding versions.
 
 #### Fedora / RHEL / openSUSE (dnf/zypper)
 
@@ -109,9 +111,9 @@ The dnf repo (`https://posthog.github.io/linux-posthogos/rpm`) ships the same tw
    sudo dnf install posthogos-branding posthogos-scripts   # or: sudo zypper install
    ```
 
-3. Log out and back in — same firstrun activation as above.
+3. Log out and back in.
 
-After this, `sudo dnf upgrade` (or `zypper dup`) picks up new branding versions. Standalone `.rpm`s are also attached to each release.
+After this, `sudo dnf upgrade` (or `zypper dup`) picks up new branding versions.
 
 ## Building & architecture
 
