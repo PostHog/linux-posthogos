@@ -2,7 +2,7 @@
 # Apply the PosthogOS theme on a user's first desktop session.
 #
 # Triggered by /etc/xdg/autostart/posthogos-firstrun.desktop (which has no
-# OnlyShowIn, so it fires under both Plasma and GNOME).
+# OnlyShowIn, so it fires under every desktop).
 #
 # Dispatches on the running desktop environment:
 #   - KDE Plasma : the plasma-apply-* triplet + a kickoff/taskbar patch
@@ -10,10 +10,11 @@
 #                  kdeglobals but doesn't *apply* the LAF from it alone).
 #   - GNOME      : gsettings (wallpaper, dark/light, accent, icon theme,
 #                  fonts, dock favorites). Tier-1 "PosthogOS flavor" — no
-#                  custom Shell/GTK theme; just the brand expressed through
-#                  supported gsettings keys.
-#   - anything else: a desktop notification explaining we only support the
-#                  two above; no changes made.
+#                  custom Shell/GTK theme; just the brand via gsettings keys.
+#   - Cinnamon   : gsettings org.cinnamon.* (wallpaper, icon theme, font).
+#   - XFCE       : xfconf-query (wallpaper, icon theme, font).
+#   - anything else: a desktop notification explaining which desktops are
+#                  supported; no changes made.
 #
 # Idempotent via marker file. Marker only gets written on full success, so
 # if any apply step failed we retry on the next session.
@@ -58,7 +59,9 @@ detect_desktop() {
         | tr '[:upper:]' '[:lower:]')
     case "$d" in
         *kde*|*plasma*) echo plasma ;;
-        *gnome*)        echo gnome ;;   # "ubuntu:GNOME" matches here
+        *cinnamon*)     echo cinnamon ;;   # "X-Cinnamon"
+        *xfce*)         echo xfce ;;
+        *gnome*|*budgie*) echo gnome ;;     # "ubuntu:GNOME", "Budgie:GNOME"
         *)              echo other ;;
     esac
 }
@@ -141,6 +144,64 @@ apply_gnome() {
     fi
 
     # gsettings changes apply live — no logout needed on GNOME.
+}
+
+# ───────────────────────── Cinnamon ──────────────────────────────────────
+# Cinnamon (Linux Mint) forks the GNOME schemas under org.cinnamon.*.
+# Tier-1: wallpaper, icon theme, font. No custom Cinnamon/GTK theme.
+apply_cinnamon() {
+    echo "desktop=Cinnamon → applying via gsettings org.cinnamon.*"
+    command -v gsettings >/dev/null 2>&1 || { echo "  gsettings missing"; ok=false; return; }
+
+    gset org.cinnamon.desktop.interface icon-theme 'PosthogOS'
+    if fc-list 2>/dev/null | grep -qi 'inter'; then
+        gset org.cinnamon.desktop.interface font-name 'Inter 10'
+    fi
+    if [ -f "$wallpaper_light" ]; then
+        gset org.cinnamon.desktop.background picture-uri     "file://$wallpaper_light"
+        gset org.cinnamon.desktop.background picture-options 'zoom'
+    else
+        echo "  wallpaper missing: $wallpaper_light"; ok=false
+    fi
+}
+
+# ───────────────────────── XFCE ──────────────────────────────────────────
+# XFCE uses xfconf (not gsettings). Tier-1: wallpaper (per-monitor), icon
+# theme, font via the xsettings channel. No custom GTK theme.
+xset() {  # <channel> <property> <value> [type]
+    local ch="$1" prop="$2" val="$3" type="${4:-string}"
+    apply xfconf-query -c "$ch" -p "$prop" -s "$val" -t "$type" --create || ok=false
+}
+apply_xfce() {
+    echo "desktop=XFCE → applying via xfconf-query"
+    command -v xfconf-query >/dev/null 2>&1 || { echo "  xfconf-query missing"; ok=false; return; }
+
+    # Icon theme + font via the xsettings channel.
+    xset xsettings /Net/IconThemeName 'PosthogOS'
+    if fc-list 2>/dev/null | grep -qi 'inter'; then
+        xset xsettings /Gtk/FontName 'Inter 10'
+    fi
+
+    # Wallpaper: backdrop image paths are per-monitor/-workspace and named
+    # unpredictably (monitor0, monitorVGA-1, …). Set every existing
+    # last-image prop; if none exist yet, seed a sane default.
+    if [ -f "$wallpaper_light" ]; then
+        local props p
+        props=$(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E '/last-image$' || true)
+        if [ -z "$props" ]; then
+            xset xfce4-desktop /backdrop/screen0/monitor0/workspace0/last-image "$wallpaper_light"
+        else
+            while IFS= read -r p; do
+                [ -n "$p" ] && xset xfce4-desktop "$p" "$wallpaper_light"
+            done <<<"$props"
+        fi
+        # image-style 5 = zoomed (best-effort on existing style props).
+        while IFS= read -r p; do
+            [ -n "$p" ] && apply xfconf-query -c xfce4-desktop -p "$p" -s 5 || true
+        done < <(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E '/image-style$' || true)
+    else
+        echo "  wallpaper missing: $wallpaper_light"; ok=false
+    fi
 }
 
 # ───────────────────────── Plasma ────────────────────────────────────────
@@ -295,14 +356,16 @@ EOF
 de=$(detect_desktop)
 echo "detected desktop: $de (XDG_CURRENT_DESKTOP='${XDG_CURRENT_DESKTOP:-}' DESKTOP_SESSION='${DESKTOP_SESSION:-}')"
 case "$de" in
-    plasma) apply_plasma ;;
-    gnome)  apply_gnome ;;
+    plasma)   apply_plasma ;;
+    gnome)    apply_gnome ;;
+    cinnamon) apply_cinnamon ;;
+    xfce)     apply_xfce ;;
     *)
         echo "unsupported desktop; not applying"
         notify "PosthogOS theme not applied" \
-            "PosthogOS branding supports KDE Plasma and GNOME. Your current session ('${XDG_CURRENT_DESKTOP:-unknown}') isn't supported, so nothing was changed."
-        # Don't write the marker: if the user switches to Plasma/GNOME later,
-        # the next session should apply.
+            "PosthogOS branding supports KDE Plasma, GNOME, Cinnamon and XFCE. Your current session ('${XDG_CURRENT_DESKTOP:-unknown}') isn't supported, so nothing was changed."
+        # Don't write the marker: if the user switches to a supported desktop
+        # later, the next session should apply.
         ok=false
         ;;
 esac

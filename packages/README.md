@@ -93,52 +93,58 @@ github release v0.1.0 published
       │      into the ISO from the file:// local repo (so installed
       │      systems start with pacman-owned + signed files)
       ├─ stamp version + upload ISO to release
-      ├─ peaceiris/actions-gh-pages → deploys out/pkgs/ to gh-pages branch
+      ├─ scripts/build-deb-packages.sh → out/deb/ (apt repo; see below)
+      ├─ scripts/build-rpm-packages.sh → out/rpm/ (dnf repo, in a fedora container)
+      ├─ ONE gh-pages commit layering all three repos:
       │   → posthog.github.io/linux-posthogos/x86_64/{posthogos.db,*.pkg.tar.zst,*.sig}
-      ├─ scripts/build-deb-packages.sh → out/deb/ (see "Debian/Ubuntu" below)
-      ├─ peaceiris/actions-gh-pages → deploys out/deb/ to gh-pages branch
       │   → posthog.github.io/linux-posthogos/deb/{dists,pool,posthogos.gpg}
-      └─ attach *.pkg.tar.zst + *.deb to release as backup assets
+      │   → posthog.github.io/linux-posthogos/rpm/{repodata,*.rpm,posthogos.repo,RPM-GPG-KEY-posthogos}
+      │     (one push = one Pages deployment; see build-iso.yml "Publish repos to gh-pages")
+      └─ attach *.pkg.tar.zst + *.deb + *.rpm to release as backup assets
 ```
 
-Users on installed systems can `pacman -Syu` (or `apt upgrade`) minutes
-after the release publishes.
+Users on installed systems can `pacman -Syu` (or `apt upgrade` / `dnf
+upgrade`) minutes after the release publishes.
 
-## Debian / Ubuntu (.deb + apt repo)
+## Debian/Ubuntu (.deb) + Fedora/openSUSE (.rpm)
 
 `posthogos-branding` and `posthogos-scripts` are portable (plain files,
-no pacman-specific machinery), so they're also shipped as `.deb`s for
-Debian-based KDE systems. `posthogos-keyring`, `-config`, `-welcome` and
-the `posthogos` meta stay Arch-only (keyring trust, `/etc/skel` seeding,
-a Qt launcher, and a pacman-repo wiring respectively — none of which map
-cleanly to apt).
+no pacman-specific machinery), so they're also shipped as `.deb`s and
+`.rpm`s. `posthogos-keyring`, `-config`, `-welcome` and the `posthogos`
+meta stay Arch-only (keyring trust, `/etc/skel` seeding, a Qt launcher,
+and a pacman-repo wiring respectively — none of which map cleanly to
+apt/dnf).
 
-[`scripts/build-deb-packages.sh`](../scripts/build-deb-packages.sh) does
-*not* re-stage files. It repackages the already-built `*.pkg.tar.zst`
-(itself just a tar of the staged tree), so the `.deb` payload is
-byte-for-byte what Arch ships — one source of truth for the file layout.
-The only divergence is Debian's `/usr/bin` policy: the script relocates
-PosthogOS's own executables out of `/usr/local/bin` and rewrites the
+Neither builder re-stages files. Both repackage the already-built
+`*.pkg.tar.zst` (itself just a tar of the staged tree), so the `.deb` /
+`.rpm` payload is byte-for-byte what Arch ships — one source of truth for
+the file layout. The shared extract + relocate logic lives in
+[`scripts/lib/posthogos-pkg.sh`](../scripts/lib/posthogos-pkg.sh): it
+strips pacman metadata and, per Debian/Fedora policy, relocates PosthogOS's
+own executables out of `/usr/local/bin` to `/usr/bin`, rewriting the
 absolute paths that reference them (leaving `toolkit-install`'s runtime
-`op`/`asdf` drops in `/usr/local/bin` alone).
+`op`/`asdf` drops in `/usr/local/bin` alone). The same lib maps pre-release
+version separators to `~` so a beta sorts *before* its final release in
+both deb and rpm ordering.
 
-It then assembles a flat apt repo — `pool/` + `dists/stable/main/binary-{amd64,arm64}/`
-— and signs `Release` (`InRelease` + `Release.gpg`) with the same PostHog
-packager key. The public key is published at `deb/posthogos.gpg` for
-`signed-by=`. Without `POSTHOGOS_PACKAGER_KEY` the repo is unsigned
-(local dev; apt needs `[trusted=yes]`), mirroring the pacman side.
+- **apt** — [`build-deb-packages.sh`](../scripts/build-deb-packages.sh):
+  a flat repo (`pool/` + `dists/stable/main/binary-{amd64,arm64}/`) with a
+  signed `Release`/`InRelease`/`Release.gpg`. Public key at `deb/posthogos.gpg`
+  for `signed-by=`. Build locally with `bin/build-deb` (runs in
+  `debian:stable-slim`, so it works on macOS).
+- **dnf** — [`build-rpm-packages.sh`](../scripts/build-rpm-packages.sh):
+  `noarch` rpms via `rpmbuild` + a generated spec, signed (`rpm --addsign`),
+  indexed with `createrepo_c`, with a signed `repomd.xml.asc`. Ships
+  `posthogos.repo` (drop into `/etc/yum.repos.d/`) + `RPM-GPG-KEY-posthogos`.
+  Build locally with `bin/build-rpm` (runs in `fedora:latest`).
 
-Both packages are `Architecture: all` (data + shell scripts, nothing
-compiled), so a single `_all.deb` serves every arch. apt still resolves
-per-arch, though — an arm64 client only reads `binary-arm64/Packages` —
-so the same index is published under each `binary-<arch>/` and `Release`
-declares both `amd64` and `arm64`. No per-arch build step. (This is
-unlike the pacman repo, which is `x86_64`-only because the Arch package
-base is.)
-
-Build locally with `bin/build-deb` (runs in a `debian:stable-slim`
-container, so it works on macOS too) after `bin/build` has produced
-`out/pkgs/`. End users add the repo per the top-level README.
+Both packages are arch-independent (`Architecture: all` / `noarch`: data +
+shell scripts), so one package serves every arch. dnf handles `noarch`
+transparently; apt resolves per-arch, so the deb index is published under
+both `binary-amd64/` and `binary-arm64/` with `Release` declaring both. No
+per-arch build step — unlike the pacman repo, which is `x86_64`-only because
+the Arch package base is. Without `POSTHOGOS_PACKAGER_KEY` both repos build
+unsigned for local dev (apt needs `[trusted=yes]`; dnf `gpgcheck=0`).
 
 ## GPG signing
 

@@ -339,7 +339,30 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends dpkg-dev apt-utils zstd
           scripts/build-deb-packages.sh
 
-      # ── Publish both repos to gh-pages in a single commit ──────────────
+      # ── RPM repository: build .rpm packages for Fedora/RHEL/openSUSE ────
+      # Built in a fedora container (its rpm toolchain — rpmbuild, rpm-sign,
+      # createrepo_c — is the most reliable, esp. for signing). noarch, so
+      # one rpm serves every basearch. Output → out/rpm/.
+      - name: Build RPM packages + dnf repo
+        if: success()
+        env:
+          POSTHOGOS_PACKAGER_KEY: ${{ secrets.POSTHOGOS_PACKAGER_KEY }}
+          POSTHOGOS_PACKAGER_KEY_FPR: ${{ vars.POSTHOGOS_PACKAGER_KEY_FPR }}
+          POSTHOGOS_PKGVER: ${{ steps.ver.outputs.version }}
+        run: |
+          docker run --rm \
+            -v "$PWD":/work -w /work \
+            -e POSTHOGOS_PKGVER -e POSTHOGOS_PACKAGER_KEY -e POSTHOGOS_PACKAGER_KEY_FPR \
+            fedora:latest \
+            bash -c 'set -e
+              dnf install -y --setopt=install_weak_deps=False \
+                rpm-build rpm-sign createrepo_c gnupg2 zstd tar findutils git >/dev/null
+              git config --global --add safe.directory /work || true
+              scripts/build-rpm-packages.sh'
+          # The container writes out/rpm as root; let the runner user read it.
+          sudo chown -R "$(id -u):$(id -g)" out/rpm
+
+      # ── Publish all repos to gh-pages in a single commit ───────────────
       # GitHub's built-in "pages build and deployment" fires on every push
       # to gh-pages, so each separate push is a wasted (and racing) Pages
       # build. We clone once, layer in both repos, prune, and push ONE
@@ -374,6 +397,14 @@ jobs:
           # new pool/ .debs add alongside existing ones).
           mkdir -p "$clone/deb"
           cp -a out/deb/. "$clone/deb/"
+
+          # Layer in the dnf repo under rpm/. repodata filenames are content-
+          # hashed (new ones wouldn't overwrite old), so wipe it first; the
+          # .rpm files merge alongside existing ones (repomd.xml only lists
+          # the current build).
+          mkdir -p "$clone/rpm"
+          rm -rf "$clone/rpm/repodata"
+          cp -a out/rpm/. "$clone/rpm/"
 
           # Prune superseded pacman packages: keep the 2 newest per package.
           python3 "${GITHUB_WORKSPACE}/scripts/prune-pacman-repo.py" "$clone/$arch" --keep 2
@@ -425,4 +456,10 @@ jobs:
               [ -f "$deb" ] || continue
               echo "uploading $deb → release $tag"
               upload_with_retry "$tag" "$deb"
+          done
+          # RPM packages (standalone .rpms as backup assets, alongside the dnf repo).
+          for rpm in out/rpm/*.rpm; do
+              [ -f "$rpm" ] || continue
+              echo "uploading $rpm → release $tag"
+              upload_with_retry "$tag" "$rpm"
           done

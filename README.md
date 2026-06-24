@@ -23,7 +23,7 @@ Then flash to a USB stick (`dd`, balenaEtcher, Rufus, etc.) and boot.
 
 ### Applying to an existing install
 
-PosthogOS publishes its branding (icons, wallpapers, look-and-feel) as signed repos for both package managers, so an existing KDE Plasma install can pull it without reinstalling. The activation is the same either way: a firstrun autostart entry applies the look-and-feel on your next login.
+PosthogOS publishes its branding (icons, wallpapers, look-and-feel) as signed repos for all three package managers — pacman, apt, and dnf/zypper — so an existing install can pull it without reinstalling. The activation is the same everywhere: a firstrun autostart entry applies the theme on your next login, dispatching on your desktop. **KDE Plasma** gets the full look-and-feel; **GNOME**, **Cinnamon**, and **XFCE** get a Tier-1 flavour (wallpaper, icon theme, fonts — plus accent colour and dock favourites on GNOME) with no custom Shell/GTK theme; other desktops get a notification and no changes.
 
 #### Arch / CachyOS (pacman)
 
@@ -62,7 +62,7 @@ After this, plain `sudo pacman -Syu` picks up new branding versions whenever a r
 
 #### Debian / Ubuntu (apt)
 
-The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-branding` and `posthogos-scripts` as `.deb`s (the rest of the stack is Arch-specific). Works on **KDE Plasma** (full look-and-feel) and **GNOME** (wallpaper, accent colour, icon theme, fonts, dock favourites via `gsettings` — no custom Shell/GTK theme). On other desktops the firstrun step posts a notification and makes no changes.
+The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-branding` and `posthogos-scripts` as `.deb`s (the rest of the stack is Arch-specific), for amd64 and arm64. See the desktop-support note above.
 
 1. Trust the packager key and register the repo:
 
@@ -84,6 +84,34 @@ The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-
 3. Log out and back in — same firstrun activation as above.
 
 After this, `sudo apt update && sudo apt upgrade` picks up new branding versions. (Standalone `.deb`s are also attached to each release for offline `apt install ./posthogos-*.deb`.)
+
+#### Fedora / RHEL / openSUSE (dnf/zypper)
+
+The dnf repo (`https://posthog.github.io/linux-posthogos/rpm`) ships the same two packages as signed `noarch` `.rpm`s. See the desktop-support note above.
+
+1. Add the repo (it carries the signing key reference):
+
+   ```bash
+   sudo curl -fsSL https://posthog.github.io/linux-posthogos/rpm/posthogos.repo \
+     -o /etc/yum.repos.d/posthogos.repo
+   ```
+
+   On openSUSE, add it with zypper instead:
+
+   ```bash
+   sudo zypper addrepo https://posthog.github.io/linux-posthogos/rpm posthogos
+   sudo rpmkeys --import https://posthog.github.io/linux-posthogos/rpm/RPM-GPG-KEY-posthogos
+   ```
+
+2. Install the branding:
+
+   ```bash
+   sudo dnf install posthogos-branding posthogos-scripts   # or: sudo zypper install
+   ```
+
+3. Log out and back in — same firstrun activation as above.
+
+After this, `sudo dnf upgrade` (or `zypper dup`) picks up new branding versions. Standalone `.rpm`s are also attached to each release.
 
 ## Building & architecture
 
@@ -148,6 +176,7 @@ On a real Arch host you can skip Docker. `bin/build --native` runs `buildiso.sh`
 bin/setup     # verify host has docker + qemu
 bin/build     # produce out/<iso_name>-<date>-x86_64.iso
 bin/build-deb # build .deb packages + apt repo from out/pkgs (after bin/build)
+bin/build-rpm # build .rpm packages + dnf repo from out/pkgs (after bin/build)
 bin/test      # boot the latest ISO in QEMU
 bin/clean     # rm -rf build/ out/
 ```
@@ -167,7 +196,7 @@ The chroot hook ([scripts/posthogos-customize.sh](scripts/posthogos-customize.sh
 
 The branding also ships as pacman packages built from `packages/`. The release workflow signs them, pushes the repo to `gh-pages`, and pacstraps `posthogos-keyring` + `posthogos-branding` into the ISO so installed systems start with pacman-owned, signed files. See [packages/README.md](packages/README.md).
 
-For Debian/Ubuntu, [scripts/build-deb-packages.sh](scripts/build-deb-packages.sh) repackages the portable `posthogos-branding` + `posthogos-scripts` pacman packages into `.deb`s (relocating `/usr/local/bin` → `/usr/bin` per Debian policy) and assembles a signed apt repo, published to `gh-pages` under `deb/`. Run it locally with `bin/build-deb` (after `bin/build`).
+For Debian/Ubuntu and Fedora/openSUSE, the portable `posthogos-branding` + `posthogos-scripts` pacman packages are repackaged into `.deb`s and `.rpm`s — [scripts/build-deb-packages.sh](scripts/build-deb-packages.sh) and [scripts/build-rpm-packages.sh](scripts/build-rpm-packages.sh), sharing the staging logic in [scripts/lib/posthogos-pkg.sh](scripts/lib/posthogos-pkg.sh) (relocating `/usr/local/bin` → `/usr/bin`). Each assembles a signed repo published to `gh-pages` under `deb/` and `rpm/`. Run them locally with `bin/build-deb` / `bin/build-rpm` (after `bin/build`).
 
 ### Branding scope
 

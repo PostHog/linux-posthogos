@@ -31,6 +31,10 @@ set -euo pipefail
 log() { printf '==> %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
+# Shared staging + version logic (also used by build-rpm-packages.sh).
+# shellcheck source=lib/posthogos-pkg.sh
+. "$(dirname "$0")/lib/posthogos-pkg.sh"
+
 # Only the portable, non-Arch-specific packages port to Debian. The keyring,
 # welcome (Qt), config (/etc/skel dotfiles) and the meta stay Arch-only.
 DEB_PACKAGES=(posthogos-branding posthogos-scripts)
@@ -59,20 +63,9 @@ if [ -z "${POSTHOGOS_PKGVER:-}" ]; then
     [ -n "$v" ] || v="0.0.0~dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     POSTHOGOS_PKGVER="$v"
 fi
-# Map both pre-release separators to '~' so a pre-release sorts *before* its
-# final release in Debian's version ordering (a tilde sorts lower than the
-# empty string, unlike '-'/'_' which sort higher). Without this, an apt user
-# on 0.3.0-beta.1 would NOT upgrade to 0.3.0, because 0.3.0-beta.1 would
-# compare as newer. Cases handled:
-#   - '_' : the pacman normalization (e.g. 0.0.1_alpha.1)
-#   - first '-' : the semver pre-release separator from a release tag
-#     (0.3.0-beta.1). Only the first; a real Debian revision (the trailing
-#     '-1' we add below) must stay a hyphen.
-# Strip a leading 'v' first.
-DEB_UPSTREAM="${POSTHOGOS_PKGVER#v}"
-DEB_UPSTREAM="${DEB_UPSTREAM//_/\~}"   # 0.0.1_alpha.1 → 0.0.1~alpha.1
-DEB_UPSTREAM="${DEB_UPSTREAM/-/\~}"    # 0.3.0-beta.1  → 0.3.0~beta.1 (first '-' only)
-DEB_VER="${DEB_UPSTREAM}-1"            # -1 = Debian revision
+# Upstream version with pre-release separators mapped to '~' (see lib); the
+# trailing '-1' is the Debian revision.
+DEB_VER="$(posthogos_upstream_version "$POSTHOGOS_PKGVER")-1"
 log "Debian package version: $DEB_VER (from POSTHOGOS_PKGVER=$POSTHOGOS_PKGVER)"
 
 # --- Per-package control metadata ----------------------------------------
@@ -122,47 +115,15 @@ EOF
     esac
 }
 
-# --- Relocate our own /usr/local/bin binaries to /usr/bin (Debian policy) -
-# Only posthogos-scripts ships under /usr/local/bin. We move the tree and
-# rewrite references to *our* binaries (posthogos-*, neohog, papirus-folders)
-# only — NOT third-party tools that toolkit-install drops into /usr/local/bin
-# at runtime (op, asdf), which legitimately belong there.
-relocate_local_bin() {
-    local root="$1"
-    [ -d "$root/usr/local/bin" ] || return 0
-    log "  relocating /usr/local/bin → /usr/bin"
-    install -d "$root/usr/bin"
-    cp -a "$root/usr/local/bin/." "$root/usr/bin/"
-    rm -rf "$root/usr/local"
-
-    # Rewrite absolute paths to our binaries in every shipped text file
-    # (scripts, .desktop autostart, systemd units). Targeted patterns leave
-    # /usr/local/bin/{op,asdf} runtime-install references untouched.
-    local f
-    while IFS= read -r -d '' f; do
-        sed -i \
-            -e 's#/usr/local/bin/posthogos-#/usr/bin/posthogos-#g' \
-            -e 's#/usr/local/bin/neohog#/usr/bin/neohog#g' \
-            -e 's#/usr/local/bin/papirus-folders#/usr/bin/papirus-folders#g' \
-            "$f"
-    done < <(find "$root/usr/bin" "$root/etc" "$root/usr/lib/systemd" -type f -print0 2>/dev/null)
-}
-
 # --- Build one .deb from a .pkg.tar.zst -----------------------------------
 build_one_deb() {
     local pkg="$1" pool_dir="$2"
-    local src
-    src=$(ls -1t "$PKG_SRC_DIR/$pkg"-*.pkg.tar.zst 2>/dev/null | head -n1 || true)
-    [ -n "$src" ] || die "no $pkg-*.pkg.tar.zst found in $PKG_SRC_DIR (run bin/build first)"
-    log "$pkg ← $(basename "$src")"
+    log "$pkg"
 
     local root
     root=$(mktemp -d)
-    chmod 755 "$root"   # mktemp -d is 0700; the package root maps to / perms
-    # zstd-aware extraction; --zstd is supported by GNU tar with zstd present.
-    tar --zstd -xf "$src" -C "$root"
-    # Drop pacman metadata members.
-    rm -f "$root"/.PKGINFO "$root"/.BUILDINFO "$root"/.MTREE "$root"/.INSTALL "$root"/.CHANGELOG
+    # Extract + strip metadata + relocate /usr/local/bin (shared with rpm).
+    stage_posthogos_pkg "$pkg" "$PKG_SRC_DIR" "$root" || die "staging $pkg failed"
 
     # Move pacman's per-package license dir to the Debian convention.
     if [ -d "$root/usr/share/licenses/$pkg" ]; then
@@ -170,8 +131,6 @@ build_one_deb() {
         cp -a "$root/usr/share/licenses/$pkg/." "$root/usr/share/doc/$pkg/" 2>/dev/null || true
         rm -rf "$root/usr/share/licenses"
     fi
-
-    relocate_local_bin "$root"
 
     # Installed-Size is in KiB (Debian policy).
     local size
