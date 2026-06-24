@@ -323,17 +323,6 @@ jobs:
       # Hosted at https://posthog.github.io/linux-posthogos/x86_64/ via
       # the gh-pages branch. Existing PosthogOS installs pull from there
       # on `pacman -Syu`.
-      - name: Deploy pacman repo to gh-pages
-        if: success()
-        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: out/pkgs
-          destination_dir: ${{ env.TARGET_ARCH }}
-          keep_files: true     # don't wipe historical packages on each release
-          commit_message: "release ${{ steps.ver.outputs.version }}: posthogos pacman repo"
-
       # ── APT repository: build .deb packages for Debian/Ubuntu ──────────
       # Repackages the portable posthogos-* pacman packages (already in
       # out/pkgs/) into .deb and assembles a signed flat apt repo in out/deb/.
@@ -350,52 +339,60 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends dpkg-dev apt-utils zstd
           scripts/build-deb-packages.sh
 
-      # Published under deb/ on the same gh-pages branch as the pacman repo.
-      # keep_files: true mirrors the pacman side — the regenerated Packages
-      # only lists the current version, so accumulating old pool/ .debs are
-      # harmless orphans (never fetched by apt); they only grow Pages quota.
-      - name: Deploy apt repo to gh-pages
-        if: success()
-        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: out/deb
-          destination_dir: deb
-          keep_files: true
-          commit_message: "release ${{ steps.ver.outputs.version }}: posthogos apt repo"
-
-      # ── Pacman repository: prune superseded packages ───────────────────
-      # `keep_files: true` above is load-bearing (a clean publish would wipe
-      # sibling arch dirs + .nojekyll once a multi-arch matrix exists), so it
-      # never deletes old versions — every release's packages accumulate even
-      # though posthogos.db only references the latest. Those orphans are
-      # never fetched by `pacman -Syu`; they just grow the Pages quota.
-      # Prune them, keeping the 2 newest versions per package (a small
-      # downgrade window). Scoped to this arch's dir; commits directly to
-      # gh-pages since keep_files won't propagate deletions.
-      - name: Prune superseded packages from gh-pages
+      # ── Publish both repos to gh-pages in a single commit ──────────────
+      # GitHub's built-in "pages build and deployment" fires on every push
+      # to gh-pages, so each separate push is a wasted (and racing) Pages
+      # build. We clone once, layer in both repos, prune, and push ONE
+      # commit → exactly one Pages deployment.
+      #
+      # Merge semantics (not a clean publish): the pacman packages accumulate
+      # under <arch>/ and the .debs under deb/pool/ — historical versions are
+      # kept (downgrade window) but never referenced by posthogos.db / the apt
+      # Packages index, which only list the current build. The pacman prune
+      # then trims <arch>/ to the 2 newest versions per package. .nojekyll is
+      # preserved from the existing branch (Pages would otherwise drop dotted
+      # paths). The apt repo has no analogous prune yet; stale pool/ .debs are
+      # harmless orphans that only grow the Pages quota.
+      - name: Publish repos to gh-pages
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
           set -euo pipefail
           arch="$TARGET_ARCH"
           clone="$(mktemp -d)"
           git clone --depth 1 --branch gh-pages \
             "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "$clone"
+
+          # Layer in the pacman repo (merge: overwrite same names, keep the rest).
+          mkdir -p "$clone/$arch"
+          cp -a out/pkgs/. "$clone/$arch/"
+
+          # Layer in the apt repo under deb/ (new dists/ + Packages overwrite;
+          # new pool/ .debs add alongside existing ones).
+          mkdir -p "$clone/deb"
+          cp -a out/deb/. "$clone/deb/"
+
+          # Prune superseded pacman packages: keep the 2 newest per package.
           python3 "${GITHUB_WORKSPACE}/scripts/prune-pacman-repo.py" "$clone/$arch" --keep 2
+
+          # Pages must not run Jekyll over the repo (would drop dotted paths).
+          touch "$clone/.nojekyll"
+
           cd "$clone"
-          if [ -n "$(git status --porcelain)" ]; then
-            git config user.name  "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "prune superseded $arch packages (keep 2 newest)"
-            git push origin gh-pages
-          else
-            echo "Nothing to prune."
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Nothing to publish."
+            exit 0
           fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release ${VERSION}: posthogos pacman + apt repos"
+          # One push → one Pages deployment. Retry once against a concurrent
+          # update to the branch.
+          git push origin gh-pages || { git pull --rebase origin gh-pages && git push origin gh-pages; }
 
       - name: Attach package files to the release
         if: success()
