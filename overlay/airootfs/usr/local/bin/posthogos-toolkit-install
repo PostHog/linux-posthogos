@@ -28,6 +28,12 @@
 #   /etc/subuid edits). It re-execs itself under `sudo` if not already
 #   root. Group adds + npm globals target the invoking user via SUDO_USER
 #   (or --user=<name> if invoked directly as root from welcome's pkexec).
+#
+#   Untrusted-fetch hygiene: every fetched binary/tarball is sha256-pinned
+#   (download_verified); vendor rolling install.sh scripts that can't be
+#   pinned (Claude Code, Pi) run as the target user via run_user_installer
+#   (not piped into the root shell), so a compromised installer is
+#   user-scoped, not root RCE. Ollama comes from the signed Arch package.
 
 set -uo pipefail
 
@@ -135,14 +141,59 @@ as_user() {
     runuser -u "$TARGET_USER" -- "$@"
 }
 
+# Download a URL to a destination and verify its sha256 before use. Removes
+# the file and returns non-zero on a download or checksum mismatch. Use this
+# for every fetched binary/tarball so a MITM / DNS-hijack / upstream swap
+# can't substitute a payload (we run as root — an unverified fetch is RCE).
+download_verified() {
+    local url="$1" dest="$2" want="$3" got
+    if ! curl -fsSL -o "$dest" "$url"; then
+        warn "download failed: $url"
+        rm -f "$dest"; return 1
+    fi
+    got=$(sha256sum "$dest" | awk '{print $1}')
+    if [ "$got" != "$want" ]; then
+        warn "checksum mismatch for $(basename "$dest")"
+        warn "  expected $want"
+        warn "  got      $got"
+        rm -f "$dest"; return 1
+    fi
+    return 0
+}
+
+# Run a vendor's rolling install.sh as the TARGET USER, not root. These
+# upstream installers (Claude Code, Pi) are unversioned — we can't pin a
+# content hash — and they're designed to install into the user's $HOME. So
+# we download to a temp file and exec it under runuser with a real HOME/PATH:
+# a compromised installer is then user-scoped (not root RCE) and its files
+# land in $TARGET_HOME instead of /root. Residual trust: vendor TLS +
+# upstream integrity. Returns the installer's exit status.
+run_user_installer() {
+    local url="$1" tmp rc
+    tmp=$(mktemp)
+    if ! curl -fsSL -o "$tmp" "$url"; then
+        warn "download failed: $url"
+        rm -f "$tmp"; return 1
+    fi
+    chmod 0755 "$tmp"
+    chown "$TARGET_USER" "$tmp"
+    runuser -u "$TARGET_USER" -- env \
+        HOME="$TARGET_HOME" \
+        PATH="$TARGET_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin" \
+        bash "$tmp"
+    rc=$?
+    rm -f "$tmp"
+    return $rc
+}
+
 # ── Category: ai ──────────────────────────────────────────────────────────
 install_ai() {
     banner "AI CLIs"
-    step "Anthropic Claude Code (native installer)"
-    if curl -fsSL https://claude.ai/install.sh | bash 2>&1 | sed 's/^/    /'; then
+    step "Anthropic Claude Code (native installer, as $TARGET_USER)"
+    if run_user_installer https://claude.ai/install.sh 2>&1 | sed 's/^/    /'; then
         ok "Claude Code installed"
     else
-        warn "Claude Code install failed (manual: curl -fsSL https://claude.ai/install.sh | bash)"
+        warn "Claude Code install failed"
     fi
 
     step "OpenAI Codex (npm global)"
@@ -165,23 +216,22 @@ install_ai() {
         fi
     fi
 
-    step "Earendil Works Pi (terminal coding harness)"
-    if curl -fsSL https://pi.dev/install.sh | sh 2>&1 | sed 's/^/    /'; then
+    step "Earendil Works Pi (terminal coding harness, as $TARGET_USER)"
+    if run_user_installer https://pi.dev/install.sh 2>&1 | sed 's/^/    /'; then
         ok "Pi installed"
     else
         warn "Pi install failed"
     fi
 
-    step "Ollama (local LLM runtime)"
-    if curl -fsSL https://ollama.com/install.sh | sh 2>&1 | sed 's/^/    /'; then
-        # Ollama's installer enables + starts the service when systemd is
-        # running. We're not in a chroot anymore (toolkit runs post-boot),
-        # so this Just Works. Belt-and-suspenders enable in case the
-        # detection mis-fires:
+    # Ollama needs root (creates the ollama user + a system service), and
+    # Arch ships a signed `ollama` package — so install it via pacman rather
+    # than piping ollama.com/install.sh into a root shell.
+    step "Ollama (local LLM runtime, via pacman)"
+    if pacman_install ollama 2>&1 | sed 's/^/    /'; then
         systemctl enable --now ollama.service 2>/dev/null || true
         ok "Ollama installed (service started)"
     else
-        warn "Ollama install failed"
+        warn "Ollama install failed (manual: pacman -S ollama)"
     fi
 }
 
@@ -205,17 +255,23 @@ install_dev() {
     # sindresorhus/pure: small zsh prompt, extracted to /usr/share/zsh/pure
     # where /etc/skel/.zshrc picks it up via fpath. Idempotent.
     PURE_VERSION=1.23.0
+    # sha256 of the v1.23.0 GitHub source tarball. NOTE: GitHub can in rare
+    # cases regenerate auto-source-tarballs with a different hash; if this
+    # check starts failing on an unchanged version, re-pin from the new
+    # tarball (pure install just no-ops with a warning until then).
+    PURE_SHA256=b316fe5aa25be2c2ef895dcad150248a43e12c4ac1476500e1539e2d67877921
     if [ ! -f /usr/share/zsh/pure/pure.zsh ]; then
         step "Installing pure prompt v${PURE_VERSION}"
-        pure_tgz=/tmp/pure-${PURE_VERSION}.tar.gz
-        if curl -fsSL -o "$pure_tgz" \
+        pure_tgz=$(mktemp)
+        if download_verified \
                 "https://github.com/sindresorhus/pure/archive/refs/tags/v${PURE_VERSION}.tar.gz" \
+                "$pure_tgz" "$PURE_SHA256" \
             && mkdir -p /usr/share/zsh/pure \
             && tar -xzf "$pure_tgz" -C /usr/share/zsh/pure --strip-components=1; then
             rm -f "$pure_tgz"
             ok "pure prompt installed at /usr/share/zsh/pure"
         else
-            warn "pure prompt download failed (manual: tarball from https://github.com/sindresorhus/pure/releases)"
+            warn "pure prompt install failed (download or checksum)"
             rm -f "$pure_tgz"
         fi
     else
@@ -291,33 +347,40 @@ install_extras() {
     step "Enabling tailscaled.service"
     systemctl enable --now tailscaled.service 2>&1 | sed 's/^/    /' || warn "tailscaled enable failed"
 
+    # op + asdf are pinned amd64 binaries (the URLs hardcode amd64); the
+    # sha256s below match those exact artifacts. On a non-amd64 host these
+    # steps will checksum-fail and warn (pre-existing amd64-only limitation).
     step "1Password CLI (op)"
     OP_VERSION=2.33.1
+    OP_SHA256=0fc50cb22d791b5ee5e1421d97e96595fd61ca56ae92271bd1b28bb884971726
     op_arch=amd64
-    op_zip=/tmp/op-${OP_VERSION}.zip
-    if curl -fsSL -o "$op_zip" \
+    op_zip=$(mktemp)
+    if download_verified \
             "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_${op_arch}_v${OP_VERSION}.zip" \
+            "$op_zip" "$OP_SHA256" \
         && command -v unzip >/dev/null \
         && unzip -o -q "$op_zip" -d /tmp/op-unpack \
         && install -m 0755 /tmp/op-unpack/op /usr/local/bin/op; then
         rm -rf /tmp/op-unpack "$op_zip"
         ok "1Password CLI installed → $(/usr/local/bin/op --version 2>/dev/null || echo '?')"
     else
-        warn "op install failed"
+        warn "op install failed (download, checksum, or unzip)"
         rm -rf /tmp/op-unpack "$op_zip" 2>/dev/null || true
     fi
 
     step "asdf-vm (multi-runtime version manager)"
     ASDF_VERSION=0.16.7
-    asdf_tgz=/tmp/asdf-${ASDF_VERSION}.tar.gz
-    if curl -fsSL -o "$asdf_tgz" \
+    ASDF_SHA256=6a5f56833da9e94068f3e70d5ca6ffe0a14a0887e1eac1b9b0c96f67d96242be
+    asdf_tgz=$(mktemp)
+    if download_verified \
             "https://github.com/asdf-vm/asdf/releases/download/v${ASDF_VERSION}/asdf-v${ASDF_VERSION}-linux-amd64.tar.gz" \
+            "$asdf_tgz" "$ASDF_SHA256" \
         && tar -xzf "$asdf_tgz" -C /usr/local/bin/ asdf; then
         chmod 0755 /usr/local/bin/asdf
         rm -f "$asdf_tgz"
         ok "asdf installed → $(/usr/local/bin/asdf --version 2>/dev/null || echo '?')"
     else
-        warn "asdf install failed"
+        warn "asdf install failed (download or checksum)"
         rm -f "$asdf_tgz"
     fi
 }
