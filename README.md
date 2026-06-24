@@ -2,9 +2,67 @@
 
 A custom-styled CachyOS KDE spin. Forks [CachyOS/CachyOS-Live-ISO](https://github.com/CachyOS/CachyOS-Live-ISO) and rebrands the boot splash, login screen, desktop, and installer.
 
-The output is a bootable `.iso` that runs as a live environment and installs to disk via a re-branded Calamares.
+The output is a bootable `.iso` that runs as a live environment and installs to disk via a re-branded Calamares. The branding also ships as a signed pacman repo, so an existing CachyOS install can opt into the look-and-feel without reinstalling.
 
-## Repo layout
+## Getting PosthogOS
+
+### Downloading a release ISO
+
+Each release on the [releases page](https://github.com/PostHog/linux-posthogos/releases) ships the ISO and the signed `posthogos-*` pacman packages.
+
+Download all `.partNN` files for the release and reassemble:
+
+```bash
+cat posthogos-desktop-linux-vX.Y.Z.iso.part?? > posthogos-desktop-linux-vX.Y.Z.iso
+```
+
+Verify the result:
+
+```bash
+file posthogos-desktop-linux-vX.Y.Z.iso
+#   posthogos-...iso: DOS/MBR boot sector; partition 1 ...
+```
+
+Then flash to a USB stick (`dd`, balenaEtcher, Rufus, etc.) and boot.
+
+### Applying to an existing CachyOS install
+
+PosthogOS publishes everything it adds on top of CachyOS (icons, wallpapers, look-and-feel) as a pacman repo. An existing CachyOS (or Arch-based) install can pull the full stack from there.
+
+1. Register the `[posthogos]` repo by appending to `/etc/pacman.conf`:
+
+   ```bash
+   sudo tee -a /etc/pacman.conf >/dev/null <<'EOF'
+
+   [posthogos]
+   SigLevel = Required
+   Server = https://posthog.github.io/linux-posthogos/$arch
+   EOF
+   ```
+
+2. Temporarily relax signature checking to bootstrap trust:
+
+   ```bash
+   sudo pacman -Sy --noconfirm --overwrite='*' \
+     --config <(sed 's/SigLevel = Required/SigLevel = Optional TrustAll/' /etc/pacman.conf) \
+     posthogos-keyring
+   ```
+
+   The keyring's install hook locally signs the packager key into `/etc/pacman.d/gnupg/`, so every `posthogos-*` signature is trusted from here on.
+
+3. Install the branding and refresh:
+
+   ```bash
+   sudo pacman -Syu posthogos-branding posthogos-scripts
+   ```
+
+4. Log out and back in. An autostart entry applies the look-and-feel, color scheme, and wallpaper to your account on next login.
+
+After this, plain `sudo pacman -Syu` picks up new branding versions whenever a release is published.
+
+## Building & architecture
+
+### Repo layout
 
 ```
 .
@@ -14,6 +72,7 @@ The output is a bootable `.iso` that runs as a live environment and installs to 
 ├── upstream/             # git submodule → CachyOS/CachyOS-Live-ISO (do not edit)
 ├── overlay/              # files merged into upstream/archiso/airootfs/ at build time
 │                         #   mirrors the airootfs/ layout exactly
+├── packages/             # PosthogOS pacman repo (one PKGBUILD per package)
 └── branding/posthogos/   # source artwork (logo SVG, wallpaper, slideshow PNGs)
 ```
 
@@ -29,7 +88,7 @@ git commit -m "upstream: bump to <new-sha>"
 
 Or `git submodule update --remote upstream` to track upstream `master` directly (less controlled; prefer pinning explicit SHAs).
 
-## Cloning
+### Cloning
 
 This repo uses a submodule for upstream. Clone with:
 
@@ -41,9 +100,9 @@ git submodule update --init
 
 `bin/setup` and `bin/build` will auto-init the submodule if missing.
 
-## Prerequisites
+### Prerequisites
 
-### macOS host (local iteration)
+#### macOS host (local iteration)
 
 - Docker Desktop (or OrbStack / Colima with `--privileged` support)
 - QEMU for booting the output ISO: `brew install qemu`
@@ -51,14 +110,14 @@ git submodule update --init
 
 `mkarchiso` does not run on macOS directly. `bin/build` invokes it inside a privileged Arch container.
 
-### Arch / CachyOS host (production builds)
+#### Arch / CachyOS host (production builds)
 
 - `archiso`, `mkinitcpio-archiso`, `git`, `squashfs-tools`, `grub` installed
 - `qemu-desktop`, `edk2-ovmf` for testing
 
 On a real Arch host you can skip Docker. `bin/build --native` runs `buildiso.sh` directly.
 
-## Usage
+### Usage
 
 ```bash
 bin/setup     # verify host has docker + qemu
@@ -67,26 +126,7 @@ bin/test      # boot the latest ISO in QEMU
 bin/clean     # rm -rf build/ out/
 ```
 
-## Downloading a release ISO
-
-Each release on the [releases page](https://github.com/PostHog/linux-posthogos/releases) ships the ISO and the signed `posthogos-*` pacman packages.
-
-The ISO is ~3 GB, which exceeds GitHub's 2 GiB per-asset cap on release downloads, so it's split into ~1.9 GiB chunks (`posthogos-desktop-linux-vX.Y.Z.iso.part00`, `.part01`, …). Download all `.partNN` files for the release and reassemble:
-
-```bash
-cat posthogos-desktop-linux-vX.Y.Z.iso.part?? > posthogos-desktop-linux-vX.Y.Z.iso
-```
-
-Order matters but `cat` with the `??` glob handles it (chunks are zero-padded and sort lexicographically). Verify the result:
-
-```bash
-file posthogos-desktop-linux-vX.Y.Z.iso
-#   posthogos-...iso: DOS/MBR boot sector; partition 1 ...
-```
-
-Then flash to a USB stick (`dd`, balenaEtcher, Rufus, etc.) and boot. PosthogOS team members can also pull the unsplit ISO from the workflow run's "posthogos-vX.Y.Z" artifact (requires GitHub login, 90-day retention).
-
-## How the build works
+### How the build works
 
 1. `bin/build` builds the `posthogos-builder` Docker image (`Dockerfile`).
 2. It runs the image with `--privileged` and the repo bind-mounted at `/work`.
@@ -99,7 +139,9 @@ Then flash to a USB stick (`dd`, balenaEtcher, Rufus, etc.) and boot. PosthogOS 
 
 The chroot hook ([scripts/posthogos-customize.sh](scripts/posthogos-customize.sh)) handles things the overlay can't express as static files: regenerating the initramfs with the Plymouth theme baked in, patching `/etc/calamares/settings.conf` to point at our branding, refreshing icon/gtk caches, enabling SDDM.
 
-## Branding scope
+The branding also ships as pacman packages built from `packages/`. The release workflow signs them, pushes the repo to `gh-pages`, and pacstraps `posthogos-keyring` + `posthogos-branding` into the ISO so installed systems start with pacman-owned, signed files. See [packages/README.md](packages/README.md).
+
+### Branding scope
 
 - Boot splash: Plymouth theme `posthogos` (`/usr/share/plymouth/themes/posthogos/`)
 - Login screen: SDDM theme `posthogos` (`/usr/share/sddm/themes/posthogos/`)
@@ -108,23 +150,3 @@ The chroot hook ([scripts/posthogos-customize.sh](scripts/posthogos-customize.sh
 - ISO identity: rebranded `os-release`, `lsb-release`, boot menu titles, ISO label `POSTHOGOS_YYYYMM`
 
 CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, `cachyos-calamares-next`, `cachyos-hello`) stay installed; their files are shadowed by `overlay/` or patched by the chroot hook. This avoids forking those packages.
-
-## Verification checklist
-
-Run end-to-end before declaring a build done:
-
-- [x] ISO boots in UEFI mode in QEMU
-- [x] Boot menu shows PosthogOS titles, not CachyOS
-- [x] Plymouth splash shows the PosthogOS logo
-- [x] SDDM greeter uses the PosthogOS theme
-- [x] Desktop session loads with PosthogOS wallpaper + colour scheme
-- [x] `cat /etc/os-release` in the live env shows `PRETTY_NAME="PosthogOS"`
-- [x] Calamares opens with PosthogOS branding + slideshow
-- [ ] Full install to a qcow2 disk completes; installed system boots with branding intact
-
-## Out of scope
-
-- ISO signing / Secure Boot
-- ISO hosting / distribution
-- Custom pacman repo for shipping packaged themes
-- CI (build on push); iterate locally first
