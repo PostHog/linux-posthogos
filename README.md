@@ -62,7 +62,7 @@ After this, plain `sudo pacman -Syu` picks up new branding versions whenever a r
 
 #### Debian / Ubuntu (apt)
 
-The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-branding` and `posthogos-scripts` as `.deb`s (the rest of the stack is Arch-specific). Requires a KDE Plasma desktop.
+The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-branding` and `posthogos-scripts` as `.deb`s (the rest of the stack is Arch-specific). Works on **KDE Plasma** (full look-and-feel) and **GNOME** (wallpaper, accent colour, icon theme, fonts, dock favourites via `gsettings` — no custom Shell/GTK theme). On other desktops the firstrun step posts a notification and makes no changes.
 
 1. Trust the packager key and register the repo:
 
