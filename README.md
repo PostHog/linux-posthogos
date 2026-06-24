@@ -1,5 +1,7 @@
 # PosthogOS
 
+<img width="1351" height="801" alt="Screenshot 2026-06-24 at 3 36 13 PM" src="https://github.com/user-attachments/assets/93b3d755-f707-400d-9953-6758cc6254f2" />
+
 ## Getting PosthogOS
 
 ### Downloading a release ISO
