@@ -14,6 +14,12 @@ arch=('x86_64' 'aarch64')   # compiled binary; makepkg builds it natively per-ar
 url='https://github.com/posthog/linux-posthogos'
 license=('MIT')
 
+# Don't split a -debug package. makepkg's default OPTIONS (strip + debug)
+# would emit posthogos-welcome-debug-*.pkg.tar.zst (detached gdb symbols
+# for the launcher), which repo-add then publishes + attaches to releases.
+# End users don't need it; !debug keeps strip (small binary) but skips it.
+options=('!debug')
+
 depends=(
     'qt6-base'
     'qt6-declarative'    # QtQml + QtQuick.Controls + QtQuick.Layouts
