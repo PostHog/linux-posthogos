@@ -1,15 +1,15 @@
 Package: posthogos-branding
-Version: 0.3.0~beta.2-1
+Version: 0.3.0-1
 Architecture: all
 Maintainer: PostHog <hey@posthog.com>
 Installed-Size: 29908
 Recommends: papirus-icon-theme
 Suggests: plasma-workspace, plasma-desktop
-Filename: pool/main/p/posthogos-branding/posthogos-branding_0.3.0~beta.2-1_all.deb
-Size: 24604858
-MD5sum: 08caf45616871d8cb00cd76a6bb5fad3
-SHA1: 07842288e1e93a90c475026277e543c4a121bb09
-SHA256: 34a158b730adbff9990c292d3986dfc3b80e321937aa1e39b567a693b340d845
+Filename: pool/main/p/posthogos-branding/posthogos-branding_0.3.0-1_all.deb
+Size: 24605050
+MD5sum: b167333095f2fa1de0786aed84917d47
+SHA1: 7b5bea12319a995194b99671e9c494d593355527
+SHA256: 74682275ab460461e0834b4a9482151228a0d4bbfb09db067489da689e6629d5
 Section: x11
 Priority: optional
 Homepage: https://github.com/posthog/linux-posthogos
@@ -19,17 +19,17 @@ Description: PosthogOS visual identity (icons, wallpapers, Plasma look-and-feel,
  up the PosthogOS desktop. Apply with plasma-apply-lookandfeel after install.
 
 Package: posthogos-scripts
-Version: 0.3.0~beta.2-1
+Version: 0.3.0-1
 Architecture: all
 Maintainer: PostHog <hey@posthog.com>
 Installed-Size: 144
 Recommends: posthogos-branding
 Suggests: snapper, btrfs-progs, grub-btrfs, fastfetch
-Filename: pool/main/p/posthogos-scripts/posthogos-scripts_0.3.0~beta.2-1_all.deb
-Size: 23990
-MD5sum: d861757ea7f1ef9d07add2a3a9e9d42b
-SHA1: 592ad47049b1b50c022c1896f41d8049ac75f05f
-SHA256: baf458f51e4564fde4de2be8d8c5f86c259f40eeb7548a0448a3797cd4e33c4d
+Filename: pool/main/p/posthogos-scripts/posthogos-scripts_0.3.0-1_all.deb
+Size: 23978
+MD5sum: 4bd0f58a80d8ab29ed2c13f753b8bb35
+SHA1: 2c2615aee2f27b14bb76ad4ba2480559d8764730
+SHA256: 00875620b10745fd6a4c789b5a77abeb1fcacb44573179a5da4c45e8369b8d21
 Section: utils
 Priority: optional
 Homepage: https://github.com/posthog/linux-posthogos
