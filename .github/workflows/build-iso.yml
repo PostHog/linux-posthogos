@@ -334,6 +334,37 @@ jobs:
           keep_files: true     # don't wipe historical packages on each release
           commit_message: "release ${{ steps.ver.outputs.version }}: posthogos pacman repo"
 
+      # ── APT repository: build .deb packages for Debian/Ubuntu ──────────
+      # Repackages the portable posthogos-* pacman packages (already in
+      # out/pkgs/) into .deb and assembles a signed flat apt repo in out/deb/.
+      # Runs natively on the runner (no Arch container needed) — just needs
+      # dpkg-dev + apt-utils. The Release is signed with the same packager key.
+      - name: Build Debian packages + apt repo
+        if: success()
+        env:
+          POSTHOGOS_PACKAGER_KEY: ${{ secrets.POSTHOGOS_PACKAGER_KEY }}
+          POSTHOGOS_PACKAGER_KEY_FPR: ${{ vars.POSTHOGOS_PACKAGER_KEY_FPR }}
+          POSTHOGOS_PKGVER: ${{ steps.ver.outputs.version }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends dpkg-dev apt-utils zstd
+          scripts/build-deb-packages.sh
+
+      # Published under deb/ on the same gh-pages branch as the pacman repo.
+      # keep_files: true mirrors the pacman side — the regenerated Packages
+      # only lists the current version, so accumulating old pool/ .debs are
+      # harmless orphans (never fetched by apt); they only grow Pages quota.
+      - name: Deploy apt repo to gh-pages
+        if: success()
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: out/deb
+          destination_dir: deb
+          keep_files: true
+          commit_message: "release ${{ steps.ver.outputs.version }}: posthogos apt repo"
+
       # ── Pacman repository: prune superseded packages ───────────────────
       # `keep_files: true` above is load-bearing (a clean publish would wipe
       # sibling arch dirs + .nojekyll once a multi-arch matrix exists), so it
@@ -391,4 +422,10 @@ jobs:
               [ -f "$pkg" ] || continue
               echo "uploading $pkg → release $tag"
               upload_with_retry "$tag" "$pkg"
+          done
+          # Debian packages (standalone .debs as backup assets, alongside the apt repo).
+          for deb in out/deb/pool/main/p/*/*.deb; do
+              [ -f "$deb" ] || continue
+              echo "uploading $deb → release $tag"
+              upload_with_retry "$tag" "$deb"
           done

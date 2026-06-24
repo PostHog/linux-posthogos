@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#/ Usage: bin/build-deb
+#/ Description: Build .deb packages + a signed APT repo for Debian/Ubuntu.
+#/ Notes:
+#/   Consumes the pacman packages produced by bin/build (out/pkgs/*.pkg.tar.zst),
+#/   so run `bin/build` first. The deb tooling (dpkg-deb, apt-ftparchive) isn't
+#/   on macOS, so this runs scripts/build-deb-packages.sh inside a
+#/   debian:stable-slim container. Output lands in out/deb/.
+#/
+#/   Signing: set POSTHOGOS_PACKAGER_KEY (+ _FPR), or POSTHOGOS_PACKAGER_KEY_FILE,
+#/   in your environment / .env to sign the Release. Unset → unsigned repo.
+
+source bin/helpers/_utils.sh
+set_source_and_root_dir
+load_env_file
+set -e
+
+[ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] && { show_help; exit 0; }
+
+ls out/pkgs/posthogos-branding-*.pkg.tar.zst >/dev/null 2>&1 \
+    || fatal "out/pkgs/ has no posthogos packages — run bin/build first."
+
+# Same .env → KEY indirection as bin/build (load_env_file is single-line only).
+if [ -z "${POSTHOGOS_PACKAGER_KEY:-}" ] && [ -n "${POSTHOGOS_PACKAGER_KEY_FILE:-}" ]; then
+    [ -f "$POSTHOGOS_PACKAGER_KEY_FILE" ] \
+        || fatal "POSTHOGOS_PACKAGER_KEY_FILE set but file missing: $POSTHOGOS_PACKAGER_KEY_FILE"
+    export POSTHOGOS_PACKAGER_KEY="$(cat "$POSTHOGOS_PACKAGER_KEY_FILE")"
+fi
+
+if command_exists dpkg-deb && command_exists apt-ftparchive; then
+    print_color blue "Building Debian packages + apt repo natively..."
+    exec scripts/build-deb-packages.sh
+fi
+
+print_color blue "Building Debian packages + apt repo in debian:stable-slim..."
+docker run --rm \
+    -v "$PWD":/work -w /work \
+    -e POSTHOGOS_PKGVER \
+    -e POSTHOGOS_PACKAGER_KEY \
+    -e POSTHOGOS_PACKAGER_KEY_FPR \
+    -e PKG_SRC_DIR \
+    -e DEB_OUT_DIR \
+    debian:stable-slim \
+    bash -c 'set -e
+        apt-get update -qq
+        apt-get install -y -qq --no-install-recommends \
+            dpkg-dev apt-utils gpg zstd gzip git >/dev/null
+        git config --global --add safe.directory /work || true
+        scripts/build-deb-packages.sh'
+
+success "APT repo built at out/deb/"

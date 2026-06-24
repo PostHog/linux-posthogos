@@ -1,16 +1,12 @@
 # PosthogOS
 
-A custom-styled CachyOS KDE spin. Forks [CachyOS/CachyOS-Live-ISO](https://github.com/CachyOS/CachyOS-Live-ISO) and rebrands the boot splash, login screen, desktop, and installer.
-
-The output is a bootable `.iso` that runs as a live environment and installs to disk via a re-branded Calamares. The branding also ships as a signed pacman repo, so an existing CachyOS install can opt into the look-and-feel without reinstalling.
-
 ## Getting PosthogOS
 
 ### Downloading a release ISO
 
-Each release on the [releases page](https://github.com/PostHog/linux-posthogos/releases) ships the ISO and the signed `posthogos-*` pacman packages.
+A custom-styled CachyOS KDE spin that Forks [CachyOS/CachyOS-Live-ISO](https://github.com/CachyOS/CachyOS-Live-ISO) and rebrands the boot splash, login screen, desktop, and installer.
 
-Download all `.partNN` files for the release and reassemble:
+Each release on the [releases page](https://github.com/PostHog/linux-posthogos/releases) ships the ISO and the signed `posthogos-*` pacman packages. Download all `.partNN` files for the release and reassemble:
 
 ```bash
 cat posthogos-desktop-linux-vX.Y.Z.iso.part?? > posthogos-desktop-linux-vX.Y.Z.iso
@@ -25,9 +21,13 @@ file posthogos-desktop-linux-vX.Y.Z.iso
 
 Then flash to a USB stick (`dd`, balenaEtcher, Rufus, etc.) and boot.
 
-### Applying to an existing CachyOS install
+### Applying to an existing install
 
-PosthogOS publishes everything it adds on top of CachyOS (icons, wallpapers, look-and-feel) as a pacman repo. An existing CachyOS (or Arch-based) install can pull the full stack from there.
+PosthogOS publishes its branding (icons, wallpapers, look-and-feel) as signed repos for both package managers, so an existing KDE Plasma install can pull it without reinstalling. The activation is the same either way: a firstrun autostart entry applies the look-and-feel on your next login.
+
+#### Arch / CachyOS (pacman)
+
+The Arch repo (`https://posthog.github.io/linux-posthogos/$arch`) carries the full `posthogos-*` stack.
 
 1. Register the `[posthogos]` repo by appending to `/etc/pacman.conf`:
 
@@ -59,6 +59,31 @@ PosthogOS publishes everything it adds on top of CachyOS (icons, wallpapers, loo
 4. Log out and back in. An autostart entry applies the look-and-feel, color scheme, and wallpaper to your account on next login.
 
 After this, plain `sudo pacman -Syu` picks up new branding versions whenever a release is published.
+
+#### Debian / Ubuntu (apt)
+
+The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-branding` and `posthogos-scripts` as `.deb`s (the rest of the stack is Arch-specific). Requires a KDE Plasma desktop.
+
+1. Trust the packager key and register the repo:
+
+   ```bash
+   sudo install -d /etc/apt/keyrings
+   sudo curl -fsSL https://posthog.github.io/linux-posthogos/deb/posthogos.gpg \
+     -o /etc/apt/keyrings/posthogos.gpg
+   echo 'deb [signed-by=/etc/apt/keyrings/posthogos.gpg] https://posthog.github.io/linux-posthogos/deb stable main' \
+     | sudo tee /etc/apt/sources.list.d/posthogos.list >/dev/null
+   ```
+
+2. Install the branding:
+
+   ```bash
+   sudo apt update
+   sudo apt install posthogos-branding posthogos-scripts
+   ```
+
+3. Log out and back in — same firstrun activation as above.
+
+After this, `sudo apt update && sudo apt upgrade` picks up new branding versions. (Standalone `.deb`s are also attached to each release for offline `apt install ./posthogos-*.deb`.)
 
 ## Building & architecture
 
@@ -122,6 +147,7 @@ On a real Arch host you can skip Docker. `bin/build --native` runs `buildiso.sh`
 ```bash
 bin/setup     # verify host has docker + qemu
 bin/build     # produce out/<iso_name>-<date>-x86_64.iso
+bin/build-deb # build .deb packages + apt repo from out/pkgs (after bin/build)
 bin/test      # boot the latest ISO in QEMU
 bin/clean     # rm -rf build/ out/
 ```
@@ -140,6 +166,8 @@ bin/clean     # rm -rf build/ out/
 The chroot hook ([scripts/posthogos-customize.sh](scripts/posthogos-customize.sh)) handles things the overlay can't express as static files: regenerating the initramfs with the Plymouth theme baked in, patching `/etc/calamares/settings.conf` to point at our branding, refreshing icon/gtk caches, enabling SDDM.
 
 The branding also ships as pacman packages built from `packages/`. The release workflow signs them, pushes the repo to `gh-pages`, and pacstraps `posthogos-keyring` + `posthogos-branding` into the ISO so installed systems start with pacman-owned, signed files. See [packages/README.md](packages/README.md).
+
+For Debian/Ubuntu, [scripts/build-deb-packages.sh](scripts/build-deb-packages.sh) repackages the portable `posthogos-branding` + `posthogos-scripts` pacman packages into `.deb`s (relocating `/usr/local/bin` → `/usr/bin` per Debian policy) and assembles a signed apt repo, published to `gh-pages` under `deb/`. Run it locally with `bin/build-deb` (after `bin/build`).
 
 ### Branding scope
 
