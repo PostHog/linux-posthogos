@@ -2,9 +2,7 @@
 
 <img width="1351" height="801" alt="Screenshot 2026-06-24 at 3 36 13 PM" src="https://github.com/user-attachments/assets/93b3d755-f707-400d-9953-6758cc6254f2" />
 
-## Getting PosthogOS
-
-### Downloading a release ISO
+## Download ISO
 
 The ISO is a custom-styled CachyOS KDE spin that Forks [CachyOS/CachyOS-Live-ISO](https://github.com/CachyOS/CachyOS-Live-ISO) and rebrands the boot splash, login screen, desktop, and installer.
 
@@ -23,11 +21,24 @@ file posthogos-desktop-linux-vX.Y.Z.iso
 
 Then flash to a USB stick (`dd`, balenaEtcher, Rufus, etc.) and boot.
 
-### Applying to an existing install
+## Apply to an existing install
 
-PosthogOS publishes its branding (icons, wallpapers, look-and-feel) as signed repos for all multiple package managers (`pacman`, `apt`, and `dnf/zypper`). A firstrun autostart entry applies the theme on your next login.
+PosthogOS publishes its branding (icons, wallpapers, look-and-feel) as signed repos for multiple package managers (`pacman`, `apt`, and `dnf/zypper`). A firstrun autostart entry applies the theme on your next login.
 
-#### Arch / CachyOS (pacman)
+**Operating systems**
+
+- Arch, CachyOS, Manjaro, EndeavourOS (via `pacman`)
+- Debian, Ubuntu, Mint, Pop!_OS (via `apt`) 
+- Fedora, RHEL/Alma/Rocky, openSUSE (via `dnf` or `zypper`)
+
+**Desktops**
+
+- KDE Plasma: full look-and-feel 
+- GNOME/Budgie: wallpaper, accent colour, icon theme, fonts
+- Cinnamon: wallpaper, icon theme, fonts
+- XFCE: wallpaper, icon theme, fonts
+
+### Arch / CachyOS (pacman)
 
 The Arch repo (`https://posthog.github.io/linux-posthogos/$arch`) carries the full `posthogos-*` stack.
 
@@ -62,7 +73,7 @@ The Arch repo (`https://posthog.github.io/linux-posthogos/$arch`) carries the fu
 
 After this, plain `sudo pacman -Syu` picks up new branding versions whenever a release is published.
 
-#### Debian / Ubuntu (apt)
+### Debian / Ubuntu (apt)
 
 The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-branding` and `posthogos-scripts` as `.deb`s, for `amd64` and `arm64` devices. See the desktop-support note above.
 
@@ -89,7 +100,7 @@ The apt repo (`https://posthog.github.io/linux-posthogos/deb`) ships `posthogos-
 
 After this, `sudo apt update && sudo apt upgrade` picks up new branding versions.
 
-#### Fedora / RHEL / openSUSE (dnf/zypper)
+### Fedora / RHEL / openSUSE (dnf/zypper)
 
 The dnf repo (`https://posthog.github.io/linux-posthogos/rpm`) ships the same two packages as signed `noarch` `.rpm`s. See the desktop-support note above.
 
