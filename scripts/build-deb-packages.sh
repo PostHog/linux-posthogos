@@ -59,11 +59,20 @@ if [ -z "${POSTHOGOS_PKGVER:-}" ]; then
     [ -n "$v" ] || v="0.0.0~dev.$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
     POSTHOGOS_PKGVER="$v"
 fi
-# Debian version grammar forbids '_' (the pacman normalization) — map it to
-# '~' so pre-releases (0.0.1_alpha → 0.0.1~alpha) still sort *before* the
-# final release, as Debian intends. Strip a leading 'v' if present.
-DEB_VER="${POSTHOGOS_PKGVER#v}"
-DEB_VER="${DEB_VER//_/\~}-1"   # -1 = Debian revision
+# Map both pre-release separators to '~' so a pre-release sorts *before* its
+# final release in Debian's version ordering (a tilde sorts lower than the
+# empty string, unlike '-'/'_' which sort higher). Without this, an apt user
+# on 0.3.0-beta.1 would NOT upgrade to 0.3.0, because 0.3.0-beta.1 would
+# compare as newer. Cases handled:
+#   - '_' : the pacman normalization (e.g. 0.0.1_alpha.1)
+#   - first '-' : the semver pre-release separator from a release tag
+#     (0.3.0-beta.1). Only the first; a real Debian revision (the trailing
+#     '-1' we add below) must stay a hyphen.
+# Strip a leading 'v' first.
+DEB_UPSTREAM="${POSTHOGOS_PKGVER#v}"
+DEB_UPSTREAM="${DEB_UPSTREAM//_/\~}"   # 0.0.1_alpha.1 → 0.0.1~alpha.1
+DEB_UPSTREAM="${DEB_UPSTREAM/-/\~}"    # 0.3.0-beta.1  → 0.3.0~beta.1 (first '-' only)
+DEB_VER="${DEB_UPSTREAM}-1"            # -1 = Debian revision
 log "Debian package version: $DEB_VER (from POSTHOGOS_PKGVER=$POSTHOGOS_PKGVER)"
 
 # --- Per-package control metadata ----------------------------------------
