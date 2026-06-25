@@ -157,6 +157,14 @@ uid:         PostHog Packager <linux.posthogos@posthog.com>
 algorithm:   RSA 4096, sign-only, 2y expiry
 ```
 
+> The **fingerprint** is what's actually verified (it's what
+> `POSTHOGOS_PACKAGER_KEY_FPR` pins and what `SigLevel`/`gpgcheck` check) —
+> always select the key by fingerprint, not email. The uid shown is the
+> standard going forward; the currently-deployed key predates the
+> `linux.posthogos@posthog.com` standardization, so regenerate it with this
+> uid at the next rotation (the `gpg --export <email>` commands below assume
+> a freshly-generated key carrying it).
+
 The public key ships in `posthogos-keyring`, pacstrapped into the ISO
 alongside `posthogos-branding`. End-user `/etc/pacman.conf` sets
 `SigLevel = Required` for `[posthogos]`.
@@ -287,6 +295,48 @@ sudo rpmkeys --import https://posthog.github.io/linux-posthogos/rpm/RPM-GPG-KEY-
 (Note: the apt/dnf repos are served from the same `gh-pages` site the
 attacker would also need to control; the out-of-band fingerprint check is
 what actually re-anchors trust in all three cases.)
+
+#### Hardening: a two-tier (offline root) key — recommended, needs setup
+
+The single-key model's weakness (above) is that the *only* channel that can
+change trust — the `posthogos-keyring` package — is signed by the same key
+that signs packages. Leak that key and the attacker can also ship a keyring
+that re-trusts themselves, which is why compromise recovery needs an
+out-of-band fingerprint dance. A two-tier model removes that:
+
+- **Root key** — offline / air-gapped, long expiry, **never in CI**. Its only
+  jobs: certify the packager key, and sign the `posthogos-keyring` *package*.
+- **Packager key** — online (the CI secret, as today), shorter expiry. Signs
+  the day-to-day artifacts: the pacman packages + `posthogos.db`, the apt
+  `Release`, and the rpm `repomd.xml`.
+- `posthogos-trusted` grants **full trust to the root fingerprint only**; the
+  packager key is trusted transitively because the root key has certified it.
+
+The payoff: because the keyring package is signed by the **offline** root,
+a leaked *packager* key can't push a malicious keyring. Recovery from a
+packager-key leak becomes in-band and routine — rotate the packager key,
+re-certify it with the offline root, publish a root-signed keyring update —
+with no end-user out-of-band step. Only a root-key compromise needs the
+out-of-band dance, and the root key lives offline and is touched only at
+rotation, so its exposure is minimal.
+
+This is **not wired up in the repo** because it requires real offline key
+material and custody decisions that can't (and must not) live in code:
+
+1. Generate the root key on an air-gapped machine; store the secret offline
+   (hardware token / paper). Never add it to CI secrets.
+2. Certify the packager key with it: `gpg --sign-key <packager-fpr>`.
+3. Ship both public keys in `posthogos.gpg`, and set `posthogos-trusted` to
+   full-trust the **root** fingerprint (the packager key inherits trust via
+   the certification — drop its explicit `:4:` line).
+4. Sign the built `posthogos-keyring` package with the root key offline and
+   commit/publish that signature; CI keeps signing everything else with the
+   packager key.
+
+Adding the `posthogos-trusted` root line before the root key exists would
+break `pacman-key --populate` (it can't trust a fingerprint absent from the
+pubring), so the repo wiring lands only once the root key is generated. The
+code change at that point is small; the work is the key ceremony + custody.
 
 ### Local development
 
