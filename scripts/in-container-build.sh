@@ -52,6 +52,7 @@ pkg_owned_excludes=(
     --exclude='/airootfs/usr/share/icons/'
     --exclude='/airootfs/usr/share/fonts/posthogos'
     --exclude='/airootfs/usr/share/sounds/posthogos'
+    --exclude='/airootfs/usr/local/share/plasma/avatars/posthogos'
     # posthogos-scripts
     --exclude='/airootfs/usr/local/bin/neohog'
     --exclude='/airootfs/usr/local/bin/papirus-folders'
