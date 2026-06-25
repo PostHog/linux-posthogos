@@ -128,6 +128,8 @@ The dnf repo (`https://posthog.github.io/linux-posthogos/rpm`) ships the same tw
 
 After this, `sudo dnf upgrade` (or `zypper dup`) picks up new branding versions.
 
+> All three repos are signed by one PostHog packager key. If that key is ever compromised, trust must be re-established out-of-band (a plain update can't fix it) — see [Key rotation & compromise recovery](packages/README.md#key-rotation--compromise-recovery) for the maintainer rotation steps and the end-user recovery commands.
+
 ## Building & architecture
 
 ### Repo layout

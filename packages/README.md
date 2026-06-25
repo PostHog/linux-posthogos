@@ -198,6 +198,96 @@ sudo pacman -Sy --noconfirm --overwrite='*' \
 sudo pacman -Syu  # signature verification now works normally
 ```
 
+### Key rotation & compromise recovery
+
+**The trust model and its limit.** Every `posthogos-*` artifact (pacman
+packages + `posthogos.db`, the apt `Release`, the rpm packages + `repomd.xml`)
+is signed by the one packager key. The only in-band way to change which key
+is trusted is to ship a new `posthogos-keyring` — but that package is itself
+signed by the current key. So **the package channel can rotate a key, but it
+cannot recover from a *compromised* key on its own**: whoever holds the key
+can also sign a "new keyring" that re-trusts themselves. Recovery from
+compromise therefore requires an **out-of-band** step (below). This is the
+standard keyring-bootstrap weakness, called out here so it isn't a surprise.
+
+The trust lists live in this package:
+
+- `posthogos-trusted` — `<fingerprint>:<owner-trust>:` per line (current:
+  `4EBCA8A8…BEF3:4:`, full trust). `pacman-key --populate` reads it.
+- `posthogos-revoked` — revoked fingerprints, one per line (currently empty).
+  Adding a fingerprint here makes `pacman-key --populate` mark that key
+  revoked on the next keyring install/upgrade.
+
+#### Routine rotation (planned — e.g. before the 2028 expiry)
+
+The new keyring must be signed by the **old** key so already-trusting systems
+accept the upgrade (noted in the keyring PKGBUILD):
+
+1. Generate the new key; note its fingerprint `NEW_FPR`.
+2. In `packages/posthogos-keyring/`: replace `posthogos.gpg` with the new
+   public key (`gpg --export NEW_FPR > posthogos.gpg`), and add `NEW_FPR:4:`
+   to `posthogos-trusted` (keep the old line during the overlap).
+3. Rotate CI: `gh secret set POSTHOGOS_PACKAGER_KEY` (new armored secret key)
+   and `gh variable set POSTHOGOS_PACKAGER_KEY_FPR NEW_FPR`.
+4. Cut a release **signed by the old key** so current installs trust the
+   upgrade, then have it re-sign with the new key going forward.
+5. Once telemetry/time says installs have upgraded, drop the old line from
+   `posthogos-trusted`, add the old fingerprint to `posthogos-revoked`, and
+   cut another release. The old key can then be retired.
+
+#### Compromise response (the key leaked)
+
+Maintainer:
+
+1. **Generate a fresh key immediately** (do not reuse anything derived from
+   the old one).
+2. **Publish `NEW_FPR` out-of-band** over channels an attacker can't forge:
+   the GitHub repo over HTTPS (this README + the committed `posthogos.gpg`),
+   the release notes, and any other PostHog comms. This is what users verify
+   against — not the package channel.
+3. Add the compromised fingerprint to `posthogos-revoked`, add `NEW_FPR:4:`
+   to `posthogos-trusted`, replace `posthogos.gpg`, bump the keyring, and
+   **sign everything with the new key** (the old key's signatures are now
+   suspect — re-sign all packages, `posthogos.db`, the apt `Release`, and the
+   rpm `repomd.xml`). Rotate the CI secret + fpr var as above.
+
+End users (out-of-band — do **not** rely on a plain `pacman -Syu`, since the
+attacker can sign updates too):
+
+```bash
+# 1. Distrust the compromised key.
+sudo pacman-key --delete <OLD_FPR>
+
+# 2. Fetch the new public key over HTTPS and VERIFY its fingerprint against
+#    the out-of-band announcement before trusting it.
+curl -fsSL -o /tmp/posthogos.gpg \
+  https://raw.githubusercontent.com/PostHog/linux-posthogos/main/packages/posthogos-keyring/posthogos.gpg
+gpg --show-keys /tmp/posthogos.gpg          # must match the announced NEW_FPR
+sudo pacman-key --add /tmp/posthogos.gpg
+sudo pacman-key --lsign-key <NEW_FPR>
+sudo pacman-key --updatedb
+
+# 3. Now updates verify against the new key.
+sudo pacman -Syu
+```
+
+The same key signs the apt and dnf repos, so those users re-establish trust
+out-of-band too:
+
+```bash
+# Debian/Ubuntu: replace the keyring referenced by signed-by=
+sudo curl -fsSL https://posthog.github.io/linux-posthogos/deb/posthogos.gpg \
+  -o /etc/apt/keyrings/posthogos.gpg     # verify fingerprint first
+
+# Fedora/openSUSE: drop the old key, import the new one
+sudo rpm -e gpg-pubkey-<OLD_KEYID>       # list with: rpm -q gpg-pubkey --qf '%{NAME}-%{VERSION}\n'
+sudo rpmkeys --import https://posthog.github.io/linux-posthogos/rpm/RPM-GPG-KEY-posthogos
+```
+
+(Note: the apt/dnf repos are served from the same `gh-pages` site the
+attacker would also need to control; the out-of-band fingerprint check is
+what actually re-anchors trust in all three cases.)
+
 ### Local development
 
 `makepkg` runs without `--sign` if `POSTHOGOS_PACKAGER_KEY` is unset, so
