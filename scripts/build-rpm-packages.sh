@@ -165,13 +165,19 @@ main() {
         # GNUPGHOME points it at the imported (passphrase-less) key.
         local rpmhome; rpmhome=$(mktemp -d)
         # %{__gpg} is the ABSOLUTE gpg path (rpm execv's argv[0] without a
-        # PATH lookup, so a bare `gpg` fails to exec). The rpm default macro
-        # erroneously follows it with a literal `gpg` token — drop that (it
-        # was breaking arg parsing: "no command supplied"). Options first,
-        # then the -s sign command and the files.
+        # PATH lookup, so a bare `gpg` fails to exec). The homebrew rpm 4.20
+        # default macro erroneously follows it with a literal `gpg` token —
+        # drop that (it was breaking arg parsing: "no command supplied").
+        #
+        # __signature_filename / __plaintext_filename are set by rpm only
+        # during signing; rpm 4.18+ pipes the package over stdin and leaves
+        # __plaintext_filename EMPTY, so it MUST be referenced conditionally
+        # (%{?...:...}) like the upstream default — a bare %{__plaintext_filename}
+        # expands to the literal macro text and gpg then fails to open it as a
+        # file ("No such file or directory"). shescape guards spaces in paths.
         cat > "$rpmhome/.rpmmacros" <<EOF
 %_gpg_name $POSTHOGOS_PACKAGER_KEY_FPR
-%__gpg_sign_cmd %{__gpg} --batch --no-verbose --no-armor --pinentry-mode loopback --no-secmem-warning -u "%{_gpg_name}" -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}
+%__gpg_sign_cmd %{__gpg} --batch --no-verbose --no-armor --pinentry-mode loopback --no-secmem-warning --digest-algo sha256 %{?_gpg_name:-u %{shescape:%{_gpg_name}}} -sbo %{shescape:%{?__signature_filename}} %{?__plaintext_filename:-- %{shescape:%{__plaintext_filename}}}
 EOF
         log "Signing rpms"
         HOME="$rpmhome" rpm --addsign "$RPM_OUT_DIR"/*.rpm \

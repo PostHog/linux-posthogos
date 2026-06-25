@@ -153,7 +153,7 @@ database are signed with the **PostHog packager key**:
 
 ```
 fingerprint: 4EBC A8A8 04A5 9A4F 2D56  70AE 5573 6D1E BA43 BEF3
-uid:         PostHog Packager <packages@posthog.com>
+uid:         PostHog Packager <linux.posthogos@posthog.com>
 algorithm:   RSA 4096, sign-only, 2y expiry
 ```
 
@@ -165,17 +165,17 @@ alongside `posthogos-branding`. End-user `/etc/pacman.conf` sets
 
 1. Generate the key (already done):
    ```bash
-   gpg --quick-generate-key 'PostHog Packager <packages@posthog.com>' rsa4096 sign 2y
+   gpg --quick-generate-key 'PostHog Packager <linux.posthogos@posthog.com>' rsa4096 sign 2y
    ```
 2. Drop the public key file into the keyring package:
    ```bash
-   gpg --export packages@posthog.com \
+   gpg --export linux.posthogos@posthog.com \
        > packages/posthogos-keyring/posthogos.gpg
    ```
    This file is committed (it's public).
 3. Add the secret key to GitHub Actions secrets + the fingerprint to repo variables:
    ```bash
-   gpg --armor --export-secret-keys packages@posthog.com \
+   gpg --armor --export-secret-keys linux.posthogos@posthog.com \
        | gh secret set POSTHOGOS_PACKAGER_KEY
    gh variable set POSTHOGOS_PACKAGER_KEY_FPR \
        --body 4EBCA8A804A59A4F2D5670AE55736D1EBA43BEF3

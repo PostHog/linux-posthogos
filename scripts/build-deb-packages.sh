@@ -80,7 +80,7 @@ control_for() {
 Package: posthogos-branding
 Version: $DEB_VER
 Architecture: all
-Maintainer: PostHog <hey@posthog.com>
+Maintainer: PostHog <linux.posthogos@posthog.com>
 Installed-Size: $size
 Section: x11
 Priority: optional
@@ -98,7 +98,7 @@ EOF
 Package: posthogos-scripts
 Version: $DEB_VER
 Architecture: all
-Maintainer: PostHog <hey@posthog.com>
+Maintainer: PostHog <linux.posthogos@posthog.com>
 Installed-Size: $size
 Section: utils
 Priority: optional
