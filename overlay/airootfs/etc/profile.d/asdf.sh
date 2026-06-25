@@ -24,4 +24,11 @@
 # the system-wide layer underneath.
 
 export ASDF_DATA_DIR="${ASDF_DATA_DIR:-$HOME/.asdf}"
-export PATH="$ASDF_DATA_DIR/shims:$PATH"
+# Prepend the shims dir only if it's not already on PATH, matching the guard
+# in /etc/skel/.zshrc (a login+interactive shell sources both; without the
+# check the entry would appear twice). POSIX `case` so /bin/sh login shells
+# that source profile.d are happy too.
+case ":$PATH:" in
+    *":$ASDF_DATA_DIR/shims:"*) ;;
+    *) export PATH="$ASDF_DATA_DIR/shims:$PATH" ;;
+esac
