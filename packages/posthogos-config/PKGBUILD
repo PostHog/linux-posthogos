@@ -52,5 +52,5 @@ package() {
         "$pkgdir/etc/skel/.config/zellij/layouts/posthogos-dev.kdl"
 
     install -Dm 0644 "$repo_root/LICENSE" \
-        "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

@@ -54,5 +54,5 @@ pkgver() {
 
 package() {
     install -Dm 0644 "$startdir/../../LICENSE" \
-        "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

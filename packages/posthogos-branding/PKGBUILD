@@ -151,5 +151,5 @@ package() {
     fi
 
     # ── License ──────────────────────────────────────────────────────────
-    install -Dm 0644 "$repo_root/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
+    install -Dm 0644 "$repo_root/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
