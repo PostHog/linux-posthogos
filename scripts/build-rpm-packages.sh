@@ -158,7 +158,8 @@ main() {
         log "Importing packager key ${POSTHOGOS_PACKAGER_KEY_FPR:0:8}…"
         export GNUPGHOME
         GNUPGHOME=$(mktemp -d); chmod 700 "$GNUPGHOME"
-        echo "$POSTHOGOS_PACKAGER_KEY" | gpg --batch --import 2>/dev/null
+        echo "$POSTHOGOS_PACKAGER_KEY" | gpg --batch --import \
+            || die "failed to import POSTHOGOS_PACKAGER_KEY (see gpg error above)"
 
         # Sign each rpm (gpgcheck=1). rpm shells out to gpg for the signature;
         # GNUPGHOME points it at the imported (passphrase-less) key.

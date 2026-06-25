@@ -197,7 +197,8 @@ main() {
         export GNUPGHOME
         GNUPGHOME=$(mktemp -d)
         chmod 700 "$GNUPGHOME"
-        echo "$POSTHOGOS_PACKAGER_KEY" | gpg --batch --import 2>/dev/null
+        echo "$POSTHOGOS_PACKAGER_KEY" | gpg --batch --import \
+            || die "failed to import POSTHOGOS_PACKAGER_KEY (see gpg error above)"
         gpg --batch --yes --pinentry-mode loopback --default-key "$POSTHOGOS_PACKAGER_KEY_FPR" \
             --clearsign -o "$dist_dir/InRelease" "$dist_dir/Release"
         gpg --batch --yes --pinentry-mode loopback --default-key "$POSTHOGOS_PACKAGER_KEY_FPR" \
