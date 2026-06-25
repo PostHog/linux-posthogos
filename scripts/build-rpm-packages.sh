@@ -161,23 +161,20 @@ main() {
         echo "$POSTHOGOS_PACKAGER_KEY" | gpg --batch --import \
             || die "failed to import POSTHOGOS_PACKAGER_KEY (see gpg error above)"
 
-        # Sign each rpm (gpgcheck=1). rpm shells out to gpg for the signature;
-        # GNUPGHOME points it at the imported (passphrase-less) key.
+        # Sign each rpm (gpgcheck=1). Do NOT hand-roll %__gpg_sign_cmd: the
+        # __signature_filename / __plaintext_filename macros are populated
+        # differently across rpm versions, and a custom command breaks on the
+        # mismatch ("missing argument for option -sbo"). Instead use rpm's own
+        # default sign command (which knows its version's conventions) and only
+        # set the key name + inject --pinentry-mode loopback via the supported
+        # extra-args hook, so the passphrase-less key signs non-interactively.
+        # Signing always runs in the fedora container (createrepo_c isn't on
+        # macOS), so the fedora rpm's default macro is what applies. GNUPGHOME
+        # (exported above) points the rpm-spawned gpg at the imported key.
         local rpmhome; rpmhome=$(mktemp -d)
-        # %{__gpg} is the ABSOLUTE gpg path (rpm execv's argv[0] without a
-        # PATH lookup, so a bare `gpg` fails to exec). The homebrew rpm 4.20
-        # default macro erroneously follows it with a literal `gpg` token —
-        # drop that (it was breaking arg parsing: "no command supplied").
-        #
-        # __signature_filename / __plaintext_filename are set by rpm only
-        # during signing; rpm 4.18+ pipes the package over stdin and leaves
-        # __plaintext_filename EMPTY, so it MUST be referenced conditionally
-        # (%{?...:...}) like the upstream default — a bare %{__plaintext_filename}
-        # expands to the literal macro text and gpg then fails to open it as a
-        # file ("No such file or directory"). shescape guards spaces in paths.
         cat > "$rpmhome/.rpmmacros" <<EOF
 %_gpg_name $POSTHOGOS_PACKAGER_KEY_FPR
-%__gpg_sign_cmd %{__gpg} --batch --no-verbose --no-armor --pinentry-mode loopback --no-secmem-warning --digest-algo sha256 %{?_gpg_name:-u %{shescape:%{_gpg_name}}} -sbo %{shescape:%{?__signature_filename}} %{?__plaintext_filename:-- %{shescape:%{__plaintext_filename}}}
+%_gpg_sign_cmd_extra_args --pinentry-mode loopback
 EOF
         log "Signing rpms"
         HOME="$rpmhome" rpm --addsign "$RPM_OUT_DIR"/*.rpm \
