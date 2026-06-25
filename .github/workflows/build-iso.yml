@@ -368,14 +368,14 @@ jobs:
       # build. We clone once, layer in both repos, prune, and push ONE
       # commit → exactly one Pages deployment.
       #
-      # Merge semantics (not a clean publish): the pacman packages accumulate
-      # under <arch>/ and the .debs under deb/pool/ — historical versions are
-      # kept (downgrade window) but never referenced by posthogos.db / the apt
-      # Packages index, which only list the current build. The pacman prune
-      # then trims <arch>/ to the 2 newest versions per package. .nojekyll is
-      # preserved from the existing branch (Pages would otherwise drop dotted
-      # paths). The apt repo has no analogous prune yet; stale pool/ .debs are
-      # harmless orphans that only grow the Pages quota.
+      # Merge semantics (not a clean publish): packages accumulate under
+      # <arch>/ (pacman) and deb/pool/ (apt) — historical versions are kept
+      # (downgrade window) but never referenced by posthogos.db / the apt
+      # Packages index, which only list the current build. The pacman and apt
+      # prunes then trim each to the 2 newest versions per package. .nojekyll
+      # is preserved from the existing branch (Pages would otherwise drop
+      # dotted paths). (The rpm pool under rpm/ has no prune yet — same
+      # orphan-accumulation tradeoff, pending a ~-aware rpmvercmp prune.)
       - name: Publish repos to gh-pages
         if: success()
         env:
@@ -406,8 +406,9 @@ jobs:
           rm -rf "$clone/rpm/repodata"
           cp -a out/rpm/. "$clone/rpm/"
 
-          # Prune superseded pacman packages: keep the 2 newest per package.
+          # Prune superseded packages: keep the 2 newest per package.
           python3 "${GITHUB_WORKSPACE}/scripts/prune-pacman-repo.py" "$clone/$arch" --keep 2
+          python3 "${GITHUB_WORKSPACE}/scripts/prune-deb-repo.py" "$clone/deb" --keep 2
 
           # Pages must not run Jekyll over the repo (would drop dotted paths).
           touch "$clone/.nojekyll"
