@@ -2,8 +2,10 @@
 Description=PosthogOS first-boot snapper initialization
 # Wait for / to actually be mounted before we ask findmnt about its fstype.
 After=local-fs.target
-# Don't run on the live ISO (we also gate inside the script).
-ConditionPathExists=!/run/archiso/livedevice
+# Don't run on the live ISO. Match the script's own guard exactly
+# ([ -d /run/archiso ]): /run/archiso is the directory archiso always mounts
+# on the live image, whereas .../livedevice isn't a guaranteed archiso path.
+ConditionPathExists=!/run/archiso
 # Idempotent at the systemd layer too: if config already exists, skip.
 ConditionPathExists=!/etc/snapper/configs/root
 
