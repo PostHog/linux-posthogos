@@ -431,9 +431,14 @@ printf '%sPosthogOS Dev Toolkit Installer%s v%s\n' "$BOLD" "$RESET" "$VERSION"
 printf '%sTarget user:%s %s   %sTarget home:%s %s\n' \
     "$DIM" "$RESET" "$TARGET_USER" "$DIM" "$RESET" "$TARGET_HOME"
 
-# Refresh pacman DB once up front so each pacman_install call is fast.
-step "Refreshing pacman databases (sudo pacman -Sy)"
-pacman -Sy 2>&1 | sed 's/^/    /'
+# Full system upgrade up front — NOT just a DB refresh. Refreshing the DB and
+# then installing (pacman -Sy + -S) without upgrading is the classic Arch
+# partial-upgrade trap: new packages pull in newer dependencies alongside the
+# stale installed libs, breaking sonames. -Syu once makes the system
+# consistent; the per-category `pacman -S --needed` installs below then run
+# against a current system (and fast, since the DB is already fresh).
+step "Updating the system first (sudo pacman -Syu)"
+pacman -Syu --noconfirm 2>&1 | sed 's/^/    /'
 
 confirm_or_skip ai         "Claude Code, Codex, Gemini, Pi, Ollama" && install_ai
 confirm_or_skip dev        "zsh + pure prompt + bat, eza, fd, fzf, ripgrep, delta, jq, yq, gh, lazygit, btop, atuin, zoxide, zellij, just, …" && install_dev

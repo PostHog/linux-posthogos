@@ -70,8 +70,11 @@ cp -f /etc/resolv.conf "$ROOT/etc/resolv.conf" 2>/dev/null || true
 #    posthogos-config ships. posthogos intends to own its skel files (the
 #    KDE ones are even written imperatively for this exact reason), so let
 #    it take them over instead of aborting on the file conflict.
-log "Installing posthogos meta-package into target (pacman -Sy)"
-if arch-chroot "$ROOT" pacman -Sy --noconfirm --needed --overwrite '/etc/skel/*' posthogos; then
+# -Syu (not -Sy): upgrade as part of installing, so adding posthogos can't
+# trigger a partial upgrade if the mirror moved since Calamares pacstrapped
+# the target. On a just-pacstrapped target this is usually a near-no-op.
+log "Installing posthogos meta-package into target (pacman -Syu)"
+if arch-chroot "$ROOT" pacman -Syu --noconfirm --needed --overwrite '/etc/skel/*' posthogos; then
     log "posthogos installed"
 
     # 5. Apply the shared system tweaks inside the target. posthogos-scripts
