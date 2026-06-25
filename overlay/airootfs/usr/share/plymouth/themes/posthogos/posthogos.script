@@ -103,8 +103,16 @@ fun display_password_callback(prompt_text, bullets) {
     // Hide the loading dots for the duration of the prompt.
     for (i = 0; i < 3; i++) dots[i].sprite.SetOpacity(0);
 
-    // Prompt line, centred just below the logo (cream #EEEFE9).
+    // Prompt line, centred just below the logo (cream #EEEFE9). cryptsetup
+    // prompts include the disk name and can be long; shrink the font in steps
+    // if it would overflow the screen width (Image.Text doesn't wrap). Stepped
+    // re-renders keep this to plain Image.Text + GetWidth — no string/array ops.
+    prompt_max_w = screen_w * 0.92;
     prompt.image = Image.Text(prompt_text, 0.93, 0.94, 0.91, 1, "Sans 12");
+    if (prompt.image.GetWidth() > prompt_max_w)
+        prompt.image = Image.Text(prompt_text, 0.93, 0.94, 0.91, 1, "Sans 9");
+    if (prompt.image.GetWidth() > prompt_max_w)
+        prompt.image = Image.Text(prompt_text, 0.93, 0.94, 0.91, 1, "Sans 7");
     prompt.sprite.SetImage(prompt.image);
     prompt.sprite.SetX(screen_w / 2 - prompt.image.GetWidth() / 2);
     prompt.sprite.SetY(dot.row_y);
