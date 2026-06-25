@@ -135,6 +135,21 @@ package() {
               "$pkgdir/usr/share/sounds/posthogos/"
     fi
 
+    # ── Hog avatars for the Users KCM gallery (generated) ─────────────────
+    # Kept under /usr/local/share (NOT /usr/share) on purpose: the avatar
+    # picker walks plasma/avatars dirs in XDG_DATA_DIRS precedence order, and
+    # /usr/local/share precedes /usr/share, floating the hog set above the
+    # bundled Konqi avatars. /usr/local/share is in XDG_DATA_DIRS on Arch,
+    # Debian and Fedora alike, and the .deb/.rpm builders only relocate
+    # /usr/local/bin — so this path survives into those packages too.
+    # (The var/lib/AccountsService liveuser icon is live-session-only and is
+    # intentionally NOT packaged.)
+    if [ -d "$generated/usr/local/share/plasma/avatars/posthogos" ]; then
+        install -d "$pkgdir/usr/local/share/plasma/avatars/posthogos"
+        cp -rfp "$generated/usr/local/share/plasma/avatars/posthogos/." \
+              "$pkgdir/usr/local/share/plasma/avatars/posthogos/"
+    fi
+
     # ── License ──────────────────────────────────────────────────────────
     install -Dm 0644 "$repo_root/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
 }

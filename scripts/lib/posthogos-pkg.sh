@@ -47,7 +47,12 @@ _posthogos_relocate_usr_local_bin() {
     echo "  relocating /usr/local/bin -> /usr/bin" >&2
     install -d "$root/usr/bin"
     cp -a "$root/usr/local/bin/." "$root/usr/bin/"
-    rm -rf "$root/usr/local"
+    # Remove only /usr/local/bin, then drop /usr/local if it's now empty.
+    # Don't `rm -rf /usr/local` — posthogos-branding ships avatars under
+    # /usr/local/share/plasma/avatars (kept there on purpose for XDG_DATA_DIRS
+    # precedence), which a blanket remove would destroy.
+    rm -rf "$root/usr/local/bin"
+    rmdir "$root/usr/local" 2>/dev/null || true
 
     local f
     while IFS= read -r -d '' f; do
