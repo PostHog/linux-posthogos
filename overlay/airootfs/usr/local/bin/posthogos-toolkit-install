@@ -26,14 +26,20 @@
 # Privilege model
 #   This script requires root (pacman, systemctl, /usr/local/bin writes,
 #   /etc/subuid edits). It re-execs itself under `sudo` if not already
-#   root. Group adds + npm globals target the invoking user via SUDO_USER
-#   (or --user=<name> if invoked directly as root from welcome's pkexec).
+#   root. Group adds target the invoking user via SUDO_USER (or --user=<name>
+#   if invoked directly as root from welcome's pkexec).
 #
-#   Untrusted-fetch hygiene: every fetched binary/tarball is sha256-pinned
-#   (download_verified); vendor rolling install.sh scripts that can't be
-#   pinned (Claude Code, Pi) run as the target user via run_user_installer
-#   (not piped into the root shell), so a compromised installer is
-#   user-scoped, not root RCE. Ollama comes from the signed Arch package.
+#   Untrusted-code hygiene — keep third-party code off the root account:
+#     - fetched binaries/tarballs (op, asdf, pure) are sha256-pinned via
+#       download_verified;
+#     - rolling install.sh scripts that can't be pinned (Claude Code, Pi)
+#       run as the target user via run_user_installer — not piped into the
+#       root shell;
+#     - npm --global installs (Codex, Gemini) run as the target user into
+#       ~/.local via as_user_npm, so package lifecycle scripts aren't root;
+#     - Ollama comes from the signed Arch package.
+#   Net: a compromised upstream is user-scoped, never root RCE. Only pacman
+#   (signed) and the system-config steps run as root.
 
 set -uo pipefail
 
@@ -86,6 +92,11 @@ if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
 fi
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 [ -d "$TARGET_HOME" ] || TARGET_HOME="/home/$TARGET_USER"
+
+# PATH used whenever we run something as the target user (installers, npm
+# globals, the summary probe). ~/.local/bin is where user-scoped tools land
+# (Claude Code's installer, npm --prefix ~/.local, etc.).
+USER_PATH="$TARGET_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
 # ── Brand palette (for log output) ────────────────────────────────────────
 BLUE=$'\033[38;2;29;74;255m'
@@ -177,13 +188,19 @@ run_user_installer() {
     fi
     chmod 0755 "$tmp"
     chown "$TARGET_USER" "$tmp"
-    runuser -u "$TARGET_USER" -- env \
-        HOME="$TARGET_HOME" \
-        PATH="$TARGET_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin" \
-        bash "$tmp"
+    runuser -u "$TARGET_USER" -- env HOME="$TARGET_HOME" PATH="$USER_PATH" bash "$tmp"
     rc=$?
     rm -f "$tmp"
     return $rc
+}
+
+# npm --global scoped to the target user, not root: lifecycle scripts of the
+# installed package (a supply-chain RCE vector) run as the user, and binaries
+# land in ~/.local/bin instead of system-wide /usr/local. Mirrors the
+# user-scoping of the rolling installers above.
+as_user_npm() {
+    runuser -u "$TARGET_USER" -- env HOME="$TARGET_HOME" PATH="$USER_PATH" \
+        npm install --global --prefix "$TARGET_HOME/.local" --no-fund --no-audit "$@"
 }
 
 # ── Category: ai ──────────────────────────────────────────────────────────
@@ -196,9 +213,9 @@ install_ai() {
         warn "Claude Code install failed"
     fi
 
-    step "OpenAI Codex (npm global)"
+    step "OpenAI Codex (npm, as $TARGET_USER)"
     if command -v npm >/dev/null; then
-        if npm install --global --prefix /usr/local --no-fund --no-audit @openai/codex 2>&1 | sed 's/^/    /'; then
+        if as_user_npm @openai/codex 2>&1 | sed 's/^/    /'; then
             ok "Codex installed"
         else
             warn "Codex install failed"
@@ -207,9 +224,9 @@ install_ai() {
         warn "npm not on PATH; skipping Codex (nodejs is supposed to be pre-baked)"
     fi
 
-    step "Google Gemini CLI (npm global)"
+    step "Google Gemini CLI (npm, as $TARGET_USER)"
     if command -v npm >/dev/null; then
-        if npm install --global --prefix /usr/local --no-fund --no-audit @google/gemini-cli 2>&1 | sed 's/^/    /'; then
+        if as_user_npm @google/gemini-cli 2>&1 | sed 's/^/    /'; then
             ok "Gemini CLI installed"
         else
             warn "Gemini CLI install failed"
@@ -389,11 +406,13 @@ install_extras() {
 summary() {
     banner "Summary"
     printf 'Tools on PATH after this run:\n\n'
+    # Probe in the TARGET USER's context: user-scoped tools (claude, codex,
+    # gemini, pi, npm globals) live in ~/.local/bin, which root's PATH lacks.
     for bin in claude codex gemini pi ollama \
                bat eza fd fzf rg delta jq yq gh lazygit btop atuin zoxide just zellij \
                docker podman distrobox lazydocker \
                tailscale mitmproxy op asdf; do
-        path=$(command -v "$bin" 2>/dev/null || true)
+        path=$(runuser -u "$TARGET_USER" -- env PATH="$USER_PATH" bash -c "command -v '$bin'" 2>/dev/null || true)
         if [ -n "$path" ]; then
             printf '  %s✓%s %-12s %s\n' "$GREEN" "$RESET" "$bin" "${DIM}$path${RESET}"
         else
