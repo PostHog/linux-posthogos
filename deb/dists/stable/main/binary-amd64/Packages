@@ -1,15 +1,15 @@
 Package: posthogos-branding
-Version: 0.3.0-1
+Version: 0.4.0-1
 Architecture: all
-Maintainer: PostHog <hey@posthog.com>
-Installed-Size: 29908
+Maintainer: PostHog <linux.posthogos@posthog.com>
+Installed-Size: 46700
 Recommends: papirus-icon-theme
 Suggests: plasma-workspace, plasma-desktop
-Filename: pool/main/p/posthogos-branding/posthogos-branding_0.3.0-1_all.deb
-Size: 24605050
-MD5sum: b167333095f2fa1de0786aed84917d47
-SHA1: 7b5bea12319a995194b99671e9c494d593355527
-SHA256: 74682275ab460461e0834b4a9482151228a0d4bbfb09db067489da689e6629d5
+Filename: pool/main/p/posthogos-branding/posthogos-branding_0.4.0-1_all.deb
+Size: 41470184
+MD5sum: e70c0bcb4f5fef0ff6ed5996ca8f3a68
+SHA1: ec16b03a751fd68c5e6295c8b695fd29ee4a0f3c
+SHA256: 999a52a42b78959e290a0bbc0dcf230d75260369bac47c066583fce21f2f7f2d
 Section: x11
 Priority: optional
 Homepage: https://github.com/posthog/linux-posthogos
@@ -19,17 +19,17 @@ Description: PosthogOS visual identity (icons, wallpapers, Plasma look-and-feel,
  up the PosthogOS desktop. Apply with plasma-apply-lookandfeel after install.
 
 Package: posthogos-scripts
-Version: 0.3.0-1
+Version: 0.4.0-1
 Architecture: all
-Maintainer: PostHog <hey@posthog.com>
-Installed-Size: 144
+Maintainer: PostHog <linux.posthogos@posthog.com>
+Installed-Size: 156
 Recommends: posthogos-branding
 Suggests: snapper, btrfs-progs, grub-btrfs, fastfetch
-Filename: pool/main/p/posthogos-scripts/posthogos-scripts_0.3.0-1_all.deb
-Size: 23978
-MD5sum: 4bd0f58a80d8ab29ed2c13f753b8bb35
-SHA1: 2c2615aee2f27b14bb76ad4ba2480559d8764730
-SHA256: 00875620b10745fd6a4c789b5a77abeb1fcacb44573179a5da4c45e8369b8d21
+Filename: pool/main/p/posthogos-scripts/posthogos-scripts_0.4.0-1_all.deb
+Size: 26596
+MD5sum: cefd96173e8e53c229903f0432d5e08c
+SHA1: 91d8b9d47c5cf6606cc62e77e0c7f31bad238a16
+SHA256: d4022c4df4fd0c8a9484b3c354f0eb48403d1cba8c96d7a3b8b206c84e7c7ab3
 Section: utils
 Priority: optional
 Homepage: https://github.com/posthog/linux-posthogos

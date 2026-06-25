@@ -1,0 +1,7 @@
+[posthogos]
+name=PosthogOS
+baseurl=https://posthog.github.io/linux-posthogos/rpm
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://posthog.github.io/linux-posthogos/rpm/RPM-GPG-KEY-posthogos
