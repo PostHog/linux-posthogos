@@ -163,7 +163,9 @@ main() {
     log "Generating Packages index (scanned once, published per arch)"
     local packages_tmp
     packages_tmp=$(mktemp)
-    ( cd "$DEB_OUT_DIR" && dpkg-scanpackages --multiversion pool /dev/null ) \
+    # No trailing override file: the positional override arg (the old
+    # `… pool /dev/null` idiom) is deprecated; omitting it means "no overrides".
+    ( cd "$DEB_OUT_DIR" && dpkg-scanpackages --multiversion pool ) \
         > "$packages_tmp"
     local arch bin_dir
     for arch in "${REPO_ARCHES[@]}"; do
