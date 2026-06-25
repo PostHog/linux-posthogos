@@ -98,6 +98,15 @@ TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 # (Claude Code's installer, npm --prefix ~/.local, etc.).
 USER_PATH="$TARGET_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
+# Vendor download arch for the prebuilt op/asdf binaries (uname -m → the
+# token op/asdf use in their URLs). Empty = no prebuilt for this machine, so
+# those steps skip with a warning rather than fetching the wrong binary.
+case "$(uname -m)" in
+    x86_64)        PKG_ARCH=amd64 ;;
+    aarch64|arm64) PKG_ARCH=arm64 ;;
+    *)             PKG_ARCH="" ;;
+esac
+
 # ── Brand palette (for log output) ────────────────────────────────────────
 BLUE=$'\033[38;2;29;74;255m'
 ORANGE=$'\033[38;2;245;78;0m'
@@ -364,41 +373,55 @@ install_extras() {
     step "Enabling tailscaled.service"
     systemctl enable --now tailscaled.service 2>&1 | sed 's/^/    /' || warn "tailscaled enable failed"
 
-    # op + asdf are pinned amd64 binaries (the URLs hardcode amd64); the
-    # sha256s below match those exact artifacts. On a non-amd64 host these
-    # steps will checksum-fail and warn (pre-existing amd64-only limitation).
+    # op + asdf are prebuilt binaries fetched per-arch (PKG_ARCH from uname -m);
+    # the sha256 below is the one matching this machine's artifact. On an arch
+    # neither vendor ships (PKG_ARCH empty), the step skips with a warning
+    # instead of fetching the wrong binary.
     step "1Password CLI (op)"
     OP_VERSION=2.33.1
-    OP_SHA256=0fc50cb22d791b5ee5e1421d97e96595fd61ca56ae92271bd1b28bb884971726
-    op_arch=amd64
-    op_zip=$(mktemp)
-    if download_verified \
-            "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_${op_arch}_v${OP_VERSION}.zip" \
-            "$op_zip" "$OP_SHA256" \
-        && command -v unzip >/dev/null \
-        && unzip -o -q "$op_zip" -d /tmp/op-unpack \
-        && install -m 0755 /tmp/op-unpack/op /usr/local/bin/op; then
-        rm -rf /tmp/op-unpack "$op_zip"
-        ok "1Password CLI installed → $(/usr/local/bin/op --version 2>/dev/null || echo '?')"
+    case "$PKG_ARCH" in
+        amd64) OP_SHA256=0fc50cb22d791b5ee5e1421d97e96595fd61ca56ae92271bd1b28bb884971726 ;;
+        arm64) OP_SHA256=b4b32cf5860d8353b99429c1fc65d11f2b04a9a2a9f4d06b747b8c07929216f0 ;;
+    esac
+    if [ -z "$PKG_ARCH" ]; then
+        warn "op: no prebuilt binary for $(uname -m); skipping"
     else
-        warn "op install failed (download, checksum, or unzip)"
-        rm -rf /tmp/op-unpack "$op_zip" 2>/dev/null || true
+        op_zip=$(mktemp)
+        if download_verified \
+                "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_${PKG_ARCH}_v${OP_VERSION}.zip" \
+                "$op_zip" "$OP_SHA256" \
+            && command -v unzip >/dev/null \
+            && unzip -o -q "$op_zip" -d /tmp/op-unpack \
+            && install -m 0755 /tmp/op-unpack/op /usr/local/bin/op; then
+            rm -rf /tmp/op-unpack "$op_zip"
+            ok "1Password CLI installed → $(/usr/local/bin/op --version 2>/dev/null || echo '?')"
+        else
+            warn "op install failed (download, checksum, or unzip)"
+            rm -rf /tmp/op-unpack "$op_zip" 2>/dev/null || true
+        fi
     fi
 
     step "asdf-vm (multi-runtime version manager)"
     ASDF_VERSION=0.16.7
-    ASDF_SHA256=6a5f56833da9e94068f3e70d5ca6ffe0a14a0887e1eac1b9b0c96f67d96242be
-    asdf_tgz=$(mktemp)
-    if download_verified \
-            "https://github.com/asdf-vm/asdf/releases/download/v${ASDF_VERSION}/asdf-v${ASDF_VERSION}-linux-amd64.tar.gz" \
-            "$asdf_tgz" "$ASDF_SHA256" \
-        && tar -xzf "$asdf_tgz" -C /usr/local/bin/ asdf; then
-        chmod 0755 /usr/local/bin/asdf
-        rm -f "$asdf_tgz"
-        ok "asdf installed → $(/usr/local/bin/asdf --version 2>/dev/null || echo '?')"
+    case "$PKG_ARCH" in
+        amd64) ASDF_SHA256=6a5f56833da9e94068f3e70d5ca6ffe0a14a0887e1eac1b9b0c96f67d96242be ;;
+        arm64) ASDF_SHA256=a4904347dd1a468b4947fe1e22458742c89da27df589a324172bb8154229dea7 ;;
+    esac
+    if [ -z "$PKG_ARCH" ]; then
+        warn "asdf: no prebuilt binary for $(uname -m); skipping"
     else
-        warn "asdf install failed (download or checksum)"
-        rm -f "$asdf_tgz"
+        asdf_tgz=$(mktemp)
+        if download_verified \
+                "https://github.com/asdf-vm/asdf/releases/download/v${ASDF_VERSION}/asdf-v${ASDF_VERSION}-linux-${PKG_ARCH}.tar.gz" \
+                "$asdf_tgz" "$ASDF_SHA256" \
+            && tar -xzf "$asdf_tgz" -C /usr/local/bin/ asdf; then
+            chmod 0755 /usr/local/bin/asdf
+            rm -f "$asdf_tgz"
+            ok "asdf installed → $(/usr/local/bin/asdf --version 2>/dev/null || echo '?')"
+        else
+            warn "asdf install failed (download or checksum)"
+            rm -f "$asdf_tgz"
+        fi
     fi
 }
 
