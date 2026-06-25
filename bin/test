@@ -53,8 +53,7 @@ fi
 guest_arch="${BUILD_ARCH:-x86_64}"
 case "$guest_arch" in
     x86_64|aarch64) ;;
-    *) fatal "Unsupported guest_arch="${BUILD_ARCH:-x86_64}"
- '$guest_arch' (expected x86_64 or aarch64)";;
+    *) fatal "Unsupported guest_arch '$guest_arch' (expected x86_64 or aarch64)";;
 esac
 
 # Absolute path: UTM needs it to resolve from its own working directory.
