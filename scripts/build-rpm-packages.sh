@@ -86,9 +86,12 @@ build_one_rpm() {
     stage_posthogos_pkg "$pkg" "$PKG_SRC_DIR" "$root" || die "staging $pkg failed"
 
     # %files list: every regular file + symlink (never bare dirs, which would
-    # collide with filesystem-owned /usr/bin, /usr/share, …).
+    # collide with filesystem-owned /usr/bin, /usr/share, …). Each path is
+    # double-quoted: rpm's %files reader splits on whitespace, so unquoted
+    # paths with spaces (e.g. the "Daredevil Hog.png" avatars) would be parsed
+    # as two bogus entries ("File must begin with /"). Quotes handle that.
     local filelist="$top/files.list"
-    ( cd "$root" && find . \( -type f -o -type l \) | sed 's/^\.//' ) > "$filelist"
+    ( cd "$root" && find . \( -type f -o -type l \) | sed 's/^\.\(.*\)$/"\1"/' ) > "$filelist"
 
     # Weak deps → spec lines.
     local summary="" weak=""
