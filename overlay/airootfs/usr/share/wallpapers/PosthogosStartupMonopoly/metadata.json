@@ -2,7 +2,7 @@
     "KPackageStructure": "Plasma/Wallpaper::Images",
     "KPlugin": {
         "Authors": [
-            { "Name": "PostHog", "Email": "marketing@posthog.com" }
+            { "Name": "PostHog", "Email": "georges.a@posthog.com" }
         ],
         "Id": "PosthogosStartupMonopoly",
         "Name": "Startup Monopoly",
