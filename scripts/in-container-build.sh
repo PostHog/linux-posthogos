@@ -19,7 +19,17 @@ if [ ! -d upstream/archiso ]; then
     exit 1
 fi
 
-build_dir="$repo_root/build"
+# Build the mkarchiso tree on the container's NATIVE filesystem, not the
+# /work bind mount. On Docker Desktop for macOS the bind mount (VirtioFS /
+# gRPC-FUSE) doesn't honor container-root's CAP_DAC_OVERRIDE, so once the
+# profile drops the airootfs root to 0555, mkarchiso's writes into it (e.g.
+# the `version` file) fail with EACCES — even though pacstrap, which ran
+# while / was still 0755, succeeded. A native overlay fs honors root (and is
+# far faster than FUSE for the ~10 GB tree). Only source is read from /work;
+# the finished ISO + packages are copied back to out_dir below.
+#   Trade-off: the work tree lives in the ephemeral container, so KEEP_BUILD
+#   only preserves it on the --native path. Override with BUILD_WORK_DIR.
+build_dir="${BUILD_WORK_DIR:-/var/tmp/posthogos-build}"
 out_dir="$repo_root/out"
 mkdir -p "$out_dir"
 
