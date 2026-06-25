@@ -30,7 +30,9 @@ mkdir -p "$out"
 # --- Plasma wallpaper packages -------------------------------------------
 # Each themed wallpaper becomes a Plasma KPackage at
 # /usr/share/wallpapers/<Name>/, with:
-#   metadata.desktop  (committed to overlay/)
+#   metadata.json  (committed to overlay/; carries KPackageStructure
+#                   "Plasma/Wallpaper::Images" so Plasma 6's Wallpaper KCM
+#                   lists it and the LAF default resolves)
 #   contents/images/<WIDTHxHEIGHT>.png      ← light variant, multiple sizes
 #   contents/images_dark/<WIDTHxHEIGHT>.png ← dark variant, multiple sizes
 build_wallpaper_pkg() {
