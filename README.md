@@ -128,8 +128,6 @@ The dnf repo (`https://posthog.github.io/linux-posthogos/rpm`) ships the same tw
 
 After this, `sudo dnf upgrade` (or `zypper dup`) picks up new branding versions.
 
-> All three repos are signed by one PostHog packager key. If that key is ever compromised, trust must be re-established out-of-band (a plain update can't fix it) — see [Key rotation & compromise recovery](packages/README.md#key-rotation--compromise-recovery) for the maintainer rotation steps and the end-user recovery commands.
-
 ## Building & architecture
 
 ### Repo layout
@@ -146,7 +144,7 @@ After this, `sudo dnf upgrade` (or `zypper dup`) picks up new branding versions.
 └── branding/posthogos/   # source artwork (logo SVG, wallpaper, slideshow PNGs)
 ```
 
-`upstream/` is a git submodule pinned to a specific CachyOS-Live-ISO commit. The pin lives in this repo's index (see `git submodule status`). Never edit `upstream/` in place. All customisations live in `overlay/` or `scripts/posthogos-customize.sh`, applied on top at build time. This keeps upstream bumps tractable.
+`upstream/` is a git submodule pinned to a specific CachyOS-Live-ISO commit. The pin lives in this repo's index (see `git submodule status`). Never edit `upstream/` in place. All customisations live in `overlay/` or `scripts/posthogos-customize.sh`, applied on top at build time.
 
 ### Bumping upstream
 
@@ -178,14 +176,12 @@ git submodule update --init
 - QEMU for booting the output ISO: `brew install qemu`
 - ~20 GB free disk for the build tree + ISO output
 
-`mkarchiso` does not run on macOS directly. `bin/build` invokes it inside a privileged Arch container.
-
 #### Arch / CachyOS host (production builds)
 
 - `archiso`, `mkinitcpio-archiso`, `git`, `squashfs-tools`, `grub` installed
 - `qemu-desktop`, `edk2-ovmf` for testing
 
-On a real Arch host you can skip Docker. `bin/build --native` runs `buildiso.sh` directly.
+`bin/build --native` runs `buildiso.sh` directly on the host (instead of using Docker).
 
 ### Usage
 
@@ -223,4 +219,4 @@ For Debian/Ubuntu and Fedora/openSUSE, the portable `posthogos-branding` + `post
 - Installer: Calamares branding `posthogos` (logo, slideshow, support URLs)
 - ISO identity: rebranded `os-release`, `lsb-release`, boot menu titles, ISO label `POSTHOGOS_YYYYMM`
 
-CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, `cachyos-calamares-next`, `cachyos-hello`) stay installed; their files are shadowed by `overlay/` or patched by the chroot hook. This avoids forking those packages.
+CachyOS's own branding packages (`cachyos-kde-settings`, `cachyos-themes-sddm`, `cachyos-calamares-next`, `cachyos-hello`) stay installed. Their files are shadowed by `overlay/` or patched by the chroot hook, and this avoids forking those packages.

@@ -5,7 +5,7 @@
 # `-Rs` cascades the removal.
 
 pkgname=posthogos
-pkgver=0.2.0
+pkgver=0.3.1
 pkgrel=1
 pkgdesc='PosthogOS: meta-package pulling the full PosthogOS stack'
 arch=('any')

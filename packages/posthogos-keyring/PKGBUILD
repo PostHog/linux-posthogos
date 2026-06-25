@@ -8,7 +8,7 @@
 # trusting-old systems can still install + adopt the new trust.
 
 pkgname=posthogos-keyring
-pkgver=0.2.0
+pkgver=0.3.1
 pkgrel=1
 pkgdesc='PosthogOS pacman keyring (PostHog packager public key)'
 arch=('any')

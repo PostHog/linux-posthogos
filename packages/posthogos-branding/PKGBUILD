@@ -5,7 +5,7 @@
 # and overlay-generated/; build() re-runs build-assets.sh.
 
 pkgname=posthogos-branding
-pkgver=0.2.0
+pkgver=0.3.1
 pkgrel=1
 pkgdesc='PosthogOS visual identity: icons, wallpapers, Plasma look-and-feel, fonts, sound theme'
 arch=('any')
