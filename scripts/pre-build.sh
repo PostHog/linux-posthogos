@@ -117,7 +117,7 @@ if [ -f "$pkglist" ]; then
         posthogos            # meta-package depending on the above
 
         # System packages.
-        inter-font           # Matter SQ analog; primary system body font
+        inter-font           # Latin glyph fallback behind RoundHog (see /etc/fonts/local.conf)
         papirus-icon-theme   # icon parent theme (PosthogOS icons inherit)
         qt6-declarative      # qml6 + QtQuick.Controls (Qt6 consolidates these)
         qqc2-breeze-style    # Breeze QML style; without it welcome.qml exits 2

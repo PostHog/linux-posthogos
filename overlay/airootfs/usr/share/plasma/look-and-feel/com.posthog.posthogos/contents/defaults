@@ -1,11 +1,11 @@
 [kdeglobals][General]
 ColorScheme=PosthogosLight
-font=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+font=RoundHog,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
-menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
-smallestReadableFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
-toolBarFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
-activeFont=Squeak,11,-1,5,500,0,0,0,0,0,0,0,0,0,0,1,Medium
+menuFont=RoundHog,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+smallestReadableFont=RoundHog,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+toolBarFont=RoundHog,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+activeFont=RoundHog,11,-1,5,500,0,0,0,0,0,0,0,0,0,0,1,Medium
 
 [kdeglobals][KDE]
 LookAndFeelPackage=com.posthog.posthogos

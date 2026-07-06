@@ -121,7 +121,7 @@ package() {
         cp -rfp "$generated/usr/share/icons/." "$pkgdir/usr/share/icons/"
     fi
 
-    # ── Fonts (Squeak + Loud Noises, generated) ──────────────────────────
+    # ── Fonts (RoundHog + Squeak + Loud Noises, generated) ───────────────
     if [ -d "$generated/usr/share/fonts/posthogos" ]; then
         install -d "$pkgdir/usr/share/fonts/posthogos"
         cp -rfp "$generated/usr/share/fonts/posthogos/." \

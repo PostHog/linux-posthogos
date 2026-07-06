@@ -106,11 +106,11 @@ cat >/etc/skel/.config/kdeglobals <<'EOF'
 [General]
 ColorScheme=PosthogosLight
 Name=PosthogOS Light
-font=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+font=RoundHog,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 fixed=DejaVu Sans Mono,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
-menuFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
-smallestReadableFont=Inter,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
-toolBarFont=Inter,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+menuFont=RoundHog,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+smallestReadableFont=RoundHog,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
+toolBarFont=RoundHog,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,Regular
 # Default terminal: set both keys (legacy + Plasma 6) for full coverage.
 TerminalApplication=ghostty
 TerminalService=com.mitchellh.ghostty.desktop
@@ -139,7 +139,7 @@ for v in gtk-3.0 gtk-4.0; do
 [Settings]
 gtk-theme-name=Breeze
 gtk-icon-theme-name=PosthogOS
-gtk-font-name=Inter 11
+gtk-font-name=RoundHog 11
 gtk-cursor-theme-name=breeze_cursors
 gtk-application-prefer-dark-theme=false
 EOF

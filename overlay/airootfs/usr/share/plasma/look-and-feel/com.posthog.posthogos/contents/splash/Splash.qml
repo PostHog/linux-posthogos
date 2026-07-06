@@ -54,7 +54,7 @@ Rectangle {
 
     Text {
         text: "PosthogOS"
-        font.family: "Inter"
+        font.family: "RoundHog"
         font.pixelSize: 36
         font.weight: Font.Medium
         color: "#23251d"

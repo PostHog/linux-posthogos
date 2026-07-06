@@ -102,12 +102,12 @@ apply_gnome() {
     # Icon theme (inherits Papirus for anything we don't override).
     gset org.gnome.desktop.interface icon-theme 'PosthogOS'
 
-    # UI/document font → Inter when present (a Recommends, may be absent).
-    if fc-list 2>/dev/null | grep -qi 'inter'; then
-        gset org.gnome.desktop.interface font-name 'Inter 10'
-        gset org.gnome.desktop.interface document-font-name 'Inter 10'
+    # UI/document font → RoundHog when present (a Recommends, may be absent).
+    if fc-list 2>/dev/null | grep -qi 'roundhog'; then
+        gset org.gnome.desktop.interface font-name 'RoundHog 10'
+        gset org.gnome.desktop.interface document-font-name 'RoundHog 10'
     else
-        echo "  Inter font not installed; leaving font-name default"
+        echo "  RoundHog font not installed; leaving font-name default"
     fi
 
     # Wallpaper (light + dark) + lock screen.
@@ -154,8 +154,8 @@ apply_cinnamon() {
     command -v gsettings >/dev/null 2>&1 || { echo "  gsettings missing"; ok=false; return; }
 
     gset org.cinnamon.desktop.interface icon-theme 'PosthogOS'
-    if fc-list 2>/dev/null | grep -qi 'inter'; then
-        gset org.cinnamon.desktop.interface font-name 'Inter 10'
+    if fc-list 2>/dev/null | grep -qi 'roundhog'; then
+        gset org.cinnamon.desktop.interface font-name 'RoundHog 10'
     fi
     if [ -f "$wallpaper_light" ]; then
         gset org.cinnamon.desktop.background picture-uri     "file://$wallpaper_light"
@@ -178,8 +178,8 @@ apply_xfce() {
 
     # Icon theme + font via the xsettings channel.
     xset xsettings /Net/IconThemeName 'PosthogOS'
-    if fc-list 2>/dev/null | grep -qi 'inter'; then
-        xset xsettings /Gtk/FontName 'Inter 10'
+    if fc-list 2>/dev/null | grep -qi 'roundhog'; then
+        xset xsettings /Gtk/FontName 'RoundHog 10'
     fi
 
     # Wallpaper: backdrop image paths are per-monitor/-workspace and named

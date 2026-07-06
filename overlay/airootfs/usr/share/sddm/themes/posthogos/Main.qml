@@ -86,7 +86,7 @@ Rectangle {
                 text: "PosthogOS"
                 color: config.foreground || "#EEEFE9"
                 font.pixelSize: 22
-                font.family: config.font || "Inter"
+                font.family: config.font || "RoundHog"
                 font.bold: true
                 Layout.alignment: Qt.AlignHCenter
                 Layout.bottomMargin: 8
@@ -98,7 +98,7 @@ Rectangle {
                 textRole: "name"
                 currentIndex: userModel.lastIndex
                 Layout.fillWidth: true
-                font.family: config.font || "Inter"
+                font.family: config.font || "RoundHog"
             }
 
             TextField {
@@ -106,7 +106,7 @@ Rectangle {
                 placeholderText: textConstants.password
                 echoMode: TextInput.Password
                 Layout.fillWidth: true
-                font.family: config.font || "Inter"
+                font.family: config.font || "RoundHog"
                 Keys.onReturnPressed: attemptLogin()
                 Keys.onEnterPressed:  attemptLogin()
             }
@@ -116,7 +116,7 @@ Rectangle {
                 text: textConstants.login
                 Layout.fillWidth: true
                 onClicked: attemptLogin()
-                font.family: config.font || "Inter"
+                font.family: config.font || "RoundHog"
                 background: Rectangle {
                     color: loginButton.down
                         ? Qt.darker(config.accent || "#EB9D2A", 1.2)
@@ -140,7 +140,7 @@ Rectangle {
                 horizontalAlignment: Text.AlignHCenter
                 color: config.accent || "#DC2626"
                 font.pixelSize: 12
-                font.family: config.font || "Inter"
+                font.family: config.font || "RoundHog"
                 wrapMode: Text.WordWrap
             }
         }
@@ -160,7 +160,7 @@ Rectangle {
             textRole: "name"
             currentIndex: sessionModel.lastIndex
             Layout.preferredWidth: 220
-            font.family: config.font || "Inter"
+            font.family: config.font || "RoundHog"
         }
 
         Item { Layout.fillWidth: true }

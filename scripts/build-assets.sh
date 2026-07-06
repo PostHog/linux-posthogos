@@ -77,8 +77,11 @@ build_wallpaper_pkg "Hogzilla"         "PosthogosHogzilla"
 build_wallpaper_pkg "Startup Monopoly" "PosthogosStartupMonopoly"
 
 # --- Fonts -----------------------------------------------------------------
-# Install Squeak (all weights) + Loud Noises into /usr/share/fonts/posthogos/.
-# fontconfig will pick them up automatically after the chroot hook regen.
+# Install RoundHog (the default UI/brand font, all weights + italics), Squeak
+# (display weights) and Loud Noises into /usr/share/fonts/posthogos/. The glob
+# below copies every .otf/.ttf in branding/posthogos/fonts/; fontconfig picks
+# them up automatically after the chroot hook regen (RoundHog is wired up as
+# the preferred sans-serif in /etc/fonts/local.conf).
 log "Copying fonts"
 fonts_dst="$out/airootfs/usr/share/fonts/posthogos"
 mkdir -p "$fonts_dst"

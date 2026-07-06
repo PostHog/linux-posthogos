@@ -25,7 +25,7 @@ depends=(
     # is also what installs them on a Calamares target (the live ISO gets
     # them via scripts/pre-build.sh's pacstrap list). Keep in sync with
     # the system-package block in scripts/pre-build.sh.
-    'inter-font'           # primary system body font (referenced in kdeglobals)
+    'inter-font'           # Latin glyph fallback behind RoundHog (see /etc/fonts/local.conf)
     'papirus-icon-theme'   # parent theme the PosthogOS icon theme inherits
     'ghostty'              # default terminal (skel configs + Plasma pins)
     'flatpak'              # secondary app channel (Flathub set up in apply-common)
