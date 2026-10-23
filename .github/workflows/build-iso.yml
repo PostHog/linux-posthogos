@@ -446,7 +446,11 @@ jobs:
           git commit -m "release ${VERSION}: posthogos pacman + apt repos"
           # One push → one Pages deployment. Retry once against a concurrent
           # update to the branch.
-          git push origin gh-pages || { git pull --rebase origin gh-pages && git push origin gh-pages; }
+          publish() {
+            python3 "${GITHUB_WORKSPACE}/scripts/push-signed-commit.py" "$clone" \
+              --repo "$REPO" --branch gh-pages
+          }
+          publish || { git pull --rebase origin gh-pages && publish; }
 
       - name: Attach package files to the release
         if: success()
