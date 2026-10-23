@@ -1,12 +1,17 @@
 # Build a release-quality PosthogOS ISO and attach it to a GitHub release.
 #
 # Triggers:
-#   release: published   — normal flow; ref = release tag, uploads to it.
+#   push: tags           — normal flow; ref = pushed version tag. Builds into
+#                          a draft release for that tag, then publishes it as
+#                          the last step. Releases are immutable once
+#                          published, so assets must be attached while the
+#                          release is still a draft.
 #   workflow_dispatch    — manual; the "Use workflow from" branch picker
 #                          in the UI selects the branch. The tag is
 #                          derived from <branch>.<short-random> so
 #                          back-to-back dispatches don't collide.
-#                          Creates a draft release for that tag.
+#                          Creates a draft release for that tag and leaves
+#                          it as a draft.
 #
 # Caches .pacman-cache/ (~2.4 GB of pacstrap'd packages) so we don't
 # re-download all of CachyOS + Arch extras on every build. Cache key is
@@ -15,14 +20,15 @@
 name: Build ISO
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v?[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
     # No inputs — the branch is picked via the standard "Use workflow from"
     # selector at the top of the Run workflow dialog (resolved as github.ref_name).
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -49,7 +55,7 @@ jobs:
       #   ref          — what to check out
       #   version      — used for ISO filenames + workflow artifact name
       #   release_tag  — target for `gh release upload`
-      # Release event: all three derive from the release's actual tag.
+      # Tag push: all three derive from the pushed tag.
       # Dispatch: ref = the picker's branch, version/tag = <branch>.<rand>.
       # The .<rand> suffix (6 hex chars) keeps repeated dispatches from
       # colliding on the same branch. Tag uses '.' separators (not '-') so
@@ -62,11 +68,10 @@ jobs:
           # names) can carry arbitrary user input, so never interpolate them
           # straight into a run: script. Reference the quoted env vars below.
           EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ "$EVENT_NAME" = "release" ]; then
-              ref="$RELEASE_TAG_NAME"
+          if [ "$EVENT_NAME" = "push" ]; then
+              ref="$REF_NAME"
               stripped="${ref#v}"
               if ! [[ "$stripped" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$ ]]; then
                   echo "::error::Release tag '$ref' isn't a valid version. Expected e.g. 0.1.0, v0.1.0, 1.2.3-rc.1"
@@ -92,6 +97,44 @@ jobs:
               echo "version=$version"
               echo "release_tag=$release_tag"
           } >> "$GITHUB_OUTPUT"
+
+      # Runs before the build so an already-published (immutable) release
+      # fails fast instead of after ~75 min of mkarchiso. Tag pushes get a
+      # draft with generated notes, marked prerelease when the version has a
+      # suffix (e.g. 1.2.3-rc.1); dispatches get a draft against the branch.
+      - name: Ensure draft GitHub release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ steps.ver.outputs.release_tag }}
+          REF: ${{ steps.ver.outputs.ref }}
+        run: |
+          tag="$RELEASE_TAG"
+          if is_draft=$(gh release view "$tag" --json isDraft --jq '.isDraft' 2>/dev/null); then
+              if [ "$is_draft" != "true" ]; then
+                  echo "::error::Release $tag is already published and immutable; assets can't be attached. Delete it and push the tag again, or create it as a draft."
+                  exit 1
+              fi
+              echo "Draft release $tag already exists; uploading to it."
+          elif [ "$EVENT_NAME" = "push" ]; then
+              prerelease=()
+              [[ "$tag" == *-* ]] && prerelease=(--prerelease)
+              echo "Creating draft release $tag..."
+              gh release create "$tag" \
+                  --verify-tag \
+                  --title "$tag" \
+                  --draft \
+                  --generate-notes \
+                  "${prerelease[@]}"
+          else
+              echo "Creating draft release $tag (target: $REF)..."
+              gh release create "$tag" \
+                  --target "$REF" \
+                  --title "$tag (manual build)" \
+                  --draft \
+                  --notes "Built from workflow_dispatch against \`$REF\`."
+          fi
 
       # ubuntu-latest ships ~25 GB free. mkarchiso wants ~10 GB for the build
       # tree + ~3 GB for the ISO + ~4 GB combined cache restore. Reclaim ~15 GB
@@ -174,27 +217,6 @@ jobs:
               echo "renaming $iso → $new"
               mv "$iso" "$new"
           done
-
-      # For workflow_dispatch, the target release might not exist yet.
-      # Create a draft if missing; the release event always already has one.
-      - name: Ensure GitHub release exists
-        if: success() && github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ steps.ver.outputs.release_tag }}
-          REF: ${{ steps.ver.outputs.ref }}
-        run: |
-          tag="$RELEASE_TAG"
-          if gh release view "$tag" >/dev/null 2>&1; then
-              echo "Release $tag already exists; uploading to it."
-          else
-              echo "Creating draft release $tag (target: $REF)..."
-              gh release create "$tag" \
-                  --target "$REF" \
-                  --title "$tag (manual build)" \
-                  --draft \
-                  --notes "Built from workflow_dispatch against \`$REF\`."
-          fi
 
       # Upload the full ISO as a workflow artifact FIRST, before splitting,
       # because the next step deletes the original when it produces chunks.
@@ -464,3 +486,12 @@ jobs:
               echo "uploading $rpm → release $tag"
               upload_with_retry "$tag" "$rpm"
           done
+
+      # Last step: everything is attached, so publishing (which makes the
+      # release immutable) is safe. Dispatch builds stay as drafts.
+      - name: Publish the release
+        if: success() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.ver.outputs.release_tag }}
+        run: gh release edit "$RELEASE_TAG" --draft=false
