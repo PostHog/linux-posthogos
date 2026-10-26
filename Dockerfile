@@ -19,6 +19,7 @@ RUN pacman -Syu --noconfirm --needed \
     sudo \
     base-devel \
     imagemagick \
+    pngquant \
     librsvg \
     qt6-base \
     qt6-declarative \

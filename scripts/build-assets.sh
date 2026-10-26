@@ -145,7 +145,8 @@ fi
 # /usr/local/share (which precedes /usr/share) to float the whole hog set above
 # the bundled Konqi avatars. Purely additive; relies on /usr/local/share being
 # in XDG_DATA_DIRS (default under Plasma). Every PNG/JPG in hedgehogs/ becomes an
-# avatar (512px, square-padded for the circular tiles); the filename is
+# avatar (256px, square-padded for the circular tiles, palette-quantized with
+# pngquant when available to keep posthogos-branding small); the filename is
 # prettified to Title Case for the picker tooltip (cowboy_hog.png → "Cowboy Hog").
 log "Installing hog avatars (Users KCM gallery)"
 avatars_dst="$out/airootfs/usr/local/share/plasma/avatars/posthogos"
@@ -158,11 +159,23 @@ for hog in "$src/hedgehogs/"*.png "$src/hedgehogs/"*.jpg "$src/hedgehogs/"*.jpeg
     title=""
     for word in $name; do word="${word,,}"; title+="${word^} "; done
     title="${title% }"
-    "$MAGICK" "$hog" -filter Lanczos -resize 512x512 \
-        -background none -gravity center -extent 512x512 \
+    "$MAGICK" "$hog" -strip -filter Lanczos -resize 256x256 \
+        -background none -gravity center -extent 256x256 \
         "$avatars_dst/${title}.png"
     hog_count=$((hog_count + 1))
 done
+if [ "$hog_count" -eq 0 ]; then
+    :
+elif command -v pngquant >/dev/null; then
+    # 98/99: some files were kept as-is (quantizing wouldn't shrink them, or
+    # would drop below the quality floor); that's fine.
+    pngquant_status=0
+    pngquant --force --ext .png --quality 70-95 --speed 1 --skip-if-larger \
+        "$avatars_dst/"*.png || pngquant_status=$?
+    case "$pngquant_status" in 0|98|99) ;; *) exit "$pngquant_status" ;; esac
+else
+    log "  pngquant not found; hog avatars left unquantized (larger package)"
+fi
 log "  $hog_count hog avatar(s) installed"
 
 # Scalable fallback: the native-aspect logomark SVG. Real apps
